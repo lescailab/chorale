@@ -1,0 +1,126 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# chorale
+
+<!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![R-CMD-check](https://github.com/lescailab/chorale/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/lescailab/chorale/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/lescailab/chorale/graph/badge.svg)](https://app.codecov.io/gh/lescailab/chorale)
+<!-- badges: end -->
+
+chorale estimates a shared latent biological state across omics modalities
+measured on **disjoint sets of animals**, where no subject contributes to more
+than one modality, and expresses that state in biological terms.
+
+The framework rests on a single result: in unpaired multi-domain linear latent
+models the shared latent block is identifiable from marginal distributions
+alone, because the modality-specific components are non-exchangeable and
+non-Gaussian (Sturma et al., NeurIPS 2023, Theorem 3.1; Timilsina, Lyu & Fu,
+arXiv:2409.19422, Theorem 1). Identification fails where those modality-specific
+structures are made statistically alike (Sturma et al., Proposition C.1 and
+Lemma C.2). Modality heterogeneity is therefore treated as the identifying
+resource, and cross-modality harmonisation is excluded.
+
+Two properties hold throughout.
+
+**Interpretability by design.** Every latent factor carries a biological
+definition from the moment it is estimated, through pathway-constrained loadings
+and a pure-feature requirement, not by post-hoc annotation.
+
+**Falsifiability.** Every result is accompanied by its negative control:
+permutation calibration, modality shuffle, and stability across random
+initialisations. No output is reportable without one.
+
+## Status
+
+Under development. Containers, identifier mapping and the synthetic data
+generator are implemented; the estimator is scaffolded but not yet implemented,
+pending the feasibility gates that determine whether the linear non-Gaussian
+identification route applies to the data at hand.
+
+| Function | Status |
+|---|---|
+| `chorale_load()` | Implemented |
+| `chorale_map()` | Implemented |
+| `chorale_simulate()` | Implemented |
+| `chorale_python_setup()` | Implemented |
+| `chorale_fit()` | Scaffolded |
+| `chorale_bound()` | Scaffolded |
+| `chorale_null()` | Scaffolded |
+| `chorale_report()` | Scaffolded |
+
+## Installation
+
+```r
+# install.packages("devtools")
+devtools::install_github("lescailab/chorale")
+```
+
+Bioconductor dependencies resolve through `BiocManager`. Comparator methods
+listed in `Suggests` are optional: their absence degrades a comparison rather
+than breaking the package.
+
+## Example
+
+Generate disjoint cohorts over a shared feature space with known ground truth,
+then load one modality into the common container:
+
+```{r example}
+library(chorale)
+
+sim <- chorale_simulate(
+  n_modalities = 3,
+  n_features = 200,
+  n_shared_factors = 4,
+  n_strains = 6,
+  seed = 1
+)
+
+# No animal appears in more than one modality.
+length(intersect(sim$col_data[[1]]$sample_id, sim$col_data[[2]]$sample_id))
+
+se <- chorale_load(sim$modalities[[1]], sim$col_data[[1]])
+se
+```
+
+Harmonise feature identifiers to mouse Entrez, keeping one-to-many mappings with
+fractional weight rather than resolving them arbitrarily:
+
+```{r map}
+chorale_map(c("Bdnf", "Trem2", "App"), from = "SYMBOL")
+```
+
+## Scope
+
+The estimand is the conditional law of the latent state given the design
+covariates, together with the modality-specific measurement operators.
+Individual-level cross-modality inference is undefined, because each animal is
+measured in exactly one modality. The joint distribution across modalities is
+not identified nonparametrically, so partial-identification bounds on the
+cross-modality coupling are reported alongside any point estimate.
+
+## References
+
+- Sturma N, Squires C, Drton M, Uhler C. Unpaired Multi-Domain Causal
+  Representation Learning. *NeurIPS* 2023.
+- Timilsina S, Lyu Q, Fu X et al. Identifiable Shared Component Analysis of
+  Unpaired Multimodal Mixtures. arXiv:2409.19422.
+- Mao W, Zaslavsky E, Hartmann BM, Sealfon SC, Chikina M. Pathway-level
+  information extractor (PLIER) for gene expression data. *Nat Methods*
+  16:607-610, 2019.
+- Taroni JN, Grayson PC, Hu Q et al. MultiPLIER: a transfer learning framework
+  for transcriptomics reveals systemic features of rare disease. *Cell Systems*
+  8(5):380-394, 2019.
