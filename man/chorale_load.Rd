@@ -24,7 +24,7 @@ as its single assay and \code{col_data} as \code{colData}.
 Builds a \link[SummarizedExperiment:SummarizedExperiment]{SummarizedExperiment::SummarizedExperiment} from a
 feature-by-sample assay matrix and its per-sample metadata, validating
 that the metadata carries every column a chorale container requires:
-\code{sample_id}, \code{cohort}, \code{modality}, \code{strain}, \code{genotype}, \code{age_months},
+\code{sample_id}, \code{cohort}, \code{modality}, \code{strain}, \code{phenotype}, \code{age_months},
 \code{sex}, \code{region}, \code{batch} (\code{MATHEMATICAL_FOUNDATION.md}, \code{AGENT_PLAN.md}
 Section 8.1). This is the common container every downstream chorale
 function expects, one call per modality.

@@ -19,7 +19,7 @@ set.seed(1)
 
 n_features <- c(RNA = 150L, PROT = 150L, METAB = 150L)
 n_per_stratum <- 3L
-stratum_keys <- c("genotype", "age_bin", "sex")
+stratum_keys <- c("phenotype", "age_bin", "sex")
 
 for (layer in c("RNA", "PROT", "METAB")) {
   mat <- nanoparquet::read_parquet(

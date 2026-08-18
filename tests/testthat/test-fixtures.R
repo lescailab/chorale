@@ -44,7 +44,7 @@ test_that("layers resolving covariates populate anchoring strata at least twice"
   skip_if_not(dir.exists(fixture_path))
   for (layer in c("RNA", "METAB")) {
     cd <- chorale_fixture(layer, path = fixture_path)$col_data
-    keys <- c("genotype", "age_bin", "sex")
+    keys <- c("phenotype", "age_bin", "sex")
     complete <- cd[stats::complete.cases(cd[, keys, drop = FALSE]), , drop = FALSE]
     expect_gt(nrow(complete), 0)
     counts <- table(interaction(complete[, keys], drop = TRUE))

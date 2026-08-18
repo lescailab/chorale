@@ -18,7 +18,7 @@ least 20 per \code{AGENT_PLAN.md} Section 8.5.}
 A \code{chorale_null} object (not yet defined).
 }
 \description{
-Shuffles genotype labels within cohort and stratum, shuffles modality
+Shuffles phenotype labels within cohort and stratum, shuffles modality
 labels, and refits across at least twenty random initialisations, since
 ICA is non-convex and non-deterministic and a single fit is not a result
 (\code{AGENT_PLAN.md} Section 8.5). Depends on a \code{chorale_fit} object, and so

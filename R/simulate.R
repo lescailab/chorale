@@ -4,7 +4,7 @@
 #' sample sets, following the model of `MATHEMATICAL_FOUNDATION.md` Section 8:
 #' each sample's features are a linear mixture of a shared latent state and a
 #' modality-private latent state, both non-Gaussian, plus additive Gaussian
-#' measurement noise. Samples carry a genetic-panel design (strain, genotype,
+#' measurement noise. Samples carry a genetic-panel design (strain, phenotype,
 #' age, sex) that supplies the anchor structure of Section 6, and every
 #' shared factor is given at least two pure marker features per modality
 #' (Section 6, D5), so recovery can be checked against a known answer.
@@ -22,7 +22,7 @@
 #' @param n_private_factors Integer number of modality-private latent
 #'   factors, common to every modality.
 #' @param n_strains Integer number of strains in the genetic panel.
-#' @param n_per_cell Integer number of animals per strain by genotype by age
+#' @param n_per_cell Integer number of animals per strain by phenotype by age
 #'   by sex cell, per modality. Samples are drawn independently per modality,
 #'   so no animal appears in more than one modality.
 #' @param noise_sd Standard deviation of the additive Gaussian measurement
@@ -35,7 +35,7 @@
 #'       modality.}
 #'     \item{col_data}{Named list of per-modality sample metadata data
 #'       frames, with columns `sample_id`, `cohort`, `modality`, `strain`,
-#'       `genotype`, `age_months`, `sex`, `region`, `batch`.}
+#'       `phenotype`, `age_months`, `sex`, `region`, `batch`.}
 #'     \item{truth}{List with the shared and private loading matrices per
 #'       modality, the shared and private factor scores per modality, and the
 #'       indices of the pure marker features per shared factor per modality.}
@@ -89,7 +89,7 @@ chorale_simulate <- function(n_modalities = 3,
 
   design <- expand.grid(
     strain = paste0("BXD", seq_len(n_strains)),
-    genotype = c("Ntg", "5XFAD"),
+    phenotype = c("Ntg", "5XFAD"),
     age_months = c(6, 14),
     sex = c("F", "M"),
     KEEP.OUT.ATTRS = FALSE,
@@ -169,7 +169,7 @@ chorale_simulate <- function(n_modalities = 3,
       cohort = "simulated",
       modality = names(modalities)[m],
       strain = cells$strain,
-      genotype = cells$genotype,
+      phenotype = cells$phenotype,
       age_months = cells$age_months,
       sex = cells$sex,
       region = "simulated",

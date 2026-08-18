@@ -9,7 +9,7 @@ test_that("chorale_simulate produces the requested dimensions", {
   expect_equal(nrow(sim$modalities[[2]]), 40)
   expect_equal(nrow(sim$modalities[[3]]), 50)
 
-  n_expected_samples <- 4 * 2 * 2 * 2 * 2 # strains x genotype x age x sex x n_per_cell
+  n_expected_samples <- 4 * 2 * 2 * 2 * 2 # strains x phenotype x age x sex x n_per_cell
   expect_equal(ncol(sim$modalities[[1]]), n_expected_samples)
   expect_equal(nrow(sim$col_data[[1]]), n_expected_samples)
 })
@@ -29,7 +29,7 @@ test_that("chorale_simulate col_data carries the required design columns", {
     n_private_factors = 1, n_strains = 3, n_per_cell = 1, seed = 3
   )
   required <- c(
-    "sample_id", "cohort", "modality", "strain", "genotype",
+    "sample_id", "cohort", "modality", "strain", "phenotype",
     "age_months", "sex", "region", "batch"
   )
   expect_true(all(required %in% names(sim$col_data[[1]])))

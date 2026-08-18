@@ -1,4 +1,4 @@
-sample_id	cohort	modality	strain	genotype	age_months	sex	region	batch	age_bin
+sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	age_bin
 anon_sample_0001	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
 anon_sample_0002	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
 anon_sample_0003	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA

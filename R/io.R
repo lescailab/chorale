@@ -4,7 +4,7 @@
 #' @noRd
 chorale_required_col_data <- function() {
   c(
-    "sample_id", "cohort", "modality", "strain", "genotype",
+    "sample_id", "cohort", "modality", "strain", "phenotype",
     "age_months", "sex", "region", "batch"
   )
 }
@@ -14,7 +14,7 @@ chorale_required_col_data <- function() {
 #' Builds a [SummarizedExperiment::SummarizedExperiment] from a
 #' feature-by-sample assay matrix and its per-sample metadata, validating
 #' that the metadata carries every column a chorale container requires:
-#' `sample_id`, `cohort`, `modality`, `strain`, `genotype`, `age_months`,
+#' `sample_id`, `cohort`, `modality`, `strain`, `phenotype`, `age_months`,
 #' `sex`, `region`, `batch` (`MATHEMATICAL_FOUNDATION.md`, `AGENT_PLAN.md`
 #' Section 8.1). This is the common container every downstream chorale
 #' function expects, one call per modality.

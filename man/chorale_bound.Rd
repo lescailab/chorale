@@ -15,7 +15,7 @@ A \code{chorale_bound} object (not yet defined).
 \description{
 Reports Fréchet-style partial-identification bounds on the cross-modality
 coupling alongside a point estimate, and how far the anchor covariates
-(strain, genotype, age, sex) narrow those bounds
+(strain, phenotype, age, sex) narrow those bounds
 (\code{MATHEMATICAL_FOUNDATION.md} Section 2; \code{AGENT_PLAN.md} Section 8.4).
 Depends on a \code{chorale_fit} object, and so is blocked on \code{chorale_fit()},
 which is not yet implemented (see \code{analysis/feasibility.md}).

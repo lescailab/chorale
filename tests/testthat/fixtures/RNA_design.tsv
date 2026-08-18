@@ -1,4 +1,4 @@
-sample_id	cohort	modality	strain	genotype	age_months	sex	region	batch	study	age_bin
+sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	study	age_bin
 anon_sample_0038	cohort_a	RNA	87	5XFAD	15.23333333	female	hippocampus	148	REDACTED_ACCESSION	14mo
 anon_sample_0037	cohort_a	RNA	77	WT	16.93333333	female	hippocampus	147	REDACTED_ACCESSION	14mo
 anon_sample_0039	cohort_a	RNA	B6	WT	6.566666667	female	hippocampus	148	REDACTED_ACCESSION	6mo

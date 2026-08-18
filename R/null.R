@@ -1,6 +1,6 @@
 #' Permutation calibration and stability diagnostics
 #'
-#' Shuffles genotype labels within cohort and stratum, shuffles modality
+#' Shuffles phenotype labels within cohort and stratum, shuffles modality
 #' labels, and refits across at least twenty random initialisations, since
 #' ICA is non-convex and non-deterministic and a single fit is not a result
 #' (`AGENT_PLAN.md` Section 8.5). Depends on a `chorale_fit` object, and so

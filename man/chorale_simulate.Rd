@@ -28,7 +28,7 @@ factors, common to every modality.}
 
 \item{n_strains}{Integer number of strains in the genetic panel.}
 
-\item{n_per_cell}{Integer number of animals per strain by genotype by age
+\item{n_per_cell}{Integer number of animals per strain by phenotype by age
 by sex cell, per modality. Samples are drawn independently per modality,
 so no animal appears in more than one modality.}
 
@@ -44,7 +44,7 @@ A list with components:
 modality.}
 \item{col_data}{Named list of per-modality sample metadata data
 frames, with columns \code{sample_id}, \code{cohort}, \code{modality}, \code{strain},
-\code{genotype}, \code{age_months}, \code{sex}, \code{region}, \code{batch}.}
+\code{phenotype}, \code{age_months}, \code{sex}, \code{region}, \code{batch}.}
 \item{truth}{List with the shared and private loading matrices per
 modality, the shared and private factor scores per modality, and the
 indices of the pure marker features per shared factor per modality.}
@@ -55,7 +55,7 @@ Generates synthetic data for \code{n_modalities} modalities measured on disjoint
 sample sets, following the model of \code{MATHEMATICAL_FOUNDATION.md} Section 8:
 each sample's features are a linear mixture of a shared latent state and a
 modality-private latent state, both non-Gaussian, plus additive Gaussian
-measurement noise. Samples carry a genetic-panel design (strain, genotype,
+measurement noise. Samples carry a genetic-panel design (strain, phenotype,
 age, sex) that supplies the anchor structure of Section 6, and every
 shared factor is given at least two pure marker features per modality
 (Section 6, D5), so recovery can be checked against a known answer.

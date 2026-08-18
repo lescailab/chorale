@@ -1,4 +1,4 @@
-sample_id	cohort	modality	strain	genotype	age_months	sex	region	batch	age_bin
+sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	age_bin
 anon_sample_0064	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
 anon_sample_0065	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
 anon_sample_0061	cohort_b	METAB	C57BL/6J	5XFAD	2	male	cerebral cortex	batch1	2mo
