@@ -3,10 +3,12 @@
 # The narrative pages and the function reference are both generated from the
 # package by site/sync.R, from vignettes/*.Rmd and man/*.Rd, so what the site
 # shows and what the package ships cannot diverge.
+# TEMPORARILY DISABLED. This workflow runs only when started by hand from the
+# Actions tab, so no push or pull request consumes runner minutes. To restore
+# automatic running, put back the push and pull_request triggers below.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+
 
 name: site.yaml
 
