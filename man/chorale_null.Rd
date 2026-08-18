@@ -23,8 +23,8 @@ An object of class \code{chorale_null} holding the permutation nulls,
 the modality-shuffle null, and per-factor stability.
 }
 \description{
-Every reported result is accompanied by the control that could have
-falsified it. Three run here.
+Every reported result is accompanied by the check that would have caught it
+if it were an artefact. Three run here.
 }
 \details{
 Permuting the phenotype label within cohort and stratum breaks its relation

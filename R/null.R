@@ -1,7 +1,7 @@
 #' Permutation calibration and stability diagnostics
 #'
-#' Every reported result is accompanied by the control that could have
-#' falsified it. Three run here.
+#' Every reported result is accompanied by the check that would have caught it
+#' if it were an artefact. Three run here.
 #'
 #' Permuting the phenotype label within cohort and stratum breaks its relation
 #' to the data while leaving the design intact, so the anchor agreement of a

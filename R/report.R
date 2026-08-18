@@ -920,8 +920,9 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
              "the design buys. Anchoring can never widen the range.")),
 
     "<h2>Controls</h2>",
-    "<p class='legend'>Every result above is reported with the control that could have falsified ",
-    "it. A control that cannot be computed is declared, not passed.</p>",
+    "<p class='legend'>Every result above is shown with the check that would have caught it if it ",
+    "were an artefact rather than biology. A check that cannot be computed on these data says so ",
+    "rather than passing quietly.</p>",
     chorale_html_table(controls, "Controls accompanying this run",
       paste0("<em>phenotype permutation</em> refits after shuffling the case/control label within ",
              "stratum; a small value means the observed agreement exceeds what shuffled labels ",

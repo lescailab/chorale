@@ -47,10 +47,10 @@ on biology corroborates the design result instead of restating it. A
 lipidome joins that comparison through its classes, in the same
 vocabulary the genes use.
 
-**Falsifiability.** Every result is accompanied by its negative control:
-permutation calibration, annotation-matched nulls, modality shuffle, and
-stability across random initialisations. No output is reportable without
-one.
+**Every result carries the check that would have caught it.**
+Permutation calibration, annotation-matched nulls, modality shuffle, and
+stability across random initialisations run alongside the estimate, and
+no output is reportable without them.
 
 ## Status
 
@@ -60,8 +60,8 @@ data. What remains open is validation rather than implementation: the
 calibration of the whole selection pipeline, the destroy-the-pairing
 benchmark against data whose cross-modality truth is known, and
 replication in an independent cohort. Until those are in place the
-outputs are feasibility and falsification evidence, not discovery
-claims.
+outputs say whether the approach is workable on a given pair of cohorts,
+not what the biology is.
 
 | Function                        | Status      |
 |---------------------------------|-------------|
