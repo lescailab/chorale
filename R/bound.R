@@ -44,26 +44,39 @@ chorale_bound <- function(fit, n_grid = 200L) {
     va <- fit$fits[[r$modality_a]]$scores[, r$factor_a]
     vb <- fit$fits[[r$modality_b]]$scores[, r$factor_b] * r$sign
 
-    unconditional <- chorale_frechet_correlation(va, vb, n_grid)
-
     da <- fit$designs[[r$modality_a]]
     db <- fit$designs[[r$modality_b]]
     ka <- chorale_stratum_key(names(va), da, fit$strata_keys)
     kb <- chorale_stratum_key(names(vb), db, fit$strata_keys)
-    common <- intersect(unique(stats::na.omit(ka)), unique(stats::na.omit(kb)))
-
-    if (length(common) >= 2) {
-      # Conditioning on the design splits the covariance into a part that is
-      # identified and a part that is not. Stratum means are observed in both
-      # modalities, so the between-stratum covariance is fixed; only the
-      # within-stratum coupling is free, and only that part is bounded.
-      anchored <- chorale_anchored_correlation(va, vb, ka, kb, common, n_grid)
-      lower <- anchored$lower
-      upper <- anchored$upper
+    common <- sort(intersect(unique(stats::na.omit(ka)),
+                             unique(stats::na.omit(kb))))
+    weights <- if (length(common) >= 2) {
+      chorale_target_weights(ka, kb, common)
     } else {
-      lower <- unconditional$lower
-      upper <- unconditional$upper
+      NULL
     }
+
+    if (is.null(weights)) {
+      # No design distribution is common to both, so there is nothing to
+      # condition on and the two intervals coincide.
+      unconditional <- chorale_frechet_correlation(va, vb, n_grid)
+      anchored <- unconditional
+      n_used <- 0L
+    } else {
+      # Both marginals are reweighted to the same target design distribution
+      # before either interval is computed, so the widths are comparable and
+      # the narrowing is what conditioning on the design actually buys.
+      probs <- seq(0.5 / n_grid, 1 - 0.5 / n_grid, length.out = n_grid)
+      unconditional <- chorale_frechet_from_quantiles(
+        chorale_weighted_quantile(va, weights$a, probs),
+        chorale_weighted_quantile(vb, weights$b, probs)
+      )
+      anchored <- chorale_anchored_correlation(va, vb, ka, kb, common, n_grid,
+                                               weights)
+      n_used <- length(common)
+    }
+    lower <- anchored$lower
+    upper <- anchored$upper
 
     rows[[i]] <- data.frame(
       modality_a = r$modality_a, modality_b = r$modality_b,
@@ -75,7 +88,7 @@ chorale_bound <- function(fit, n_grid = 200L) {
       upper_anchored = upper,
       width_anchored = upper - lower,
       narrowing = (unconditional$upper - unconditional$lower) - (upper - lower),
-      n_strata_used = length(common),
+      n_strata_used = n_used,
       stringsAsFactors = FALSE
     )
   }
@@ -83,63 +96,165 @@ chorale_bound <- function(fit, n_grid = 200L) {
   structure(list(bounds = do.call(rbind, rows)), class = "chorale_bound")
 }
 
-#' Correlation bounds conditional on the design strata
+#' Quantiles of a weighted empirical distribution
 #'
-#' The covariance decomposes into a between-stratum term, fixed by the stratum
-#' means both modalities report, and a within-stratum term that the disjoint
-#' samples leave free. Bounding only the free part is what the anchors buy, and
-#' it can never widen the interval, since the between-stratum contribution is
-#' pinned rather than extremised.
+#' Reweighting a sample to a target design distribution is what puts two
+#' modalities on the same population before their coupling is bounded. The
+#' quantile function of the reweighted marginal is obtained by inverting its
+#' weighted empirical distribution.
 #'
 #' @keywords internal
 #' @noRd
-chorale_anchored_correlation <- function(va, vb, ka, kb, common, n_grid) {
-  sd_a <- stats::sd(va)
-  sd_b <- stats::sd(vb)
+chorale_weighted_quantile <- function(x, w, probs) {
+  ok <- is.finite(x) & is.finite(w) & w > 0
+  x <- x[ok]
+  w <- w[ok]
+  if (length(x) == 0) return(rep(NA_real_, length(probs)))
+  o <- order(x)
+  x <- x[o]
+  w <- w[o] / sum(w[o])
+  # Midpoint convention, so a point mass is represented at its centre rather
+  # than at either edge.
+  cw <- cumsum(w) - w / 2
+  stats::approx(cw, x, xout = probs, rule = 2, ties = "ordered")$y
+}
+
+#' Frechet bounds on the correlation of two reweighted marginals
+#'
+#' Both marginals are represented on the same quantile grid and both sets of
+#' moments are taken from that representation, so the cross-moment in the
+#' numerator and the standard deviations in the denominator describe the same
+#' target population. The extremes are the comonotone and countermonotone
+#' couplings.
+#'
+#' @keywords internal
+#' @noRd
+chorale_frechet_from_quantiles <- function(qa, qb) {
+  qa <- qa[is.finite(qa)]
+  qb <- qb[is.finite(qb)]
+  if (length(qa) < 3 || length(qb) < 3 || length(qa) != length(qb)) {
+    return(list(lower = -1, upper = 1))
+  }
+  mu_a <- mean(qa)
+  mu_b <- mean(qb)
+  sd_a <- sqrt(mean((qa - mu_a)^2))
+  sd_b <- sqrt(mean((qb - mu_b)^2))
   if (!is.finite(sd_a) || !is.finite(sd_b) || sd_a == 0 || sd_b == 0) {
     return(list(lower = -1, upper = 1))
   }
+  hi <- (mean(qa * qb) - mu_a * mu_b) / (sd_a * sd_b)
+  lo <- (mean(qa * rev(qb)) - mu_a * mu_b) / (sd_a * sd_b)
+  chorale_clamp_bounds(min(lo, hi), max(lo, hi))
+}
 
-  in_a <- ka %in% common
-  in_b <- kb %in% common
-  # Stratum weights are shared by construction, so the two modalities are
-  # given the same design distribution before their couplings are bounded.
-  wa <- table(ka[in_a])[common]
-  wb <- table(kb[in_b])[common]
-  w <- (as.numeric(wa) / sum(wa) + as.numeric(wb) / sum(wb)) / 2
+#' Order and clamp an identified set for a correlation
+#'
+#' A correlation lies in `[-1, 1]`, so each endpoint is clamped on its own and
+#' the pair is ordered. Clamping one endpoint using the other, as an earlier
+#' version did, can leave an interval that no correlation satisfies.
+#'
+#' @keywords internal
+#' @noRd
+chorale_clamp_bounds <- function(lower, upper) {
+  if (!is.finite(lower)) lower <- -1
+  if (!is.finite(upper)) upper <- 1
+  lo <- min(lower, upper)
+  hi <- max(lower, upper)
+  list(lower = max(-1, min(1, lo)), upper = max(-1, min(1, hi)))
+}
+
+#' Weights putting both modalities on one target design distribution
+#'
+#' The two modalities realise the design in different proportions, so before
+#' their coupling can be bounded they have to be reweighted to one declared
+#' target. The target is the average of the two stratum distributions over the
+#' strata both populate, and every sample in a stratum carries the same weight.
+#'
+#' @keywords internal
+#' @noRd
+chorale_target_weights <- function(ka, kb, common) {
+  na <- table(factor(ka[ka %in% common], levels = common))
+  nb <- table(factor(kb[kb %in% common], levels = common))
+  if (any(na == 0) || any(nb == 0)) return(NULL)
+  w <- (as.numeric(na) / sum(na) + as.numeric(nb) / sum(nb)) / 2
+  w <- w / sum(w)
+  names(w) <- common
+  list(
+    stratum = w,
+    a = ifelse(ka %in% common, w[match(ka, common)] / as.numeric(na)[match(ka, common)], 0),
+    b = ifelse(kb %in% common, w[match(kb, common)] / as.numeric(nb)[match(kb, common)], 0)
+  )
+}
+
+#' Correlation bounds conditional on the design strata
+#'
+#' Both marginals are first reweighted to one target design distribution, so
+#' the moments in the numerator and the denominator describe the same
+#' population. Under that target the covariance splits into a between-stratum
+#' term, fixed by the stratum means both modalities report, and a
+#' within-stratum term that the disjoint samples leave free. Only the free part
+#' is extremised, which is what the anchors buy, and the total variance is
+#' taken under the same target, so the ratio is a correlation of the target
+#' population and cannot leave `[-1, 1]`.
+#'
+#' @keywords internal
+#' @noRd
+chorale_anchored_correlation <- function(va, vb, ka, kb, common, n_grid,
+                                         weights) {
+  w <- weights$stratum
+  probs <- seq(0.5 / n_grid, 1 - 0.5 / n_grid, length.out = n_grid)
 
   mu_a <- vapply(common, function(k) mean(va[which(ka == k)]), numeric(1))
   mu_b <- vapply(common, function(k) mean(vb[which(kb == k)]), numeric(1))
+  if (!all(is.finite(mu_a)) || !all(is.finite(mu_b))) {
+    return(list(lower = -1, upper = 1))
+  }
   grand_a <- sum(w * mu_a)
   grand_b <- sum(w * mu_b)
   between <- sum(w * (mu_a - grand_a) * (mu_b - grand_b))
 
+  var_a <- sum(w * (mu_a - grand_a)^2)
+  var_b <- sum(w * (mu_b - grand_b)^2)
   within_lo <- 0
   within_hi <- 0
   for (i in seq_along(common)) {
     k <- common[i]
     ra <- va[which(ka == k)] - mu_a[i]
     rb <- vb[which(kb == k)] - mu_b[i]
-    if (length(ra) < 2 || length(rb) < 2) next
-    probs <- seq(0.5 / n_grid, 1 - 0.5 / n_grid, length.out = n_grid)
-    qa <- stats::quantile(ra, probs, names = FALSE, type = 7)
-    qb <- stats::quantile(rb, probs, names = FALSE, type = 7)
+    qa <- if (length(ra) >= 2) {
+      stats::quantile(ra, probs, names = FALSE, type = 7)
+    } else {
+      rep(0, n_grid)
+    }
+    qb <- if (length(rb) >= 2) {
+      stats::quantile(rb, probs, names = FALSE, type = 7)
+    } else {
+      rep(0, n_grid)
+    }
+    # Moments of the within-stratum residuals are read off the same quantile
+    # grid the extremal cross-moments use, so the Cauchy-Schwarz inequality
+    # that keeps the ratio inside [-1, 1] holds exactly.
+    qa <- qa - mean(qa)
+    qb <- qb - mean(qb)
+    var_a <- var_a + w[i] * mean(qa^2)
+    var_b <- var_b + w[i] * mean(qb^2)
     hi <- mean(qa * qb)
     lo <- mean(qa * rev(qb))
     within_hi <- within_hi + w[i] * max(hi, lo)
     within_lo <- within_lo + w[i] * min(hi, lo)
   }
 
-  lower <- (between + within_lo) / (sd_a * sd_b)
-  upper <- (between + within_hi) / (sd_a * sd_b)
-  list(lower = max(-1, min(lower, upper)), upper = min(1, max(lower, upper)))
+  denom <- sqrt(var_a) * sqrt(var_b)
+  if (!is.finite(denom) || denom <= 0) return(list(lower = -1, upper = 1))
+  chorale_clamp_bounds((between + within_lo) / denom,
+                       (between + within_hi) / denom)
 }
 
-#' Frechet bounds on the correlation of two marginals
+#' Frechet bounds on the correlation of two unweighted marginals
 #'
-#' The extremes of the Frechet class are the comonotone and countermonotone
-#' couplings, obtained by pairing the two samples in the same and in opposite
-#' rank order on a common quantile grid.
+#' Used where the modalities populate no design stratum in common, so there is
+#' no target distribution to reweight to and each marginal is taken as it was
+#' observed.
 #'
 #' @keywords internal
 #' @noRd
@@ -150,13 +265,10 @@ chorale_frechet_correlation <- function(a, b, n_grid = 200L) {
     return(list(lower = -1, upper = 1))
   }
   probs <- seq(0.5 / n_grid, 1 - 0.5 / n_grid, length.out = n_grid)
-  qa <- stats::quantile(a, probs, names = FALSE, type = 7)
-  qb <- stats::quantile(b, probs, names = FALSE, type = 7)
-  upper <- suppressWarnings(stats::cor(qa, qb))
-  lower <- suppressWarnings(stats::cor(qa, rev(qb)))
-  if (!is.finite(upper)) upper <- 1
-  if (!is.finite(lower)) lower <- -1
-  list(lower = min(lower, upper), upper = max(lower, upper))
+  chorale_frechet_from_quantiles(
+    stats::quantile(a, probs, names = FALSE, type = 7),
+    stats::quantile(b, probs, names = FALSE, type = 7)
+  )
 }
 
 #' Stratum key for a set of samples

@@ -39,19 +39,16 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
     rlang::abort("`fit` must be a chorale_fit object.")
   }
 
-  significant <- if (nrow(fit$matches) > 0) {
-    fit$matches[fit$matches$significant, , drop = FALSE]
+  # The quantity under test is the one the report leads with: the joint
+  # evidence for the strongest programme. Calibrating a pairwise link instead
+  # would control something the report does not claim.
+  observed <- chorale_best_joint(fit)
+  supported <- chorale_programmes(fit, significant_only = TRUE)
+  n_observed <- if (nrow(supported) > 0) {
+    length(unique(supported$programme))
   } else {
-    fit$matches
+    0L
   }
-  observed <- if (nrow(significant) > 0) {
-    max(significant$statistic)
-  } else if (nrow(fit$matches) > 0) {
-    max(fit$matches$statistic)
-  } else {
-    NA_real_
-  }
-  n_observed <- nrow(significant)
 
   # Phenotype permutation, stratified so the design is preserved.
   phenotype_null <- numeric(n_permutations)
@@ -82,11 +79,7 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
     refit <- chorale_fit(permuted, n_factors = fit$n_factors,
                          n_init = n_init, strata_keys = fit$strata_keys,
                          seed = seed + i)
-    phenotype_null[i] <- if (nrow(refit$matches) > 0) {
-      max(refit$matches$statistic)
-    } else {
-      0
-    }
+    phenotype_null[i] <- chorale_best_joint(refit)
   }
 
   # Modality shuffle: pool the samples and reassign them across modalities,
@@ -173,17 +166,31 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed) {
   }
   list(
     applicable = TRUE,
-    agreement = if (nrow(refit$matches) > 0) max(refit$matches$statistic) else 0,
+    agreement = chorale_best_joint(refit),
     n_matches = nrow(refit$matches),
     reason = NA_character_
   )
 }
 
+#' Joint evidence of the strongest programme in a fit
+#'
+#' Zero where the fit produced no programme, so a permutation that recovers
+#' nothing contributes a value rather than dropping out of the null.
+#'
+#' @keywords internal
+#' @noRd
+chorale_best_joint <- function(fit) {
+  pg <- fit$programmes
+  if (is.null(pg) || nrow(pg) == 0) return(0)
+  v <- pg$joint_statistic[is.finite(pg$joint_statistic)]
+  if (length(v) == 0) 0 else max(v)
+}
+
 #' @export
 print.chorale_null <- function(x, ...) {
   cat("<chorale_null>\n")
-  cat("  observed matches:", x$n_observed_matches, "\n")
-  cat("  strongest observed agreement:", round(x$observed_agreement, 3), "\n")
+  cat("  supported programmes:", x$n_observed_matches, "\n")
+  cat("  strongest joint evidence:", round(x$observed_agreement, 3), "\n")
   cat("  phenotype permutation p-value:", signif(x$p_phenotype, 3),
       sprintf("(%d permutations)\n", x$n_permutations))
   if (isTRUE(x$modality_null$applicable)) {

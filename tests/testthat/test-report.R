@@ -146,3 +146,29 @@ test_that("chorale_report rejects a non-fit", {
   expect_error(chorale_report(list(), NULL, NULL, path = withr::local_tempdir()),
                class = "rlang_error")
 })
+
+test_that("an unsupported assignment is never reported as a programme", {
+  sim <- chorale_simulate(n_modalities = 2, n_features = 80,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 2, n_per_cell = 2, seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+
+  # Strip the support, leaving the assignment in place. The assignment step
+  # always returns a correspondence; only the null decides whether it means
+  # anything, and a report must not substitute the one for the other.
+  fit$programmes$supported <- FALSE
+  fit$matches$significant <- FALSE
+  expect_equal(nrow(chorale_programmes(fit)), 0L)
+
+  factors <- chorale:::chorale_factor_table(fit)
+  expect_false(any(factors$shared))
+
+  path <- withr::local_tempdir()
+  out <- chorale_report(fit, chorale_bound(fit), NULL, path = path)
+  programmes <- utils::read.delim(file.path(path, "programmes.tsv"))
+  expect_equal(nrow(programmes), 0L)
+  html <- paste(readLines(file.path(path, "report.html"), warn = FALSE),
+                collapse = "")
+  expect_match(html, "No programme survived its null")
+})

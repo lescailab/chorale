@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{chorale_match}
 \alias{chorale_match}
-\title{Match factors across modalities}
+\title{Match factors across all modalities at once}
 \usage{
 chorale_match(
   fits,
@@ -29,20 +29,25 @@ carry is harmless.}
 \item{seed}{Integer seed.}
 }
 \value{
-A data frame, one row per assigned cross-modality factor pair.
+A data frame, one row per cross-modality factor pair implied by the
+joint assignment.
 }
 \description{
 With disjoint samples no animal is shared, so factors cannot be matched by
-correlating scores. Two things can still be compared.
+correlating scores. What can be compared is what a factor does to the
+design: a factor measuring the same latent state should act on a shared
+covariate the same way in every modality that carries it. The comparison
+currency is the cosine between design-effect profiles, and the null is built
+by permuting the design across samples, so precision grows with cohort size
+and a single shared covariate suffices. Phenotype alone is enough.
 }
 \details{
-Where the modalities share at least one design covariate, a factor
-measuring the same latent state should act on that covariate the same way in
-both. The statistic is the inner product of the two design-effect profiles,
-and the null is built by permuting the covariate labels across samples
-within each modality. Permuting samples rather than strata matters: the null
-space is then the sample permutations, so precision improves as the cohorts
-grow, and a single shared covariate suffices. Phenotype alone is enough.
+The assignment is solved once over the whole collection rather than a pair
+at a time, by permutation synchronisation, so the correspondences agree around
+every cycle and no programme is assembled by chaining pairwise decisions.
+The rows returned here are the pairwise view of that one joint solution:
+correlation bounds concern two quantities at a time and need it. They are
+not themselves the assignment.
 
 The phenotype is required in every modality. The estimand is a case/control
 contrast, so a modality that cannot express it cannot contribute one, and

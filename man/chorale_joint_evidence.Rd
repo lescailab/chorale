@@ -4,35 +4,34 @@
 \alias{chorale_joint_evidence}
 \title{Joint evidence that a programme is carried by all its modalities}
 \usage{
-chorale_joint_evidence(fit, programmes = NULL, n_perm = 200L, seed = 1L)
+chorale_joint_evidence(fit, programmes = NULL, n_perm = NULL, seed = NULL)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
-\item{programmes}{Output of \code{\link[=chorale_programmes]{chorale_programmes()}}; recomputed if absent.}
+\item{programmes}{Output of \code{\link[=chorale_programmes]{chorale_programmes()}}; taken from \code{fit} if
+absent.}
 
-\item{n_perm}{Number of joint permutations.}
+\item{n_perm}{Ignored; retained so existing calls keep working. The null is
+computed once during fitting.}
 
-\item{seed}{Integer seed.}
+\item{seed}{Ignored; see \code{n_perm}.}
 }
 \value{
-\code{programmes} with \code{joint_statistic} and \code{joint_p} added.
+\code{programmes}, carrying \code{joint_statistic} and \code{joint_p}.
 }
 \description{
-Consolidating pairwise matches groups the factors correctly but leaves the
-evidence pairwise, and taking the strongest pairwise p-value as a
-programme's would be anti-conservative and would forfeit the one statistical
-advantage of measuring many modalities.
+The evidence for a programme is joint by construction: the statistic is the
+mean agreement of the design profiles over every pair inside the programme,
+evaluated as one quantity, and the null reruns the whole procedure on
+permuted designs, keeping the best value any programme and any modality
+subset could have reached. Requiring three modalities to agree
+simultaneously is far harder to achieve by chance than requiring two, and
+because the null sees the same choices the estimator made, the p-value
+accounts for the selection rather than conditioning on it.
 }
 \details{
-The statistic here is joint: the mean agreement of the design profiles over
-every pair within the programme, evaluated as one quantity. The null is
-joint too. Covariate labels are permuted in every contributing modality at
-once, and the null keeps the best value attainable by any combination of
-factors, one per modality, over the same modality set. Requiring three
-modalities to agree simultaneously is far harder to achieve by chance than
-requiring two, so the p-value tightens as modalities are added, which is the
-finite-sample behaviour the modality-count bound describes.
+This function reports the quantities \code{\link[=chorale_fit]{chorale_fit()}} already computed.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 3, n_features = 120,
@@ -41,5 +40,5 @@ sim <- chorale_simulate(n_modalities = 3, n_features = 120,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
 fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
-chorale_joint_evidence(fit, n_perm = 20)
+chorale_joint_evidence(fit)
 }

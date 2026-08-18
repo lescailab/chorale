@@ -2,31 +2,35 @@
 % Please edit documentation in R/fit.R
 \name{chorale_programmes}
 \alias{chorale_programmes}
-\title{Consolidate pairwise matches into programmes spanning every modality}
+\title{Programmes recovered by the joint assignment}
 \usage{
 chorale_programmes(fit, significant_only = TRUE)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
-\item{significant_only}{Link only matches that beat their permutation null.}
+\item{significant_only}{Return only programmes whose joint evidence beats
+its null.}
 }
 \value{
 A data frame with one row per (programme, modality, factor)
-membership, carrying \code{programme}, \code{n_modalities} and \code{modalities}.
+membership, carrying \code{programme}, \code{n_modalities}, \code{modalities},
+\code{joint_statistic}, \code{joint_p} and \code{supported}.
 }
 \description{
-Matching is evaluated a pair of modalities at a time, because a design
-profile is compared between two modalities. A latent programme, though, is
-not a pair: one factor may match partners in several modalities, and those
-partners are then the same programme seen in each. Factors are therefore
-linked into connected components, so a programme carries every modality that
-measures it rather than appearing once per pair.
+A programme is a set of factors, at most one per modality, that the joint
+assignment placed at the same position in the common space of latent
+programmes. It is not assembled from pairwise decisions: the assignment was
+solved once over the whole collection, so a programme's membership is
+settled using every modality rather than by chaining one modality to the
+next.
 }
 \details{
-Three modalities agreeing on one programme is stronger evidence than three
-separate agreements, which is the sense in which false-discovery control
-improves with the number of modalities.
+Which modalities a programme spans is itself part of what the procedure
+selects, and it is chosen against the same null the statistic is calibrated
+on: the widest set of modalities whose joint evidence survives. A programme
+for which no such set exists is returned with \code{supported} false and is
+excluded by default.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 3, n_features = 120,

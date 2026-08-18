@@ -46,10 +46,13 @@ initialisations. No output is reportable without one.
 
 ## Status
 
-Under development. Containers, identifier mapping and the synthetic data
-generator are implemented; the estimator is scaffolded but not yet implemented,
-pending the feasibility gates that determine whether the linear non-Gaussian
-identification route applies to the data at hand.
+Under development. The estimator, the identified sets, the controls and the
+report generator all run end to end on simulated and on retrieved data. What
+remains open is validation rather than implementation: the calibration of the
+whole selection pipeline, the destroy-the-pairing benchmark against data whose
+cross-modality truth is known, and replication in an independent cohort. Until
+those are in place the outputs are feasibility and falsification evidence, not
+discovery claims.
 
 | Function | Status |
 |---|---|
@@ -57,10 +60,12 @@ identification route applies to the data at hand.
 | `chorale_map()` | Implemented |
 | `chorale_simulate()` | Implemented |
 | `chorale_python_setup()` | Implemented |
-| `chorale_fit()` | Scaffolded |
-| `chorale_bound()` | Scaffolded |
-| `chorale_null()` | Scaffolded |
-| `chorale_report()` | Scaffolded |
+| `chorale_fit()` | Implemented |
+| `chorale_programmes()` | Implemented |
+| `chorale_leave_one_out()` | Implemented |
+| `chorale_bound()` | Implemented |
+| `chorale_null()` | Implemented |
+| `chorale_report()` | Implemented |
 
 ## Installation
 

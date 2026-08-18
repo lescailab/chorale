@@ -174,12 +174,13 @@ test_that("programme evidence is joint, not the best pairwise link", {
                           seed = 1)
   containers <- Map(chorale_load, sim$modalities, sim$col_data)
   fit <- chorale_fit(containers, n_factors = rep(5, 3), n_init = 3, seed = 1)
-  pg <- chorale_joint_evidence(fit, n_perm = 30)
+  pg <- chorale_joint_evidence(fit)
   skip_if(nrow(pg) == 0)
   expect_true(all(c("joint_statistic", "joint_p") %in% colnames(pg)))
   ok <- !is.na(pg$joint_p)
   skip_if(!any(ok))
-  expect_true(all(pg$joint_p[ok] >= 1 / 31))
+  floor <- 1 / (1 + length(fit$joint_null))
+  expect_true(all(pg$joint_p[ok] >= floor))
   expect_true(all(pg$joint_p[ok] <= 1))
   # A programme spanning more modalities carries a larger joint statistic,
   # since agreement is required simultaneously rather than pair by pair.
@@ -190,4 +191,77 @@ test_that("programme evidence is joint, not the best pairwise link", {
       stats::median(u$joint_statistic[u$n_modalities == min(u$n_modalities)])
     )
   }
+})
+
+test_that("the assignment is solved once, so it agrees around every cycle", {
+  sim <- chorale_simulate(n_modalities = 3, n_features = 120,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 3, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+  pg <- fit$programmes
+  skip_if(nrow(pg) == 0)
+
+  # A factor belongs to at most one programme, and a programme carries at most
+  # one factor per modality. Chaining pairwise decisions cannot guarantee this.
+  key <- paste(pg$modality, pg$factor)
+  expect_equal(anyDuplicated(key), 0L)
+  expect_equal(anyDuplicated(pg[, c("programme", "modality")]), 0L)
+
+  # Every implied pair is a pair of members of the same programme, so no link
+  # crosses two programmes.
+  m <- fit$matches
+  skip_if(nrow(m) == 0)
+  member <- stats::setNames(pg$programme, paste(pg$modality, pg$factor))
+  expect_equal(unname(member[paste(m$modality_a, m$factor_a)]), m$programme)
+  expect_equal(unname(member[paste(m$modality_b, m$factor_b)]), m$programme)
+})
+
+test_that("the joint assignment does not depend on the order of modalities", {
+  sim <- chorale_simulate(n_modalities = 3, n_features = 120,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 3, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  a <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+  b <- chorale_fit(containers[c(3, 1, 2)], n_factors = c(3, 3, 3), n_init = 2)
+
+  grouping <- function(fit) {
+    pg <- fit$programmes[fit$programmes$supported, , drop = FALSE]
+    if (nrow(pg) == 0) return(character(0))
+    sort(vapply(split(paste(pg$modality, pg$factor), pg$programme),
+                function(v) paste(sort(v), collapse = " + "), character(1),
+                USE.NAMES = FALSE))
+  }
+  expect_equal(grouping(a), grouping(b))
+})
+
+test_that("a design profile expands a multilevel covariate into signed terms", {
+  scores <- matrix(c(1:9, 9:1), ncol = 2,
+                   dimnames = list(paste0("s", 1:9), c("factor_1", "factor_2")))
+  design <- data.frame(sample_id = paste0("s", 1:9),
+                       region = rep(c("cortex", "hippocampus", "striatum"), 3),
+                       stringsAsFactors = FALSE)
+  p <- chorale_design_profile(scores, design, "region")
+  # One signed contrast per level beyond the reference, never an unsigned
+  # summary that cannot be compared in direction with the other terms.
+  expect_equal(colnames(p), c("region=hippocampus", "region=striatum"))
+  expect_true(all(is.finite(p)))
+  expect_lt(p[1, "region=hippocampus"] * p[2, "region=hippocampus"], 0)
+})
+
+test_that("leaving a modality out reports what it contributed", {
+  sim <- chorale_simulate(n_modalities = 3, n_features = 120,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 3, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+  loo <- chorale_leave_one_out(fit)
+  skip_if(nrow(loo) == 0)
+  expect_true(all(c("programme", "dropped", "joint_statistic", "joint_p",
+                    "delta") %in% colnames(loo)))
+  expect_true(all(loo$n_modalities == 2))
+  expect_true(all(loo$joint_p >= 1 / (1 + length(fit$joint_null))))
 })

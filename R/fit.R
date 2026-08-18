@@ -260,20 +260,27 @@ chorale_stratum_means <- function(scores, design, strata_keys) {
   agg / counts
 }
 
-#' Standardised effect of each shared covariate on each factor
+#' Standardised effect of each design term on each factor
 #'
 #' The profile is what a factor does to the design: one standardised effect per
-#' covariate, comparable across modalities measured on different animals. A
-#' binary covariate contributes a standardised mean difference, a continuous
-#' one a rank correlation. Profiles are the matching currency because they are
-#' estimated from samples, so their precision improves with sample size rather
-#' than with the number of design strata.
+#' design term, comparable across modalities measured on different animals. A
+#' binary or categorical covariate contributes one signed standardised mean
+#' difference per level beyond a reference; a continuous one contributes a
+#' signed rank correlation. Every entry is therefore signed and on the same
+#' scale, which is what allows profiles from different modalities to be
+#' compared by direction. Profiles are estimated from samples, so their
+#' precision improves with sample size rather than with the number of design
+#' strata.
 #'
 #' @param scores A samples-by-factors matrix.
 #' @param design The design table for those samples.
 #' @param covariates Covariate columns to profile.
+#' @param levels Optional shared-level resolution fixing which terms are formed
+#'   and which level of each categorical covariate is the reference. Supply it
+#'   when profiles from several modalities must line up; it is derived from
+#'   `design` alone when absent.
 #'
-#' @returns A factors-by-covariates numeric matrix.
+#' @returns A factors-by-terms numeric matrix.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
@@ -281,17 +288,36 @@ chorale_stratum_means <- function(scores, design, strata_keys) {
 #' x <- scale(t(SummarizedExperiment::assay(se)))
 #' dim(chorale_design_profile(x[, 1:3, drop = FALSE], sim$col_data[[1]],
 #'                            c("phenotype", "sex")))
-chorale_design_profile <- function(scores, design, covariates) {
+chorale_design_profile <- function(scores, design, covariates, levels = NULL) {
   design <- design[match(rownames(scores), design$sample_id), , drop = FALSE]
-  out <- matrix(0, nrow = ncol(scores), ncol = length(covariates),
-                dimnames = list(colnames(scores), covariates))
-  for (cv in covariates) {
+  if (is.null(levels)) {
+    levels <- chorale_profile_levels(list(design), covariates)
+  }
+  terms <- chorale_profile_terms(levels)
+  out <- matrix(0, nrow = ncol(scores), ncol = length(terms),
+                dimnames = list(colnames(scores), terms))
+  if (length(terms) == 0) return(out)
+
+  for (cv in names(levels)) {
+    lv <- levels[[cv]]
     v <- design[[cv]]
+    continuous <- length(lv) == 1 && is.na(lv)
+    vc <- if (continuous) suppressWarnings(as.numeric(v)) else as.character(v)
     for (j in seq_len(ncol(scores))) {
       y <- scores[, j]
-      ok <- is.finite(y) & !is.na(v)
-      if (sum(ok) < 4) next
-      out[j, cv] <- chorale_effect(y[ok], v[ok])$effect
+      if (continuous) {
+        ok <- is.finite(y) & is.finite(vc)
+        if (sum(ok) < 4) next
+        r <- suppressWarnings(
+          stats::cor(y[ok], vc[ok], method = "spearman")
+        )
+        out[j, cv] <- if (is.finite(r)) r else 0
+      } else {
+        for (l in lv[-1]) {
+          out[j, paste0(cv, "=", l)] <-
+            chorale_contrast_effect(y, vc, lv[1], l)
+        }
+      }
     }
   }
   out[!is.finite(out)] <- 0
@@ -326,18 +352,22 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
   }))
 }
 
-#' Match factors across modalities
+#' Match factors across all modalities at once
 #'
 #' With disjoint samples no animal is shared, so factors cannot be matched by
-#' correlating scores. Two things can still be compared.
+#' correlating scores. What can be compared is what a factor does to the
+#' design: a factor measuring the same latent state should act on a shared
+#' covariate the same way in every modality that carries it. The comparison
+#' currency is the cosine between design-effect profiles, and the null is built
+#' by permuting the design across samples, so precision grows with cohort size
+#' and a single shared covariate suffices. Phenotype alone is enough.
 #'
-#' Where the modalities share at least one design covariate, a factor
-#' measuring the same latent state should act on that covariate the same way in
-#' both. The statistic is the inner product of the two design-effect profiles,
-#' and the null is built by permuting the covariate labels across samples
-#' within each modality. Permuting samples rather than strata matters: the null
-#' space is then the sample permutations, so precision improves as the cohorts
-#' grow, and a single shared covariate suffices. Phenotype alone is enough.
+#' The assignment is solved once over the whole collection rather than a pair
+#' at a time, by permutation synchronisation, so the correspondences agree around
+#' every cycle and no programme is assembled by chaining pairwise decisions.
+#' The rows returned here are the pairwise view of that one joint solution:
+#' correlation bounds concern two quantities at a time and need it. They are
+#' not themselves the assignment.
 #'
 #' The phenotype is required in every modality. The estimand is a case/control
 #' contrast, so a modality that cannot express it cannot contribute one, and
@@ -354,7 +384,8 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
 #' @param alpha Significance threshold.
 #' @param seed Integer seed.
 #'
-#' @returns A data frame, one row per assigned cross-modality factor pair.
+#' @returns A data frame, one row per cross-modality factor pair implied by the
+#'   joint assignment.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 60,
@@ -367,74 +398,198 @@ chorale_match <- function(fits, designs,
                           strata_keys = c("phenotype", "sex", "age_months",
                                           "age_bin", "strain", "region"),
                           n_perm = 200L, alpha = 0.05, seed = 1L) {
+  chorale_integrate(fits, designs, strata_keys = strata_keys,
+                    n_perm = n_perm, alpha = alpha, seed = seed)$matches
+}
+
+#' Solve the assignment and calibrate it, over all modalities at once
+#'
+#' The whole integration step: shared design terms are resolved once for the
+#' collection, one profile is built per modality on those terms, the assignment
+#' is solved jointly, and both the joint and the pairwise statistics are
+#' calibrated against a single null in which the complete procedure is rerun on
+#' permuted designs. Permuting the design rows as a block rather than each
+#' covariate independently preserves the dependence among age, sex, cohort and
+#' phenotype, so the null contains only designs that could have arisen.
+#'
+#' One null calibrates every programme and every modality subset the procedure
+#' could have selected, which is what makes the reported p-values account for
+#' the selection rather than condition on it.
+#'
+#' @inheritParams chorale_match
+#'
+#' @returns A list with `programmes`, `matches`, `leave_one_out`,
+#'   `synchronisation`, `terms` and `null`.
+#' @keywords internal
+#' @noRd
+chorale_integrate <- function(fits, designs,
+                              strata_keys = c("phenotype", "sex", "age_months",
+                                              "age_bin", "strain", "region"),
+                              n_perm = 200L, alpha = 0.05, seed = 1L) {
   modalities <- names(fits)
-  rows <- list()
+  empty <- list(programmes = data.frame(), matches = data.frame(),
+                leave_one_out = data.frame(), synchronisation = NULL,
+                terms = character(0), null = numeric(0))
+  if (length(modalities) < 2) return(empty)
 
-  for (i in seq_along(modalities)) {
-    for (j in seq_along(modalities)) {
-      if (j <= i) next
-      a <- modalities[i]
-      b <- modalities[j]
-      sa <- fits[[a]]$scores
-      sb <- fits[[b]]$scores
-      da <- designs[[a]][match(rownames(sa), designs[[a]]$sample_id), , drop = FALSE]
-      db <- designs[[b]][match(rownames(sb), designs[[b]]$sample_id), , drop = FALSE]
+  aligned <- lapply(modalities, function(m) {
+    d <- designs[[m]]
+    d[match(rownames(fits[[m]]$scores), d$sample_id), , drop = FALSE]
+  })
+  names(aligned) <- modalities
 
-      shared <- chorale_shared_covariates(da, db, strata_keys)
-      chorale_require_phenotype(shared, a, b)
-      basis <- "design effects"
-      pa <- chorale_design_profile(sa, da, shared)
-      pb <- chorale_design_profile(sb, db, shared)
+  shared <- chorale_shared_covariates_all(aligned, strata_keys)
+  chorale_require_phenotype(shared, modalities)
+  levels <- chorale_profile_levels(aligned, shared)
+  terms <- chorale_profile_terms(levels)
+  if (length(terms) == 0) return(empty)
 
-      stat <- abs(pa %*% t(pb))
-      stat[!is.finite(stat)] <- 0
-      assignment <- chorale_assign(stat)
+  profile_of <- function(designs_by_mod) {
+    out <- lapply(modalities, function(m) {
+      chorale_design_profile(fits[[m]]$scores, designs_by_mod[[m]], shared,
+                             levels = levels)
+    })
+    names(out) <- modalities
+    out
+  }
 
-      set.seed(seed)
-      null_best <- numeric(n_perm)
-      for (b_i in seq_len(n_perm)) {
-        # Permute the covariates across samples, which is the null of a factor
-        # unrelated to the design. The permutation space is the samples, so it
-        # does not shrink when few strata are populated.
-        da_p <- da
-        db_p <- db
-        for (cv in shared) {
-          da_p[[cv]] <- sample(da_p[[cv]])
-          db_p[[cv]] <- sample(db_p[[cv]])
-        }
-        qa <- chorale_design_profile(sa, da_p, shared)
-        qb <- chorale_design_profile(sb, db_p, shared)
-        g <- abs(qa %*% t(qb))
-        g[!is.finite(g)] <- 0
-        null_best[b_i] <- max(g)
+  profiles <- profile_of(aligned)
+  sync <- chorale_synchronise(profiles)
+  if (sync$n_programmes == 0) return(empty)
+
+  # One null for the whole procedure: the assignment is solved again on each
+  # permuted design, so the calibrating value is the best any programme and any
+  # modality subset could have reached by chance.
+  set.seed(seed)
+  null_joint <- numeric(n_perm)
+  null_pair <- lapply(names(sync$similarity), function(k) numeric(n_perm))
+  names(null_pair) <- names(sync$similarity)
+  for (b in seq_len(n_perm)) {
+    permuted <- lapply(modalities, function(m) {
+      d <- aligned[[m]]
+      d[, shared] <- d[sample(nrow(d)), shared, drop = FALSE]
+      d
+    })
+    names(permuted) <- modalities
+    sp <- chorale_synchronise(profile_of(permuted))
+    null_joint[b] <- chorale_best_statistic(sp)
+    for (k in names(null_pair)) {
+      blk <- sp$similarity[[k]]
+      null_pair[[k]][b] <- if (is.null(blk)) 0 else max(abs(blk))
+    }
+  }
+  p_of <- function(value, null) (1 + sum(null >= value)) / (1 + n_perm)
+
+  prog_rows <- list()
+  loo_rows <- list()
+  match_rows <- list()
+
+  for (pr in sort(unique(sync$assignment$programme))) {
+    members <- sync$assignment[sync$assignment$programme == pr, , drop = FALSE]
+    if (nrow(members) < 2) next
+
+    # The modality subset is part of what the procedure selects, so it is
+    # chosen against the same null: the widest subset whose joint evidence
+    # survives, and the full tuple where none does.
+    subsets <- chorale_member_subsets(nrow(members))
+    stats_by_subset <- vapply(subsets, function(idx) {
+      chorale_programme_statistic(sync$similarity, members[idx, , drop = FALSE])
+    }, numeric(1))
+    ps <- vapply(stats_by_subset, p_of, numeric(1), null = null_joint)
+    ok <- which(is.finite(stats_by_subset) & ps < alpha)
+    if (length(ok) > 0) {
+      sizes <- vapply(subsets[ok], length, integer(1))
+      best <- ok[order(-sizes, -stats_by_subset[ok])][1]
+      supported <- TRUE
+    } else {
+      best <- which.max(vapply(subsets, length, integer(1)))
+      supported <- FALSE
+    }
+    keep <- members[subsets[[best]], , drop = FALSE]
+    statistic <- stats_by_subset[best]
+    p_joint <- ps[best]
+
+    label <- paste0("P", length(prog_rows) + 1L)
+    prog_rows[[length(prog_rows) + 1L]] <- data.frame(
+      programme = label,
+      n_modalities = nrow(keep),
+      modalities = paste(sort(keep$modality), collapse = ", "),
+      modality = keep$modality,
+      factor = keep$factor,
+      joint_statistic = round(statistic, 4),
+      joint_p = p_joint,
+      supported = supported,
+      stringsAsFactors = FALSE
+    )
+
+    # Leaving one modality out shows whether the evidence rests on all of them
+    # or on one; a programme that is no weaker without a modality was not
+    # carrying it.
+    if (nrow(keep) >= 3) {
+      for (i in seq_len(nrow(keep))) {
+        sub <- keep[-i, , drop = FALSE]
+        s <- chorale_programme_statistic(sync$similarity, sub)
+        loo_rows[[length(loo_rows) + 1L]] <- data.frame(
+          programme = label,
+          dropped = keep$modality[i],
+          n_modalities = nrow(sub),
+          joint_statistic = round(s, 4),
+          joint_p = p_of(s, null_joint),
+          delta = round(s - statistic, 4),
+          stringsAsFactors = FALSE
+        )
       }
+    }
 
-      for (ca in seq_len(ncol(sa))) {
-        cb <- assignment[ca]
-        if (is.na(cb)) next
-        value <- stat[ca, cb]
-        p <- (1 + sum(null_best >= value)) / (1 + n_perm)
-        direction <- sum(pa[ca, ] * pb[cb, ])
-        rows[[length(rows) + 1]] <- data.frame(
-          modality_a = a, modality_b = b,
-          factor_a = colnames(sa)[ca], factor_b = colnames(sb)[cb],
-          sign = if (direction < 0) -1 else 1,
-          basis = basis,
+    for (i in seq_len(nrow(keep))) {
+      for (j in seq_len(nrow(keep))) {
+        if (j <= i) next
+        ma <- keep$modality[i]
+        mb <- keep$modality[j]
+        raw <- chorale_pair_agreement(sync$similarity, ma, mb,
+                                      keep$factor_index[i], keep$factor_index[j])
+        if (!is.finite(raw)) next
+        key <- if (!is.null(sync$similarity[[paste(ma, mb, sep = "|")]])) {
+          paste(ma, mb, sep = "|")
+        } else {
+          paste(mb, ma, sep = "|")
+        }
+        value <- abs(raw)
+        match_rows[[length(match_rows) + 1L]] <- data.frame(
+          programme = label,
+          modality_a = ma, modality_b = mb,
+          factor_a = keep$factor[i], factor_b = keep$factor[j],
+          sign = if (raw < 0) -1 else 1,
+          basis = "design effects",
           n_shared_covariates = length(shared),
           shared_covariates = paste(shared, collapse = ","),
-          statistic = as.numeric(value),
-          p_value = p,
+          statistic = value,
+          p_value = p_of(value, null_pair[[key]]),
+          joint_statistic = round(statistic, 4),
+          joint_p = p_joint,
+          supported = supported,
           stringsAsFactors = FALSE
         )
       }
     }
   }
 
-  out <- do.call(rbind, rows)
-  if (is.null(out)) return(data.frame())
-  out$significant <- out$p_value < alpha
-  out$p_attainable_floor <- 1 / (1 + n_perm)
-  out[order(out$p_value, -out$statistic), , drop = FALSE]
+  programmes <- do.call(rbind, prog_rows)
+  matches <- do.call(rbind, match_rows)
+  if (is.null(programmes)) programmes <- data.frame()
+  if (is.null(matches)) {
+    matches <- data.frame()
+  } else {
+    matches$significant <- matches$p_value < alpha
+    matches$p_attainable_floor <- 1 / (1 + n_perm)
+    matches <- matches[order(matches$joint_p, matches$p_value,
+                             -matches$statistic), , drop = FALSE]
+  }
+  loo <- do.call(rbind, loo_rows)
+  if (is.null(loo)) loo <- data.frame()
+
+  list(programmes = programmes, matches = matches, leave_one_out = loo,
+       synchronisation = sync, terms = terms, null = null_joint)
 }
 
 #' Require the phenotype to be shared
@@ -447,14 +602,15 @@ chorale_match <- function(fits, designs,
 #'
 #' @keywords internal
 #' @noRd
-chorale_require_phenotype <- function(shared, a, b) {
+chorale_require_phenotype <- function(shared, modalities) {
   if (!"phenotype" %in% shared) {
     rlang::abort(
       paste0(
-        "Modalities '", a, "' and '", b, "' do not share a phenotype contrast. ",
+        "Modalities '", paste(modalities, collapse = "', '"),
+        "' do not all share a phenotype contrast. ",
         "chorale estimates a case/control shared state, so every modality must ",
         "carry a `phenotype` column taking at least two values. Resolve the ",
-        "phenotype for both modalities, or drop the one that lacks it."
+        "phenotype for every modality, or drop the one that lacks it."
       ),
       class = "chorale_missing_phenotype"
     )
@@ -462,17 +618,16 @@ chorale_require_phenotype <- function(shared, a, b) {
   invisible(TRUE)
 }
 
-#' Covariates present and varying in both designs
+#' Covariates present and varying in every design
 #' @keywords internal
 #' @noRd
-chorale_shared_covariates <- function(da, db, candidates) {
+chorale_shared_covariates_all <- function(designs, candidates) {
   usable <- function(d, cv) {
     if (!cv %in% colnames(d)) return(FALSE)
-    v <- d[[cv]]
-    length(unique(stats::na.omit(v))) >= 2
+    length(unique(stats::na.omit(d[[cv]]))) >= 2
   }
   shared <- candidates[vapply(candidates, function(cv) {
-    usable(da, cv) && usable(db, cv)
+    all(vapply(designs, usable, logical(1), cv = cv))
   }, logical(1))]
   # age_bin and age_months describe the same variable, so the finer one is
   # kept and the coarser dropped to avoid counting it twice.
@@ -480,6 +635,13 @@ chorale_shared_covariates <- function(da, db, candidates) {
     shared <- setdiff(shared, "age_bin")
   }
   shared
+}
+
+#' Covariates present and varying in both designs
+#' @keywords internal
+#' @noRd
+chorale_shared_covariates <- function(da, db, candidates) {
+  chorale_shared_covariates_all(list(da, db), candidates)
 }
 
 #' One-to-one assignment tolerating a rectangular statistic
@@ -496,24 +658,28 @@ chorale_assign <- function(stat) {
   }
 }
 
-#' Consolidate pairwise matches into programmes spanning every modality
+#' Programmes recovered by the joint assignment
 #'
-#' Matching is evaluated a pair of modalities at a time, because a design
-#' profile is compared between two modalities. A latent programme, though, is
-#' not a pair: one factor may match partners in several modalities, and those
-#' partners are then the same programme seen in each. Factors are therefore
-#' linked into connected components, so a programme carries every modality that
-#' measures it rather than appearing once per pair.
+#' A programme is a set of factors, at most one per modality, that the joint
+#' assignment placed at the same position in the common space of latent
+#' programmes. It is not assembled from pairwise decisions: the assignment was
+#' solved once over the whole collection, so a programme's membership is
+#' settled using every modality rather than by chaining one modality to the
+#' next.
 #'
-#' Three modalities agreeing on one programme is stronger evidence than three
-#' separate agreements, which is the sense in which false-discovery control
-#' improves with the number of modalities.
+#' Which modalities a programme spans is itself part of what the procedure
+#' selects, and it is chosen against the same null the statistic is calibrated
+#' on: the widest set of modalities whose joint evidence survives. A programme
+#' for which no such set exists is returned with `supported` false and is
+#' excluded by default.
 #'
 #' @param fit A `chorale_fit` object.
-#' @param significant_only Link only matches that beat their permutation null.
+#' @param significant_only Return only programmes whose joint evidence beats
+#'   its null.
 #'
 #' @returns A data frame with one row per (programme, modality, factor)
-#'   membership, carrying `programme`, `n_modalities` and `modalities`.
+#'   membership, carrying `programme`, `n_modalities`, `modalities`,
+#'   `joint_statistic`, `joint_p` and `supported`.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 3, n_features = 120,
@@ -527,86 +693,28 @@ chorale_programmes <- function(fit, significant_only = TRUE) {
   if (!inherits(fit, "chorale_fit")) {
     rlang::abort("`fit` must be a chorale_fit object.")
   }
-  m <- fit$matches
-  if (nrow(m) == 0) return(data.frame())
-  if (significant_only && "significant" %in% colnames(m)) {
-    m <- m[m$significant, , drop = FALSE]
-  }
-  if (nrow(m) == 0) return(data.frame())
-
-  node_a <- paste(m$modality_a, m$factor_a, sep = "|")
-  node_b <- paste(m$modality_b, m$factor_b, sep = "|")
-  nodes <- unique(c(node_a, node_b))
-
-  # Components by label propagation: a factor and every partner it matches,
-  # transitively, form one programme.
-  label <- stats::setNames(seq_along(nodes), nodes)
-  repeat {
-    changed <- FALSE
-    for (r in seq_len(nrow(m))) {
-      a <- node_a[r]
-      b <- node_b[r]
-      lo <- min(label[[a]], label[[b]])
-      if (label[[a]] != lo || label[[b]] != lo) {
-        label[[a]] <- lo
-        label[[b]] <- lo
-        changed <- TRUE
-      }
-    }
-    if (!changed) break
-  }
-  root <- unname(label[nodes])
-
-  # Order programmes by the strongest evidence they carry.
-  comp <- unique(root)
-  best <- vapply(comp, function(rt) {
-    members <- nodes[root == rt]
-    rows <- m[node_a %in% members | node_b %in% members, , drop = FALSE]
-    min(rows$p_value)
-  }, numeric(1))
-  ord <- comp[order(best)]
-
-  out <- list()
-  for (i in seq_along(ord)) {
-    members <- nodes[root == ord[i]]
-    parts <- do.call(rbind, strsplit(members, "|", fixed = TRUE))
-    mods <- unique(parts[, 1])
-    rows <- m[node_a %in% members | node_b %in% members, , drop = FALSE]
-    out[[i]] <- data.frame(
-      programme = paste0("P", i),
-      n_modalities = length(mods),
-      modalities = paste(sort(mods), collapse = ", "),
-      modality = parts[, 1],
-      factor = parts[, 2],
-      best_match_p = signif(min(rows$p_value), 3),
-      stringsAsFactors = FALSE
-    )
-  }
-  do.call(rbind, out)
+  pg <- fit$programmes
+  if (is.null(pg) || nrow(pg) == 0) return(data.frame())
+  if (significant_only) pg <- pg[pg$supported, , drop = FALSE]
+  pg[order(pg$joint_p, -pg$joint_statistic, pg$programme), , drop = FALSE]
 }
 
-#' Joint evidence that a programme is carried by all its modalities
+#' What each modality contributes to a programme
 #'
-#' Consolidating pairwise matches groups the factors correctly but leaves the
-#' evidence pairwise, and taking the strongest pairwise p-value as a
-#' programme's would be anti-conservative and would forfeit the one statistical
-#' advantage of measuring many modalities.
-#'
-#' The statistic here is joint: the mean agreement of the design profiles over
-#' every pair within the programme, evaluated as one quantity. The null is
-#' joint too. Covariate labels are permuted in every contributing modality at
-#' once, and the null keeps the best value attainable by any combination of
-#' factors, one per modality, over the same modality set. Requiring three
-#' modalities to agree simultaneously is far harder to achieve by chance than
-#' requiring two, so the p-value tightens as modalities are added, which is the
-#' finite-sample behaviour the modality-count bound describes.
+#' The joint statistic says a programme is carried by its modalities together.
+#' Dropping one at a time says whether it needed them: a programme whose
+#' evidence is unchanged when a modality is removed was not resting on that
+#' modality, and one that collapses without it was. Reporting both is what
+#' distinguishes a result integration produced from a result one modality
+#' produced and the others accompanied.
 #'
 #' @param fit A `chorale_fit` object.
-#' @param programmes Output of [chorale_programmes()]; recomputed if absent.
-#' @param n_perm Number of joint permutations.
-#' @param seed Integer seed.
+#' @param programmes Optional subset of [chorale_programmes()] to restrict to.
 #'
-#' @returns `programmes` with `joint_statistic` and `joint_p` added.
+#' @returns A data frame with one row per (programme, dropped modality),
+#'   carrying the joint statistic and p-value without that modality and the
+#'   change from the full programme. Empty where no programme spans three or
+#'   more modalities.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 3, n_features = 120,
@@ -615,77 +723,53 @@ chorale_programmes <- function(fit, significant_only = TRUE) {
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
 #' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
-#' chorale_joint_evidence(fit, n_perm = 20)
-chorale_joint_evidence <- function(fit, programmes = NULL, n_perm = 200L,
-                                   seed = 1L) {
+#' chorale_leave_one_out(fit)
+chorale_leave_one_out <- function(fit, programmes = NULL) {
+  if (!inherits(fit, "chorale_fit")) {
+    rlang::abort("`fit` must be a chorale_fit object.")
+  }
+  loo <- fit$leave_one_out
+  if (is.null(loo) || nrow(loo) == 0) return(data.frame())
+  if (!is.null(programmes) && nrow(programmes) > 0) {
+    loo <- loo[loo$programme %in% programmes$programme, , drop = FALSE]
+  }
+  loo
+}
+
+#' Joint evidence that a programme is carried by all its modalities
+#'
+#' The evidence for a programme is joint by construction: the statistic is the
+#' mean agreement of the design profiles over every pair inside the programme,
+#' evaluated as one quantity, and the null reruns the whole procedure on
+#' permuted designs, keeping the best value any programme and any modality
+#' subset could have reached. Requiring three modalities to agree
+#' simultaneously is far harder to achieve by chance than requiring two, and
+#' because the null sees the same choices the estimator made, the p-value
+#' accounts for the selection rather than conditioning on it.
+#'
+#' This function reports the quantities [chorale_fit()] already computed.
+#'
+#' @param fit A `chorale_fit` object.
+#' @param programmes Output of [chorale_programmes()]; taken from `fit` if
+#'   absent.
+#' @param n_perm Ignored; retained so existing calls keep working. The null is
+#'   computed once during fitting.
+#' @param seed Ignored; see `n_perm`.
+#'
+#' @returns `programmes`, carrying `joint_statistic` and `joint_p`.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 3, n_features = 120,
+#'                         n_shared_factors = 2, n_private_factors = 1,
+#'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
+#'                         seed = 1)
+#' containers <- Map(chorale_load, sim$modalities, sim$col_data)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+#' chorale_joint_evidence(fit)
+chorale_joint_evidence <- function(fit, programmes = NULL, n_perm = NULL,
+                                   seed = NULL) {
   if (is.null(programmes)) programmes <- chorale_programmes(fit)
-  if (nrow(programmes) == 0) return(programmes)
-
-  profiles <- function(designs_by_mod, mods, covs) {
-    lapply(mods, function(m) {
-      chorale_design_profile(fit$fits[[m]]$scores, designs_by_mod[[m]], covs)
-    })
-  }
-  # Mean agreement over every pair inside one candidate programme.
-  joint_stat <- function(prof, pick) {
-    mods <- seq_along(prof)
-    if (length(mods) < 2) return(0)
-    vals <- c()
-    for (i in mods) {
-      for (j in mods) {
-        if (j <= i) next
-        vals <- c(vals, abs(sum(prof[[i]][pick[i], ] * prof[[j]][pick[j], ])))
-      }
-    }
-    mean(vals)
-  }
-
-  out <- programmes
-  out$joint_statistic <- NA_real_
-  out$joint_p <- NA_real_
-
-  for (pr in unique(programmes$programme)) {
-    d <- programmes[programmes$programme == pr, , drop = FALSE]
-    mods <- d$modality
-    if (length(mods) < 2) next
-    covs <- Reduce(intersect, lapply(mods, function(m) {
-      chorale_shared_covariates(fit$designs[[m]], fit$designs[[m]],
-                                fit$strata_keys)
-    }))
-    covs <- Reduce(intersect, lapply(mods, function(m) {
-      keep <- covs[vapply(covs, function(cv) {
-        cv %in% colnames(fit$designs[[m]]) &&
-          length(unique(stats::na.omit(fit$designs[[m]][[cv]]))) >= 2
-      }, logical(1))]
-      keep
-    }))
-    if (length(covs) == 0) next
-
-    prof <- profiles(fit$designs, mods, covs)
-    pick <- vapply(seq_along(mods), function(i) {
-      match(d$factor[i], rownames(prof[[i]]))
-    }, numeric(1))
-    if (any(is.na(pick))) next
-    observed <- joint_stat(prof, pick)
-
-    grid <- expand.grid(lapply(prof, function(pm) seq_len(nrow(pm))))
-    set.seed(seed)
-    null <- numeric(n_perm)
-    for (b in seq_len(n_perm)) {
-      permuted <- lapply(mods, function(m) {
-        dm <- fit$designs[[m]]
-        for (cv in covs) dm[[cv]] <- sample(dm[[cv]])
-        dm
-      })
-      names(permuted) <- mods
-      pp <- profiles(permuted, mods, covs)
-      null[b] <- max(apply(grid, 1, function(g) joint_stat(pp, as.integer(g))))
-    }
-    p <- (1 + sum(null >= observed)) / (1 + n_perm)
-    out$joint_statistic[out$programme == pr] <- round(observed, 4)
-    out$joint_p[out$programme == pr] <- p
-  }
-  out
+  programmes
 }
 
 #' Add the age band used for anchoring
@@ -802,8 +886,9 @@ chorale_fit <- function(containers,
     designs[[m]] <- design
   }
 
-  matches <- chorale_match(fits, designs, strata_keys = strata_keys,
-                           seed = seed)
+  integration <- chorale_integrate(fits, designs, strata_keys = strata_keys,
+                                   seed = seed)
+  matches <- integration$matches
 
   structure(
     list(
@@ -811,7 +896,18 @@ chorale_fit <- function(containers,
       fits = fits,
       designs = designs,
       matches = matches,
+      programmes = integration$programmes,
+      leave_one_out = integration$leave_one_out,
+      synchronisation = integration$synchronisation,
+      profile_terms = integration$terms,
+      joint_null = integration$null,
       n_shared = if (nrow(matches) > 0) sum(matches$significant) else 0L,
+      n_programmes = if (nrow(integration$programmes) > 0) {
+        sum(!duplicated(integration$programmes$programme) &
+              integration$programmes$supported)
+      } else {
+        0L
+      },
       n_factors = n_factors,
       strata_keys = strata_keys,
       gene_sets = gene_sets,
@@ -831,7 +927,14 @@ print.chorale_fit <- function(x, ...) {
     cat(sprintf("  %-12s %d of %d factors carry pure features\n",
                 m, ok, length(x$fits[[m]]$pure_feature_condition)))
   }
-  cat("  assigned factor pairs:",
+  cat("  programmes recovered by the joint assignment:",
+      if (is.data.frame(x$programmes) && nrow(x$programmes) > 0) {
+        length(unique(x$programmes$programme))
+      } else {
+        0
+      },
+      "of which supported:", x$n_programmes %||% 0L, "\n")
+  cat("  implied factor pairs:",
       if (is.data.frame(x$matches)) nrow(x$matches) else 0,
       "of which significant:", x$n_shared, "\n")
   invisible(x)

@@ -68,6 +68,8 @@ chorale_report <- function(fit, bound = NULL, null = NULL, path,
   written <- c(written, chorale_write(
     chorale_integrated_table(fit, factors, markers, associations, concordance),
     path, "programmes.tsv"))
+  written <- c(written, chorale_write(
+    chorale_leave_one_out(fit), path, "leave_one_out.tsv"))
   written <- c(written, chorale_write_gmt(fit, factors, path))
   written <- c(written, chorale_write_mae(fit, path))
   written <- c(written, chorale_write_html(fit, factors, markers, associations,
@@ -92,10 +94,21 @@ chorale_factor_table <- function(fit, n_top_sets = 5L) {
   for (m in fit$modalities) {
     f <- fit$fits[[m]]
     sw <- f$set_weights
-    shared_factors <- unique(c(
-      fit$matches$factor_a[fit$matches$modality_a == m],
-      fit$matches$factor_b[fit$matches$modality_b == m]
-    ))
+    # A factor counts as shared only where the programme carrying it survived
+    # its null. An assignment on its own is not evidence of sharing.
+    supported <- if (is.data.frame(fit$matches) && nrow(fit$matches) > 0) {
+      fit$matches[fit$matches$significant, , drop = FALSE]
+    } else {
+      fit$matches
+    }
+    shared_factors <- if (is.data.frame(supported) && nrow(supported) > 0) {
+      unique(c(
+        supported$factor_a[supported$modality_a == m],
+        supported$factor_b[supported$modality_b == m]
+      ))
+    } else {
+      character(0)
+    }
     for (j in colnames(f$loadings)) {
       sets <- NA_character_
       scores <- NA_character_
@@ -278,7 +291,7 @@ chorale_control_table <- function(fit, null) {
     rows[[length(rows) + 1]] <- data.frame(
       control = "phenotype permutation",
       value = signif(null$p_phenotype, 4),
-      detail = sprintf("%d permutations, strongest observed agreement %.3f",
+      detail = sprintf("%d permutations, strongest joint evidence %.3f",
                        null$n_permutations, null$observed_agreement),
       stringsAsFactors = FALSE
     )
@@ -290,7 +303,7 @@ chorale_control_table <- function(fit, null) {
         NA_real_
       },
       detail = if (isTRUE(null$modality_null$applicable)) {
-        "agreement recovered after reassigning samples across modalities"
+        "joint evidence recovered after reassigning samples across modalities"
       } else {
         paste("not applicable:", null$modality_null$reason)
       },
@@ -387,13 +400,22 @@ chorale_write_mae <- function(fit, path) {
 #' @noRd
 chorale_integrated_table <- function(fit, factors, markers, associations,
                                     concordance) {
+  # Only programmes whose joint evidence beat its null are reported here. An
+  # assignment the null did not reject is not a result, and substituting one
+  # would render a negative analysis as a positive integration.
+  cols <- c("programme", "n_modalities", "modalities", "programme_pathway",
+            "modality", "factor", "markers", "phenotype_effect", "phenotype_p",
+            "joint_statistic", "joint_p")
   pg <- chorale_programmes(fit, significant_only = TRUE)
   if (nrow(pg) == 0) {
-    pg <- chorale_programmes(fit, significant_only = FALSE)
+    # An empty result is still a result, so it is written with its columns
+    # rather than as a blank file.
+    return(stats::setNames(
+      as.data.frame(rep(list(character(0)), length(cols)),
+                    stringsAsFactors = FALSE),
+      cols
+    ))
   }
-  if (nrow(pg) == 0) return(data.frame())
-  pg <- tryCatch(chorale_joint_evidence(fit, pg, n_perm = 200L),
-                 error = function(e) pg)
 
   eff <- function(mod, fac) {
     if (nrow(associations) == 0) return(c(NA_real_, NA_real_))
@@ -431,9 +453,6 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
     rep(if (length(nm)) nm[1] else "unresolved", nrow(d))
   }), use.names = FALSE)[order(order(pg$programme))]
 
-  cols <- c("programme", "n_modalities", "modalities", "programme_pathway",
-            "modality", "factor", "markers", "phenotype_effect", "phenotype_p",
-            "joint_statistic", "joint_p", "best_match_p")
   pg[, intersect(cols, colnames(pg))]
 }
 
@@ -731,7 +750,12 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
   }
 
   headline <- if (nrow(integrated) == 0) {
-    "<p class='lede'>No factor pair was matched across modalities, so this run reports no integrated programme.</p>"
+    paste0(
+      "<p class='lede'>No programme survived its null in this run, so there is no integrated ",
+      "result to report. The assignment step always returns a correspondence between factors, ",
+      "because it is an assignment; what it does not do is establish that the correspondence ",
+      "means anything. Here it did not, and the supporting detail below describes each modality ",
+      "on its own.</p>")
   } else {
     paste0("<div class='hero'>",
       "<div><div class='n'>", n_prog, "</div>",
@@ -771,10 +795,12 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "if they existed. Agreement alone proves nothing, since unrelated factors agree by chance, so ",
     "the case/control labels are shuffled among animals many times and the observed agreement is ",
     "judged against what shuffling produces.</p>",
-    "<p>Agreement is assessed a pair of modalities at a time, but a programme is not a pair. A ",
-    "factor may agree with partners in several modalities, and those partners are the same ",
-    "programme seen in each, so agreeing factors are linked transitively and a programme is ",
-    "reported once carrying every modality that measures it.</p>",
+    "<p>A programme is not a pair, and it is not assembled from pairs. All the modalities are ",
+    "compared at once: every pairwise agreement is placed in one matrix, and the assignment of ",
+    "factors to programmes is solved over the whole collection in a single step. Correspondences ",
+    "found this way agree around every cycle, so a programme cannot be created by chaining one ",
+    "modality to the next through a single mistaken link, and how many modalities a programme ",
+    "spans is decided by the same evidence rather than afterwards.</p>",
     "<p>Knowing two factors behave alike across the design still does not say how they are coupled ",
     "within one animal, and no amount of data of this kind will, because each animal was measured ",
     "once. What the data support is a range of couplings, which the second figure reports.</p>",
@@ -783,7 +809,9 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "<h2>Shared biological programmes</h2>",
     "<p class='legend'>Positive effect means higher in 5XFAD than in wild-type littermates, in ",
     "units of the pooled standard deviation. Points joined by a line are the same programme seen ",
-    "in two modalities; agreement in sign is what the matching tests. Hover any point for its value.</p>",
+    "in two modalities. Matching tests whether the design profiles point the same way, in either ",
+    "direction, so a programme whose modalities move oppositely is matched and its opposition ",
+    "reported. Hover any point for its value.</p>",
     chorale_svg_effects(integrated),
     chorale_html_table(integrated_display, "Programmes, their biology and their markers",
       paste0("One row per modality that carries a programme, so a programme measured in three ",
@@ -802,8 +830,21 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
              "covariate labels in every contributing modality at once, keeping the best value any ",
              "combination of factors could reach. Requiring three modalities to agree at once is ",
              "far harder by chance than requiring two, so this is where measuring more modalities ",
-             "pays. <em>best_match_p</em> is the strongest single pairwise link, shown for ",
-             "comparison and never as the programme's evidence.")),
+             "pays. The null reruns the whole procedure, assignment included, so the p-value ",
+             "accounts for the freedom the estimator had rather than conditioning on the ",
+             "programme it chose. Only programmes whose joint evidence beat that null appear ",
+             "here.")),
+
+    "<h2>What each modality contributes</h2>",
+    "<p class='legend'>A programme carried by three modalities is only a result of integration ",
+    "if it needs all three. Each row removes one modality and rescores the programme without ",
+    "it: a small <em>delta</em> means the programme was resting on the modalities that remain, ",
+    "and a large negative one means the removed modality was carrying the evidence.</p>",
+    chorale_html_table(chorale_leave_one_out(fit, integrated),
+      "Joint evidence with one modality removed",
+      paste0("<em>dropped</em> is the modality left out, <em>joint_statistic</em> and ",
+             "<em>joint_p</em> the evidence for the remainder, and <em>delta</em> the change ",
+             "from the full programme. Empty where no programme spans three modalities.")),
 
     "<h2>How far the data constrain the coupling</h2>",
     "<p class='legend'>Each animal was measured once, so how strongly two programmes move ",

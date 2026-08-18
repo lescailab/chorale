@@ -2,9 +2,9 @@
 % Please edit documentation in R/fit.R
 \name{chorale_design_profile}
 \alias{chorale_design_profile}
-\title{Standardised effect of each shared covariate on each factor}
+\title{Standardised effect of each design term on each factor}
 \usage{
-chorale_design_profile(scores, design, covariates)
+chorale_design_profile(scores, design, covariates, levels = NULL)
 }
 \arguments{
 \item{scores}{A samples-by-factors matrix.}
@@ -12,17 +12,25 @@ chorale_design_profile(scores, design, covariates)
 \item{design}{The design table for those samples.}
 
 \item{covariates}{Covariate columns to profile.}
+
+\item{levels}{Optional shared-level resolution fixing which terms are formed
+and which level of each categorical covariate is the reference. Supply it
+when profiles from several modalities must line up; it is derived from
+\code{design} alone when absent.}
 }
 \value{
-A factors-by-covariates numeric matrix.
+A factors-by-terms numeric matrix.
 }
 \description{
 The profile is what a factor does to the design: one standardised effect per
-covariate, comparable across modalities measured on different animals. A
-binary covariate contributes a standardised mean difference, a continuous
-one a rank correlation. Profiles are the matching currency because they are
-estimated from samples, so their precision improves with sample size rather
-than with the number of design strata.
+design term, comparable across modalities measured on different animals. A
+binary or categorical covariate contributes one signed standardised mean
+difference per level beyond a reference; a continuous one contributes a
+signed rank correlation. Every entry is therefore signed and on the same
+scale, which is what allows profiles from different modalities to be
+compared by direction. Profiles are estimated from samples, so their
+precision improves with sample size rather than with the number of design
+strata.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
