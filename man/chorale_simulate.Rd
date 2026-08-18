@@ -13,6 +13,9 @@ chorale_simulate(
   n_per_cell = 3,
   noise_sd = 0.1,
   effect_size = 1,
+  signature = NULL,
+  confounder = NULL,
+  imbalance = 0,
   seed = 1
 )
 }
@@ -24,60 +27,74 @@ modality. Recycled if length 1.}
 
 \item{n_shared_factors}{Integer number of shared latent factors.}
 
-\item{n_private_factors}{Integer number of modality-private latent
-factors, common to every modality.}
+\item{n_private_factors}{Integer number of modality-private latent factors,
+common to every modality.}
 
 \item{n_strains}{Integer number of strains in the genetic panel.}
 
-\item{n_per_cell}{Integer number of animals per strain by phenotype by age
-by sex cell, per modality. Samples are drawn independently per modality,
-so no animal appears in more than one modality.}
+\item{n_per_cell}{Integer number of animals per design cell, per modality.
+Samples are drawn independently per modality, so no animal appears in more
+than one modality.}
 
 \item{noise_sd}{Standard deviation of the additive Gaussian measurement
 noise.}
 
-\item{effect_size}{Magnitude of the design effects carried by the shared
-factors, in units of the latent scale. Zero detaches the shared state from
-the design, which is the null the anchor-based matching is calibrated
+\item{effect_size}{Magnitude of the design signatures carried by the shared
+factors, in units of the latent scale. Zero detaches the shared factors
+from the design, which is the complete null the matching is calibrated
 against.}
 
-\item{seed}{Integer random seed, for reproducibility.}
+\item{signature}{Optional \code{n_shared_factors} by three matrix of design
+weights over the phenotype, age and sex contrasts, shared across
+modalities. When absent each shared factor is given a distinct dominant
+contrast. Supplying a signature in which two factors respond to the
+phenotype the same way is how a same-response, distinct-programme
+adversarial case is built.}
+
+\item{confounder}{Optional named list adding a nuisance covariate correlated
+with the phenotype, with elements \code{name}, \code{rho} (the correlation) and
+\code{loading} (its weight on the shared factors), for testing robustness to
+confounding.}
+
+\item{imbalance}{Optional numeric in \verb{[0, 1)}. When positive, design cells
+are populated unevenly across modalities, for testing behaviour under the
+unequal mixtures disjoint cohorts produce.}
+
+\item{seed}{Integer random seed.}
 }
 \value{
-A list with components:
-\describe{
-\item{modalities}{Named list of feature-by-sample matrices, one per
-modality.}
-\item{col_data}{Named list of per-modality sample metadata data
-frames, with columns \code{sample_id}, \code{cohort}, \code{modality}, \code{strain},
-\code{phenotype}, \code{age_months}, \code{sex}, \code{region}, \code{batch}.}
-\item{truth}{List with the shared and private loading matrices per
-modality, the shared and private factor scores per modality, and the
-indices of the pure marker features per shared factor per modality.}
-}
+A list with \code{modalities} (feature-by-sample matrices),
+\code{col_data} (per-modality design tables) and \code{truth}, which carries the
+shared and private loadings and scores per modality, the marker indices,
+the design \code{signature}, and the factor counts, for scoring recovery.
 }
 \description{
 Generates synthetic data for \code{n_modalities} modalities measured on disjoint
-sample sets, following the model of \code{MATHEMATICAL_FOUNDATION.md} Section 8:
-each sample's features are a linear mixture of a shared latent state and a
-modality-private latent state, both non-Gaussian, plus additive Gaussian
-measurement noise. Samples carry a genetic-panel design (strain, phenotype,
-age, sex) that supplies the anchor structure of Section 6, and every
-shared factor is given at least two pure marker features per modality
-(the pure-feature condition), so recovery can be checked against a known
-answer.
+sample sets. Each sample's features are a linear mixture of latent factors
+plus additive Gaussian measurement noise, and the latent factors are drawn
+so that the conditions the identification results rest on hold by
+construction: every factor is non-Gaussian, no two factors share a
+distribution, and each factor's distribution is non-symmetric (Sturma et al.
+2023). A validation of the estimator needs the data to satisfy the
+assumptions it is judged against, which the earlier symmetric,
+identically-distributed design did not.
 }
 \details{
-The shared latent components are drawn from a Laplace distribution and the
-modality-private components from a distinct, non-symmetric distribution
-per modality (shifted chi-squared with a modality-specific degrees of
-freedom), so that the non-Gaussianity and modality-difference conditions
-hold by construction.
+A shared factor is what the estimator should recover as one cross-modality
+programme. Its correspondence across modalities is carried by its
+\strong{design signature}, one weight per design contrast, which is the same in
+every modality; its remaining, design-independent variation is drawn
+independently per modality, since the animals are disjoint. Matching two
+modalities on their design response is therefore what the truth rewards, and
+the signature is the answer a recovered assignment is scored against. Each
+shared factor is given a distinct dominant contrast, so the factors' design
+responses are uncorrelated and the recovered components stay separable.
+Private factors carry no signature and no cross-modality partner.
 }
 \examples{
 sim <- chorale_simulate(
- n_modalities = 2, n_features = 40, n_shared_factors = 3,
- n_private_factors = 2, n_strains = 4, n_per_cell = 2, seed = 1
+  n_modalities = 2, n_features = 40, n_shared_factors = 3,
+  n_private_factors = 2, n_strains = 4, n_per_cell = 2, seed = 1
 )
 names(sim$modalities)
 dim(sim$modalities[[1]])

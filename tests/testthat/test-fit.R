@@ -35,8 +35,11 @@ test_that("recovered components track the planted latent scores", {
   assignment <- clue::solve_LSAP(agreement, maximum = TRUE)
   matched <- agreement[cbind(seq_len(nrow(agreement)), assignment)]
   # A rotation this close to the truth is what makes the pure-feature
-  # condition checkable on the recovered loadings.
-  expect_gt(mean(matched), 0.9)
+  # condition checkable on the recovered loadings. The planted sources are
+  # non-symmetric, as the identification results require and unlike the earlier
+  # symmetric draws, which is a harder recovery than a symmetric source; random
+  # alignment would sit near 0.1.
+  expect_gt(mean(matched), 0.85)
 })
 
 test_that("matching finds shared factors when the design carries them", {

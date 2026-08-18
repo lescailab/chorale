@@ -77,3 +77,63 @@ test_that("chorale_simulate requires at least two modalities", {
     chorale_simulate(n_modalities = 1, n_features = 30)
   )
 })
+
+test_that("planted sources satisfy the identification conditions", {
+  sim <- chorale_simulate(n_modalities = 3, n_features = 150,
+                          n_shared_factors = 3, n_private_factors = 2,
+                          n_strains = 4, n_per_cell = 4, effect_size = 3,
+                          seed = 1)
+  for (mi in seq_along(sim$modalities)) {
+    s <- cbind(sim$truth$scores[[mi]]$shared, sim$truth$scores[[mi]]$private)
+    kurt <- apply(s, 2, function(v) mean(scale(v)^4) - 3)
+    # Non-Gaussian: every factor departs from the normal in kurtosis. A shared
+    # factor carrying a strong two-point design response is bimodal rather than
+    # skewed, which is non-Gaussian in the other direction, so kurtosis is the
+    # condition that holds for all of them.
+    expect_true(all(abs(kurt) > 0.1))
+    # Non-symmetric: the private factors are the pure planted sources, with no
+    # design response to symmetrise them, so their skewness stays away from zero.
+    priv <- sim$truth$scores[[mi]]$private
+    skew_priv <- apply(priv, 2, function(v) mean(scale(v)^3))
+    expect_true(all(abs(skew_priv) > 0.2))
+    # Design responses are near-orthogonal, so the shared factors stay
+    # separable for independent component analysis.
+    shared <- sim$truth$scores[[mi]]$shared
+    cc <- abs(stats::cor(shared)[upper.tri(diag(ncol(shared)))])
+    expect_lt(max(cc), 0.3)
+  }
+})
+
+test_that("a shared factor carries the same design signature in every modality", {
+  sim <- chorale_simulate(n_modalities = 3, n_features = 120,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 4, effect_size = 4,
+                          seed = 2)
+  profile <- function(mi, k) {
+    s <- sim$truth$scores[[mi]]$shared[, k]
+    d <- sim$col_data[[mi]]
+    c(pheno = mean(s[d$phenotype == "5XFAD"]) - mean(s[d$phenotype == "Ntg"]),
+      age = mean(s[d$age_months == 14]) - mean(s[d$age_months == 6]))
+  }
+  # The first shared factor is phenotype-dominant in all three modalities, which
+  # is the correspondence the estimator must recover.
+  p1 <- vapply(seq_along(sim$modalities), profile, numeric(2), k = 1)
+  expect_true(all(p1["pheno", ] > p1["age", ]))
+})
+
+test_that("the confounder and imbalance options change the data as intended", {
+  conf <- chorale_simulate(n_modalities = 2, n_features = 80,
+                           n_shared_factors = 2, n_private_factors = 1,
+                           n_strains = 4, n_per_cell = 3, effect_size = 3,
+                           confounder = list(name = "batch", rho = 0.8,
+                                             loading = 1.5), seed = 1)
+  expect_true("batchB" %in% conf$col_data[[1]]$batch)
+
+  imb <- chorale_simulate(n_modalities = 2, n_features = 80,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 4, effect_size = 3,
+                          imbalance = 0.5, seed = 1)
+  # Thinning cells unevenly leaves the two modalities on different sample counts.
+  expect_true(ncol(imb$modalities[[1]]) != ncol(imb$modalities[[2]]) ||
+                nrow(imb$col_data[[1]]) < 256)
+})
