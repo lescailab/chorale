@@ -1,12 +1,16 @@
 ---
-layout: ../layouts/Base.astro
 title: "How the estimator works"
 description: "The six stages of the pipeline in plain terms."
+site_order: 2
+site_wide: false
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{How the estimator works}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
-
-# How the estimator works
-
-<p class="lede">The six stages of the pipeline in plain terms.</p>
 
 The pipeline runs in six stages. Each is described here in plain terms; Part IV gives the
 mathematics.

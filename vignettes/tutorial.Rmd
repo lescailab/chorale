@@ -1,15 +1,16 @@
 ---
-layout: ../layouts/Base.astro
 title: "Tutorial"
 description: "A complete analysis end to end, on data that ships with the package, with every result explained as it appears."
-wide: true
+site_order: 3
+site_wide: true
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{Tutorial}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
-
-# Tutorial
-
-<p class="lede">A complete analysis from installation to interpretation. Every step runs on
-simulated data that ships with the package, so nothing needs downloading. The output shown is what
-the code actually prints.</p>
 
 <div class="note">
 <span class="lab">What you will end up with</span>
@@ -303,16 +304,12 @@ unique(final[, c("programme", "modalities", "joint_p", "pathway_p",
 
 `evidence` says which lines of support a programme has.
 
-<div class="tablewrap">
-
 | Label | Meaning | How much weight it carries |
 |---|---|---|
 | `design and pathway` | The modalities respond to the disease the same way **and** implicate the same biology | Two independent lines. The strongest result the pipeline produces. |
 | `design only` | They agree on the experiment but not in curated vocabulary | Real, but check `n_shared_sets` before deciding the biology disagreed |
 | `pathway only` | They implicate the same biology without a shared design response | Treat as a hypothesis; the design channel did not support it |
 | `neither` | Neither channel survived | Not reported |
-
-</div>
 
 ## Using your own data
 
@@ -342,8 +339,6 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 
 ## When something does not work
 
-<div class="tablewrap">
-
 | Symptom | Cause | What to do |
 |---|---|---|
 | Error naming two modalities that "do not share a phenotype contrast" | A design lacks `phenotype`, or it takes one value after blanks are mapped to missing | Resolve the phenotype for that modality, or drop it |
@@ -351,8 +346,6 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 | `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
 | No programme supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
 | Very few factors recovered | Too few animals in that modality | More animals, not more features; reducing feature count does not help |
-
-</div>
 
 ## Where to go next
 

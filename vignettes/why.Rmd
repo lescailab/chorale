@@ -1,12 +1,16 @@
 ---
-layout: ../layouts/Base.astro
 title: "Why CHORALE exists"
 description: "What integration across disjoint cohorts requires, what existing methods provide, and what is missing."
+site_order: 1
+site_wide: false
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{Why CHORALE exists}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
-
-# Why CHORALE exists
-
-<p class="lede">What integration across disjoint cohorts requires, what existing methods provide, and what is missing.</p>
 
 ## Why disjoint samples are the common case
 

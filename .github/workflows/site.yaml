@@ -1,7 +1,8 @@
-# Builds the Astro documentation site and publishes it to GitHub Pages.
-# The pkgdown workflow publishes the generated function reference into the
-# reference/ subdirectory of the same branch, so both deploy with clean: false
-# and neither removes the other's files.
+# Builds the documentation site and publishes it to GitHub Pages.
+#
+# The narrative pages and the function reference are both generated from the
+# package by site/sync.R, from vignettes/*.Rmd and man/*.Rd, so what the site
+# shows and what the package ships cannot diverge.
 on:
   push:
     branches: [main]
@@ -15,15 +16,19 @@ jobs:
   site:
     runs-on: ubuntu-latest
     concurrency:
-      group: pages-site
+      group: pages
       cancel-in-progress: false
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: site
     steps:
       - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Generate pages and reference from the package
+        run: Rscript site/sync.R
 
       - uses: actions/setup-node@v4
         with:
@@ -33,13 +38,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: site
 
       - name: Build
         run: npm run build
+        working-directory: site
 
       - name: Deploy to GitHub pages 🚀
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
         with:
-          clean: false
+          clean: true
           branch: gh-pages
           folder: site/dist

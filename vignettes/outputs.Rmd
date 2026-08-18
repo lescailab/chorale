@@ -1,13 +1,16 @@
 ---
-layout: ../layouts/Base.astro
 title: "The outputs and how to read them"
 description: "Every table the pipeline writes, what each column means, and how to interpret it."
-wide: true
+site_order: 4
+site_wide: true
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{The outputs and how to read them}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
-
-# The outputs and how to read them
-
-<p class="lede">Every table the pipeline writes, what each column means, and how to interpret it.</p>
 
 `chorale_report()` writes the tables below and an HTML report that leads with them. The HTML is the
 document to read first; the tables are the same content for downstream use.

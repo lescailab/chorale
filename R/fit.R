@@ -824,14 +824,20 @@ chorale_add_age_bin <- function(design) {
 
 #' Estimate the shared latent state across modalities
 #'
-#' The estimator of `AGENT_PLAN.md` Section 8.3, in four steps. Components are
-#' recovered per modality by independent component analysis over several
-#' initialisations. Pure features are then selected on the loadings alone, so
-#' the identification argument holds before any prior is applied, with ties
-#' broken towards curated-set coherence. The remaining loadings are shrunk
-#' towards those sets, so every factor carries a pathway definition at
-#' estimation. Factors are finally matched across modalities by distributional
-#' agreement, corroborated by the design strata.
+#' Components are recovered per modality by independent component analysis over
+#' several initialisations. Pure features are then selected on the loadings
+#' alone, so the identification argument holds before any prior is applied, with
+#' ties broken towards curated-set coherence. The remaining loadings are
+#' expressed in the curated vocabulary and stored beside the fit as a
+#' description of it, with the variance each explains reported.
+#'
+#' Factors are then matched across modalities on their design-effect profiles,
+#' and the assignment is solved once over the whole collection rather than a
+#' pair at a time, so the correspondences agree around every cycle. Each
+#' resulting programme is scored as one object against a null that reruns the
+#' complete procedure on permuted designs. Where curated sets are supplied the
+#' programmes are corroborated a second time on biology, against an
+#' annotation-matched null, and the two channels are reported separately.
 #'
 #' @param containers A named list of [SummarizedExperiment::SummarizedExperiment]
 #'   objects, one per modality, as returned by [chorale_load()].

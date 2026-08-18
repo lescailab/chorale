@@ -1,13 +1,16 @@
 ---
-layout: ../layouts/Base.astro
 title: "Statistics, mathematics and implementation"
 description: "Every quantity the pipeline computes, the equation behind it, where it is implemented, and the literature it rests on."
-wide: true
+site_order: 5
+site_wide: true
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{Statistics, mathematics and implementation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
-
-# Statistics, mathematics and implementation
-
-<p class="lede">Every quantity the pipeline computes, the equation behind it, where it is implemented, and the literature it rests on.</p>
 
 ## Notation
 

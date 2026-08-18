@@ -12,6 +12,7 @@ Estimates a shared latent biological state across molecular modalities measured 
 Useful links:
 \itemize{
   \item \url{https://github.com/lescailab/chorale}
+  \item \url{https://lescailab.github.io/chorale}
   \item Report bugs at \url{https://github.com/lescailab/chorale/issues}
 }
 

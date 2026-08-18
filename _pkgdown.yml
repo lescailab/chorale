@@ -1,5 +1,0 @@
-# The narrative documentation is an Astro site published at the Pages root; the
-# generated function reference is published beneath it.
-url: https://lescailab.github.io/chorale/reference
-template:
-  bootstrap: 5

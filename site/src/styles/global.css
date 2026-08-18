@@ -182,3 +182,16 @@ aside.toc a.active { color: var(--accent-2); border-left-color: var(--accent); }
 
 .katex-display { overflow-x: auto; overflow-y: hidden; padding: .3rem 0; }
 .katex { font-size: 1em; }
+
+/* ---- generated function reference ---------------------------------------- */
+.rd h3 { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3);
+  font-weight: 660; margin: 2rem 0 .6rem; padding-bottom: .3rem; border-bottom: 1px solid var(--rule); }
+.rd table { margin: 0 0 1.2rem; }
+.rd table[role="presentation"] { border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.rd table[role="presentation"] td { border-bottom: 1px solid var(--rule); padding: .55rem .8rem; }
+.rd table[role="presentation"] td:first-child { width: 12rem; background: var(--bg-2); vertical-align: top; }
+.rd table[role="presentation"] tr:last-child td { border-bottom: 0; }
+.rd table[role="presentation"] p { margin: 0; }
+.rd pre { margin: 0 0 1.2rem; }
+.rd > table:first-child { display: none; }
+.doc .body > h1 code { background: none; border: 0; padding: 0; font-size: .82em; }
