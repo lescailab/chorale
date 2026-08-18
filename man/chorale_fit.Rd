@@ -12,7 +12,7 @@ objects, one per modality, as returned by \code{\link[=chorale_load]{chorale_loa
 
 \item{n_factors}{Integer, or named integer vector per modality, giving the
 number of latent factors to recover per modality. Intended to default to
-the Stage 3 G3 detectability threshold once that gate has run.}
+the detectability threshold once that gate has run.}
 
 \item{gene_sets}{A list of curated gene sets used to constrain factor
 loadings towards a pathway definition at estimation (PLIER-style;

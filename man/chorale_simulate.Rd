@@ -58,19 +58,19 @@ modality-private latent state, both non-Gaussian, plus additive Gaussian
 measurement noise. Samples carry a genetic-panel design (strain, phenotype,
 age, sex) that supplies the anchor structure of Section 6, and every
 shared factor is given at least two pure marker features per modality
-(Section 6, D5), so recovery can be checked against a known answer.
+(the pure-feature condition), so recovery can be checked against a known answer.
 }
 \details{
 The shared latent components are drawn from a Laplace distribution and the
 modality-private components from a distinct, non-symmetric distribution
 per modality (shifted chi-squared with a modality-specific degrees of
-freedom), so that the non-Gaussianity (D7) and pairwise-difference (D4)
+freedom), so that the non-Gaussianity (non-Gaussianity) and pairwise-difference (modality difference)
 identification conditions hold by construction.
 }
 \examples{
 sim <- chorale_simulate(
-  n_modalities = 2, n_features = 40, n_shared_factors = 3,
-  n_private_factors = 2, n_strains = 4, n_per_cell = 2, seed = 1
+ n_modalities = 2, n_features = 40, n_shared_factors = 3,
+ n_private_factors = 2, n_strains = 4, n_per_cell = 2, seed = 1
 )
 names(sim$modalities)
 dim(sim$modalities[[1]])
