@@ -10,7 +10,7 @@ Nothing on the site is written on the site. Two steps carry it from the sources:
 | Step | Source | Becomes | Run by |
 |---|---|---|---|
 | `tools/manual_to_vignettes.R` | `knowledge/MANUAL.md` | `vignettes/{why,how-it-works,outputs,methods}.Rmd` | a person, when the manual changes |
-| `site/sync.R` | `vignettes/*.Rmd`, `man/*.Rd` | the site pages, the navigation, the function reference | the workflow, on every push |
+| `site/sync.R` | `vignettes/*.Rmd`, `man/*.Rd` | the site pages and the function reference | before every build |
 
 The manual is the source of record for the four narrative vignettes, and it holds the full account
 that a methods section is written from. It sits outside the repository, so the vignettes it produces
@@ -20,7 +20,8 @@ are committed and continuous integration builds from those.
 than describing the method, and has no counterpart in the manual.
 
 Files under `site/src/pages/` are generated and are not committed, so editing one has no effect
-beyond the next build.
+beyond the next build. The navigation is read from those pages rather than from a generated list,
+so `npm run build` needs `site/sync.R` to have run but nothing else.
 
 ## Building
 

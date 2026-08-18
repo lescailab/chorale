@@ -11,12 +11,11 @@ chorale_fit(
   feature_map = NULL,
   feature_space = NULL,
   transform = "auto",
-  n_init = 20L,
-  consensus = TRUE,
   strata_keys = NULL,
   assay_name = NULL,
-  n_pathway_perm = 200L,
-  seed = 1L
+  control = chorale_control(),
+  seed = 1L,
+  ...
 )
 }
 \arguments{
@@ -48,21 +47,20 @@ silently leave a modality out of the pathway comparison.}
 See \code{\link[=chorale_transform]{chorale_transform()}}. Defaults to \code{"auto"}, which reads the transform
 from each matrix.}
 
-\item{n_init}{Integer number of random initialisations per modality.}
-
-\item{consensus}{Recover each modality's factors as the consensus over the
-initialisations rather than from the single most non-Gaussian one, so a
-reported factor is one the runs agree on.}
-
 \item{strata_keys}{Design columns defining an anchoring stratum. \code{NULL}, the
 default, uses every covariate the designs share.}
 
 \item{assay_name}{Assay to take from each container.}
 
-\item{n_pathway_perm}{Annotation-matched permutations calibrating the
-pathway channel. Zero skips it.}
+\item{control}{Every decision the run takes, as \code{\link[=chorale_control]{chorale_control()}}: the
+threshold a programme must beat, the permutation counts, what counts as a
+pure feature, and the rest. It travels with the fit, so a result records
+what decided it.}
 
 \item{seed}{Integer seed.}
+
+\item{...}{Named settings overriding \code{control}, so changing one decision does
+not mean restating the others.}
 }
 \value{
 An object of class \code{chorale_fit}.

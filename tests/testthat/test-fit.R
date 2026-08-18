@@ -290,3 +290,57 @@ test_that("pure features can be required as a gate on programmes", {
   expect_gt(nrow(chorale_programmes(fit, require_pure_features = FALSE)), 0)
   expect_equal(nrow(chorale_programmes(fit, require_pure_features = TRUE)), 0)
 })
+
+test_that("the permutation count sets the smallest reportable p-value", {
+  sim <- chorale_simulate(n_modalities = 2, n_features = 100,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 3, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+
+  # A permutation p-value cannot fall below one over one more than the count,
+  # so a run intending to report below a threshold needs enough permutations to
+  # reach it. The count must therefore be settable rather than fixed.
+  few <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                     n_perm = 99L, n_pathway_perm = 0L)
+  many <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                      n_perm = 999L, n_pathway_perm = 0L)
+  expect_gte(min(few$programmes$joint_p), 1 / 100)
+  expect_equal(min(many$programmes$joint_p), 1 / 1000, tolerance = 1e-9)
+  expect_lt(min(many$programmes$joint_p), min(few$programmes$joint_p))
+})
+
+test_that("every decision a run takes is a setting, not a constant", {
+  ctl <- chorale_control()
+  # The decisions that change what is reported must all be reachable.
+  for (nm in c("alpha", "n_perm", "n_pathway_perm", "n_init", "consensus",
+               "require_pure_features", "purity_ratio", "min_markers",
+               "lambda", "min_set_features", "min_lipid_compounds",
+               "min_lipid_specificity", "n_factors_quantile", "max_factors",
+               "n_grid")) {
+    expect_true(nm %in% names(ctl))
+  }
+
+  # A threshold the permutation count cannot reach is refused, since a run
+  # configured that way reports nothing for a reason invisible in its output.
+  expect_error(chorale_control(alpha = 0.001, n_perm = 99L),
+               class = "chorale_unreachable_alpha")
+
+  sim <- chorale_simulate(n_modalities = 2, n_features = 100,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 4, n_per_cell = 3, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                     n_perm = 199L, n_pathway_perm = 0L, alpha = 0.01)
+  # The settings that applied travel with the fit, so a result records what
+  # decided it rather than leaving it to be reconstructed.
+  expect_s3_class(fit$control, "chorale_control")
+  expect_equal(fit$control$alpha, 0.01)
+  expect_equal(fit$control$n_perm, 199L)
+  expect_equal(fit$control$n_init, 2L)
+
+  # A name that is not a decision is reported rather than silently ignored.
+  expect_error(chorale_fit(containers, n_factors = c(3, 3), not_a_setting = 1),
+               "Unknown setting")
+})

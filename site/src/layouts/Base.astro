@@ -1,7 +1,17 @@
 ---
 import '../styles/global.css';
 import 'katex/dist/katex.min.css';
-import { pages } from '../pages.mjs';
+// The navigation is read from the pages that exist rather than from a file
+// generated beside them, so a checkout builds without a prior generation step
+// and a page can never appear in the menu without being there.
+const modules = import.meta.glob('../pages/*.md', { eager: true });
+const pages = Object.entries(modules)
+  .map(([path, mod]) => ({
+    slug: path.split('/').pop().replace(/\.md$/, ''),
+    title: mod.frontmatter?.title ?? '',
+    order: mod.frontmatter?.site_order ?? 99,
+  }))
+  .sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
 const fm = Astro.props.frontmatter ?? {};
 const title = Astro.props.title ?? fm.title ?? 'Documentation';
 const description = Astro.props.description ?? fm.description ?? 'Integrating omics measured on different individuals.';

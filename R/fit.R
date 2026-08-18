@@ -1024,16 +1024,16 @@ chorale_add_age_bin <- function(design, n_bins = 3L) {
 #'   `"none"`, `"log"` or `"vst"`, given as a single value or a named vector.
 #'   See [chorale_transform()]. Defaults to `"auto"`, which reads the transform
 #'   from each matrix.
-#' @param consensus Recover each modality's factors as the consensus over the
-#'   initialisations rather than from the single most non-Gaussian one, so a
-#'   reported factor is one the runs agree on.
-#' @param n_pathway_perm Annotation-matched permutations calibrating the
-#'   pathway channel. Zero skips it.
-#' @param n_init Integer number of random initialisations per modality.
 #' @param strata_keys Design columns defining an anchoring stratum. `NULL`, the
 #'   default, uses every covariate the designs share.
 #' @param assay_name Assay to take from each container.
+#' @param control Every decision the run takes, as [chorale_control()]: the
+#'   threshold a programme must beat, the permutation counts, what counts as a
+#'   pure feature, and the rest. It travels with the fit, so a result records
+#'   what decided it.
 #' @param seed Integer seed.
+#' @param ... Named settings overriding `control`, so changing one decision does
+#'   not mean restating the others.
 #'
 #' @returns An object of class `chorale_fit`.
 #' @export
@@ -1050,12 +1050,11 @@ chorale_fit <- function(containers,
                         feature_map = NULL,
                         feature_space = NULL,
                         transform = "auto",
-                        n_init = 20L,
-                        consensus = TRUE,
                         strata_keys = NULL,
                         assay_name = NULL,
-                        n_pathway_perm = 200L,
-                        seed = 1L) {
+                        control = chorale_control(),
+                        seed = 1L,
+                        ...) {
   if (!is.list(containers) || length(containers) < 2) {
     rlang::abort("`containers` must be a list of at least two modalities.")
   }
@@ -1063,6 +1062,11 @@ chorale_fit <- function(containers,
     names(containers) <- paste0("modality_", seq_along(containers))
   }
   modalities <- names(containers)
+
+  # Anything named directly overrides the control object, so a caller changing
+  # one decision need not rebuild the whole set, and the set that actually
+  # applied is what travels with the fit.
+  control <- chorale_merge_control(control, list(...))
 
   # "auto" defers the count to parallel analysis on each modality, which is the
   # only parameter the estimator cannot infer from its own objective.
@@ -1092,17 +1096,23 @@ chorale_fit <- function(containers,
     x[!is.finite(x)] <- 0
 
     if (auto_factors) {
-      n_factors[[m]] <- chorale_n_factors(x, seed = seed)
+      n_factors[[m]] <- chorale_n_factors(
+        x, quantile = control$n_factors_quantile,
+        max_factors = control$max_factors, seed = seed)
     }
-    fit <- chorale_ica(x, n_factors[[m]], n_init = n_init, seed = seed,
-                       consensus = consensus)
+    fit <- chorale_ica(x, n_factors[[m]], n_init = control$n_init, seed = seed,
+                       consensus = control$consensus)
 
     prior <- NULL
     if (!is.null(gene_sets)) {
       if (identical(unname(feature_space[[m]]), "lipid")) {
         # A lipidome reaches the sets through its classes rather than through
         # gene identifiers, so both modalities end up in one vocabulary.
-        prior <- chorale_metabolite_matrix(rownames(mat), gene_sets)
+        prior <- chorale_metabolite_matrix(
+          rownames(mat), gene_sets,
+          min_compounds = control$min_lipid_compounds,
+          min_specificity = control$min_lipid_specificity,
+          min_features = control$min_set_features)
       } else {
         ids <- rownames(mat)
         weights <- rep(1, length(ids))
@@ -1113,17 +1123,21 @@ chorale_fit <- function(containers,
           ids[mapped] <- fm$ENTREZID[idx[mapped]]
           weights[mapped] <- fm$weight[idx[mapped]]
         }
-        prior <- chorale_geneset_matrix(ids, gene_sets, weights = weights)
+        prior <- chorale_geneset_matrix(ids, gene_sets, weights = weights,
+                                        min_features = control$min_set_features)
         if (ncol(prior) > 0) rownames(prior) <- rownames(mat)
       }
     }
 
-    mk <- chorale_markers(fit$loadings, prior = prior)
+    mk <- chorale_markers(fit$loadings, purity_ratio = control$purity_ratio,
+                          min_markers = control$min_markers,
+                          max_markers = control$max_markers, prior = prior)
     if (!is.null(prior) && ncol(prior) > 0) {
       # The projection onto curated sets is an annotation, so it is stored
       # beside the fit rather than substituted for it. Overwriting the
       # loadings would leave a matrix the scores no longer reconstruct.
-      projected <- chorale_constrain(fit$loadings, prior, mk$markers)
+      projected <- chorale_constrain(fit$loadings, prior, mk$markers,
+                                     lambda = control$lambda)
       fit$set_weights <- projected$set_weights
       fit$pathway_loadings <- projected$loadings
       fit$reconstruction <- chorale_reconstruction(x, fit$scores, fit$loadings,
@@ -1141,7 +1155,8 @@ chorale_fit <- function(containers,
   }
 
   integration <- chorale_integrate(fits, designs, strata_keys = strata_keys,
-                                   seed = seed)
+                                   n_perm = control$n_perm,
+                                   alpha = control$alpha, seed = seed)
   matches <- integration$matches
 
   out <- structure(
@@ -1168,6 +1183,7 @@ chorale_fit <- function(containers,
       # what anchored the comparison rather than on the request that produced it.
       strata_keys = integration$strata_keys %||% strata_keys,
       gene_sets = gene_sets,
+      control = control,
       seed = seed
     ),
     class = "chorale_fit"
@@ -1175,8 +1191,9 @@ chorale_fit <- function(containers,
 
   # The pathway channel is a second, independent line of evidence, so it is
   # computed once here and travels with the fit.
-  out$pathway_evidence <- if (n_pathway_perm > 0) {
-    chorale_pathway_evidence(out, n_perm = n_pathway_perm, seed = seed)
+  out$pathway_evidence <- if (control$n_pathway_perm > 0) {
+    chorale_pathway_evidence(out, n_perm = control$n_pathway_perm,
+                             alpha = control$alpha, seed = seed)
   } else {
     data.frame()
   }
