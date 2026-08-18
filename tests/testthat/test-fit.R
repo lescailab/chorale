@@ -164,3 +164,30 @@ test_that("chorale_fit rejects a single modality", {
   containers <- Map(chorale_load, sim$modalities, sim$col_data)
   expect_error(chorale_fit(containers[1], n_factors = 2), class = "rlang_error")
 })
+
+test_that("programme evidence is joint, not the best pairwise link", {
+  # The plan requires false-discovery control that improves with the number of
+  # modalities, which the strongest pairwise p-value cannot deliver.
+  sim <- chorale_simulate(n_modalities = 3, n_features = 150,
+                          n_shared_factors = 3, n_private_factors = 2,
+                          n_strains = 6, n_per_cell = 4, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = rep(5, 3), n_init = 3, seed = 1)
+  pg <- chorale_joint_evidence(fit, n_perm = 30)
+  skip_if(nrow(pg) == 0)
+  expect_true(all(c("joint_statistic", "joint_p") %in% colnames(pg)))
+  ok <- !is.na(pg$joint_p)
+  skip_if(!any(ok))
+  expect_true(all(pg$joint_p[ok] >= 1 / 31))
+  expect_true(all(pg$joint_p[ok] <= 1))
+  # A programme spanning more modalities carries a larger joint statistic,
+  # since agreement is required simultaneously rather than pair by pair.
+  u <- unique(pg[ok, c("programme", "n_modalities", "joint_statistic")])
+  if (length(unique(u$n_modalities)) > 1) {
+    expect_gt(
+      stats::median(u$joint_statistic[u$n_modalities == max(u$n_modalities)]),
+      stats::median(u$joint_statistic[u$n_modalities == min(u$n_modalities)])
+    )
+  }
+})

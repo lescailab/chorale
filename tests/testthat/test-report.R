@@ -71,11 +71,14 @@ test_that("the integrated result is written as its own table", {
   r <- report_run()
   expect_true("programmes.tsv" %in% basename(r$files))
   p <- utils::read.delim(file.path(r$path, "programmes.tsv"))
-  if (nrow(r$fit$matches) > 0) {
-    expect_equal(nrow(p), nrow(r$fit$matches))
-    expect_true(all(c("programme", "pathway", "phenotype_effect_a",
-                      "phenotype_effect_b", "direction") %in% colnames(p)))
-  }
+  skip_if(nrow(p) == 0)
+  expect_true(all(c("programme", "n_modalities", "modalities", "modality",
+                    "factor", "markers", "phenotype_effect") %in% colnames(p)))
+  # One row per modality carrying a programme, so a programme is named once
+  # however many modalities it reaches.
+  per <- table(p$programme)
+  expect_true(all(per >= 2))
+  expect_true(all(p$n_modalities >= 2))
 })
 
 test_that("the report leads with integration, not with per-modality factors", {
@@ -95,6 +98,28 @@ test_that("every table carries a legend", {
   n_tables <- length(gregexpr("<h3>", html, fixed = TRUE)[[1]])
   n_legends <- length(gregexpr("class='legend'", html, fixed = TRUE)[[1]])
   expect_gte(n_legends, n_tables)
+})
+
+test_that("a programme spans every modality carrying it, not one row per pair", {
+  # Three modalities agreeing on one programme must be reported once, with all
+  # three named, rather than as three separate pairings.
+  sim <- chorale_simulate(n_modalities = 3, n_features = 150,
+                          n_shared_factors = 3, n_private_factors = 2,
+                          n_strains = 6, n_per_cell = 4, effect_size = 3,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = rep(5, 3), n_init = 3, seed = 1)
+  pg <- chorale_programmes(fit)
+  skip_if(nrow(pg) == 0)
+  expect_true(all(c("programme", "n_modalities", "modalities") %in% colnames(pg)))
+  # A factor belongs to exactly one programme.
+  key <- paste(pg$modality, pg$factor)
+  expect_equal(length(key), length(unique(key)))
+  # n_modalities agrees with the members actually listed.
+  for (pr in unique(pg$programme)) {
+    d <- pg[pg$programme == pr, , drop = FALSE]
+    expect_equal(d$n_modalities[1], length(unique(d$modality)))
+  }
 })
 
 test_that("charts are inline and labelled for assistive technology", {

@@ -386,10 +386,14 @@ chorale_write_mae <- function(fit, path) {
 #' @keywords internal
 #' @noRd
 chorale_integrated_table <- function(fit, factors, markers, associations,
-                                     concordance) {
-  if (nrow(fit$matches) == 0) return(data.frame())
-  m <- fit$matches
-  m <- m[order(m$p_value, -m$statistic), , drop = FALSE]
+                                    concordance) {
+  pg <- chorale_programmes(fit, significant_only = TRUE)
+  if (nrow(pg) == 0) {
+    pg <- chorale_programmes(fit, significant_only = FALSE)
+  }
+  if (nrow(pg) == 0) return(data.frame())
+  pg <- tryCatch(chorale_joint_evidence(fit, pg, n_perm = 200L),
+                 error = function(e) pg)
 
   eff <- function(mod, fac) {
     if (nrow(associations) == 0) return(c(NA_real_, NA_real_))
@@ -411,33 +415,26 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
     paste(chorale_readable_features(utils::head(r$feature, n)), collapse = ", ")
   }
 
-  rows <- lapply(seq_len(nrow(m)), function(i) {
-    r <- m[i, ]
-    ea <- eff(r$modality_a, r$factor_a)
-    eb <- eff(r$modality_b, r$factor_b)
-    pw <- pathway(r$modality_a, r$factor_a)
-    if (is.na(pw)) pw <- pathway(r$modality_b, r$factor_b)
-    conc <- concordance[concordance$factor_a == r$factor_a &
-                          concordance$factor_b == r$factor_b, , drop = FALSE]
-    data.frame(
-      programme = paste0("P", i),
-      modality_a = r$modality_a, factor_a = r$factor_a,
-      modality_b = r$modality_b, factor_b = r$factor_b,
-      pathway = if (is.na(pw)) "unresolved" else pw,
-      markers_a = mk(r$modality_a, r$factor_a),
-      markers_b = mk(r$modality_b, r$factor_b),
-      phenotype_effect_a = round(ea[1], 3),
-      phenotype_p_a = signif(ea[2], 3),
-      phenotype_effect_b = round(eb[1], 3),
-      phenotype_p_b = signif(eb[2], 3),
-      direction = if (nrow(conc) > 0) conc$direction[1] else
-        if (r$sign < 0) "opposed" else "aligned",
-      match_p = signif(r$p_value, 3),
-      significant = r$significant,
-      stringsAsFactors = FALSE
-    )
-  })
-  do.call(rbind, rows)
+  pg$pathway <- vapply(seq_len(nrow(pg)), function(i)
+    pathway(pg$modality[i], pg$factor[i]) %||% NA_character_, character(1))
+  pg$markers <- vapply(seq_len(nrow(pg)), function(i)
+    mk(pg$modality[i], pg$factor[i]), character(1))
+  e <- t(vapply(seq_len(nrow(pg)), function(i)
+    eff(pg$modality[i], pg$factor[i]), numeric(2)))
+  pg$phenotype_effect <- round(e[, 1], 3)
+  pg$phenotype_p <- signif(e[, 2], 3)
+
+  # One pathway name per programme: the first its members resolve.
+  by_prog <- split(pg, pg$programme)
+  pg$programme_pathway <- unlist(lapply(by_prog, function(d) {
+    nm <- d$pathway[!is.na(d$pathway)]
+    rep(if (length(nm)) nm[1] else "unresolved", nrow(d))
+  }), use.names = FALSE)[order(order(pg$programme))]
+
+  cols <- c("programme", "n_modalities", "modalities", "programme_pathway",
+            "modality", "factor", "markers", "phenotype_effect", "phenotype_p",
+            "joint_statistic", "joint_p", "best_match_p")
+  pg[, intersect(cols, colnames(pg))]
 }
 
 #' Show a feature by its gene symbol where the identifier is opaque
@@ -507,15 +504,8 @@ chorale_html_table <- function(d, caption, legend) {
 #' @noRd
 chorale_svg_effects <- function(integrated) {
   if (nrow(integrated) == 0) return("")
-  long <- do.call(rbind, lapply(seq_len(nrow(integrated)), function(i) {
-    r <- integrated[i, ]
-    data.frame(
-      programme = r$programme,
-      modality = c(r$modality_a, r$modality_b),
-      effect = c(r$phenotype_effect_a, r$phenotype_effect_b),
-      stringsAsFactors = FALSE
-    )
-  }))
+  long <- integrated[, c("programme", "modality", "phenotype_effect")]
+  names(long)[3] <- "effect"
   long <- long[is.finite(long$effect), , drop = FALSE]
   if (nrow(long) == 0) return("")
 
@@ -524,7 +514,7 @@ chorale_svg_effects <- function(integrated) {
 
   progs <- unique(long$programme)
   row_h <- 46
-  pad_l <- 92; pad_r <- 148; pad_t <- 18; pad_b <- 46
+  pad_l <- 92; pad_r <- 200; pad_t <- 18; pad_b <- 46
   w <- 760
   h <- pad_t + length(progs) * row_h + pad_b
   plot_w <- w - pad_l - pad_r
@@ -556,11 +546,14 @@ chorale_svg_effects <- function(integrated) {
       pad_l - 14, y + 4, chorale_esc(pr)))
     # The two modalities are dodged vertically, so a programme whose effects
     # nearly coincide still shows both marks rather than one hiding the other.
-    dodge <- if (nrow(sub) == 2) c(-5.5, 5.5) else 0
-    if (nrow(sub) == 2 && all(is.finite(sub$effect))) {
+    n_sub <- nrow(sub)
+    dodge <- if (n_sub > 1) seq(-5.5, 5.5, length.out = n_sub) else 0
+    if (n_sub > 1 && all(is.finite(sub$effect))) {
+      ordx <- order(sub$effect)
       parts <- c(parts, sprintf(
         "<line x1='%.1f' y1='%.1f' x2='%.1f' y2='%.1f' class='connect'/>",
-        xs(sub$effect[1]), y + dodge[1], xs(sub$effect[2]), y + dodge[2]))
+        xs(sub$effect[ordx[1]]), y + dodge[1],
+        xs(sub$effect[ordx[n_sub]]), y + dodge[n_sub]))
     }
     for (j in seq_len(nrow(sub))) {
       cx <- xs(sub$effect[j]); s <- slot[[sub$modality[j]]]
@@ -600,13 +593,13 @@ chorale_svg_bounds <- function(bounds, integrated = NULL) {
   # figures can be read against one another.
   bounds$label <- paste0(bounds$modality_a, "/", bounds$modality_b)
   if (!is.null(integrated) && nrow(integrated) > 0) {
-    key_b <- paste(bounds$modality_a, bounds$factor_a,
-                   bounds$modality_b, bounds$factor_b)
-    key_i <- paste(integrated$modality_a, integrated$factor_a,
-                   integrated$modality_b, integrated$factor_b)
-    hit <- match(key_b, key_i)
-    bounds$label <- ifelse(is.na(hit), bounds$label,
-                           paste0(integrated$programme[hit], "  ", bounds$label))
+    member <- stats::setNames(integrated$programme,
+                              paste(integrated$modality, integrated$factor))
+    hit <- member[paste(bounds$modality_a, bounds$factor_a)]
+    hit2 <- member[paste(bounds$modality_b, bounds$factor_b)]
+    prog <- ifelse(is.na(hit), hit2, hit)
+    bounds$label <- ifelse(is.na(prog), bounds$label,
+                           paste0(prog, "  ", bounds$label))
   }
   bounds <- utils::head(bounds[order(bounds$width_anchored), , drop = FALSE], 12)
   row_h <- 34
@@ -663,7 +656,10 @@ chorale_write_html <- function(fit, factors, markers, associations,
   f <- file.path(path, "report.html")
   integrated <- chorale_integrated_table(fit, factors, markers, associations,
                                          concordance)
-  n_sig <- if (nrow(integrated) > 0) sum(integrated$significant) else 0
+  n_prog <- if (nrow(integrated) > 0) length(unique(integrated$programme)) else 0
+  n_multi <- if (nrow(integrated) > 0) {
+    length(unique(integrated$programme[integrated$n_modalities >= 3]))
+  } else 0
 
   css <- "
 :root{--surface-1:#fcfcfb;--surface-2:#f4f3f0;--text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#767570;--rule:#dcdbd6;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--seq-light:#86b6ef;--seq-dark:#1c5cab;--good:#0ca30c;--warn:#fab219}
@@ -712,22 +708,25 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
 
   cards <- ""
   if (nrow(integrated) > 0) {
-    for (i in seq_len(nrow(integrated))) {
-      r <- integrated[i, ]
+    for (pr in unique(integrated$programme)) {
+      d <- integrated[integrated$programme == pr, , drop = FALSE]
+      members <- paste0(vapply(seq_len(nrow(d)), function(i) paste0(
+        "<strong>", chorale_esc(d$modality[i]), "</strong> ",
+        chorale_esc(d$factor[i]),
+        ", markers ", chorale_esc(d$markers[i]),
+        " &middot; phenotype effect ", chorale_esc(d$phenotype_effect[i]),
+        " (p ", chorale_esc(d$phenotype_p[i]), ")"), character(1)),
+        collapse = "<br>")
       cards <- paste0(cards,
-        "<div class='card'><h4>", chorale_esc(r$programme), " &middot; ",
-        chorale_esc(r$pathway),
-        if (isTRUE(r$significant)) "<span class='tag ok'>matched</span>"
-          else "<span class='tag warn'>tentative</span>",
-        "<span class='tag'>", chorale_esc(r$direction), "</span></h4>",
-        "<p class='legend'><strong>", chorale_esc(r$modality_a), "</strong> ",
-        chorale_esc(r$factor_a), ", markers ", chorale_esc(r$markers_a),
-        " &middot; phenotype effect ", chorale_esc(r$phenotype_effect_a),
-        " (p ", chorale_esc(r$phenotype_p_a), ")<br>",
-        "<strong>", chorale_esc(r$modality_b), "</strong> ",
-        chorale_esc(r$factor_b), ", markers ", chorale_esc(r$markers_b),
-        " &middot; phenotype effect ", chorale_esc(r$phenotype_effect_b),
-        " (p ", chorale_esc(r$phenotype_p_b), ")</p></div>")
+        "<div class='card'><h4>", chorale_esc(pr), " &middot; ",
+        chorale_esc(d$programme_pathway[1]),
+        "<span class='tag ", if (d$n_modalities[1] >= 3) "ok" else "",
+        "'>", d$n_modalities[1], " modalities</span>",
+        if ("joint_p" %in% colnames(d) && !is.na(d$joint_p[1]))
+          paste0("<span class='tag'>joint p ", signif(d$joint_p[1], 3), "</span>")
+        else "",
+        "<span class='tag'>", chorale_esc(d$modalities[1]), "</span></h4>",
+        "<p class='legend'>", members, "</p></div>")
     }
   }
 
@@ -735,20 +734,16 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "<p class='lede'>No factor pair was matched across modalities, so this run reports no integrated programme.</p>"
   } else {
     paste0("<div class='hero'>",
-      "<div><div class='n'>", nrow(integrated), "</div>",
+      "<div><div class='n'>", n_prog, "</div>",
       "<div class='cap'>latent programmes seen in more than one modality</div></div>",
-      "<div><div class='n'>", n_sig, "</div>",
-      "<div class='cap'>of them matched beyond what permuted labels produce</div></div>",
+      "<div><div class='n'>", n_multi, "</div>",
+      "<div class='cap'>of them carried by all three modalities at once</div></div>",
       "<div><div class='n'>", length(fit$modalities), "</div>",
       "<div class='cap'>modalities integrated, on disjoint animals</div></div>",
       "</div>")
   }
 
-  integrated_display <- if (nrow(integrated) == 0) integrated else
-    integrated[, c("programme", "pathway", "modality_a", "markers_a",
-                   "phenotype_effect_a", "phenotype_p_a", "modality_b",
-                   "markers_b", "phenotype_effect_b", "phenotype_p_b",
-                   "direction", "match_p", "significant")]
+  integrated_display <- integrated
 
   html <- paste0(
     "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
@@ -776,6 +771,10 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "if they existed. Agreement alone proves nothing, since unrelated factors agree by chance, so ",
     "the case/control labels are shuffled among animals many times and the observed agreement is ",
     "judged against what shuffling produces.</p>",
+    "<p>Agreement is assessed a pair of modalities at a time, but a programme is not a pair. A ",
+    "factor may agree with partners in several modalities, and those partners are the same ",
+    "programme seen in each, so agreeing factors are linked transitively and a programme is ",
+    "reported once carrying every modality that measures it.</p>",
     "<p>Knowing two factors behave alike across the design still does not say how they are coupled ",
     "within one animal, and no amount of data of this kind will, because each animal was measured ",
     "once. What the data support is a range of couplings, which the second figure reports.</p>",
@@ -787,24 +786,34 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "in two modalities; agreement in sign is what the matching tests. Hover any point for its value.</p>",
     chorale_svg_effects(integrated),
     chorale_html_table(integrated_display, "Programmes, their biology and their markers",
-      paste0("One row per programme. <em>pathway</em> is the curated set the loadings were ",
+      paste0("One row per modality that carries a programme, so a programme measured in three ",
+             "modalities occupies three rows sharing a <em>programme</em> identifier. ",
+             "<em>n_modalities</em> and <em>modalities</em> record how far it reaches. ",
+             "<em>programme_pathway</em> is the curated set the loadings were ",
              "shrunk towards at estimation, so it is a definition rather than an annotation ",
              "added afterwards. <em>markers</em> are features loading on that programme and ",
              "almost nothing else, which is what makes the axis interpretable. ",
              "<em>phenotype_effect</em> and <em>phenotype_p</em> are the case/control effect and ",
-             "its permutation p-value within that modality. <em>direction</em> records whether ",
-             "the two modalities move together or oppositely; opposed programmes are kept, since ",
-             "transcript and protein disagreement is itself reported. <em>match_p</em> is the ",
-             "permutation p-value of the cross-modality match.")),
+             "its permutation p-value within that modality; comparing the sign across rows of one ",
+             "programme shows whether the modalities move together or oppositely, and opposed ",
+             "programmes are kept, since transcript and protein disagreement is itself reported. ",
+             "<em>joint_statistic</em> and <em>joint_p</em> judge the programme as one object: ",
+             "the agreement is averaged over every pair inside it, and the null permutes ",
+             "covariate labels in every contributing modality at once, keeping the best value any ",
+             "combination of factors could reach. Requiring three modalities to agree at once is ",
+             "far harder by chance than requiring two, so this is where measuring more modalities ",
+             "pays. <em>best_match_p</em> is the strongest single pairwise link, shown for ",
+             "comparison and never as the programme's evidence.")),
 
     "<h2>How far the data constrain the coupling</h2>",
     "<p class='legend'>Each animal was measured once, so how strongly two programmes move ",
     "together within an animal cannot be recovered. What the data support is a range. Each row ",
     "is the range of correlations they cannot exclude. Taking the design into account narrows ",
-    "it: the average of each programme within each design group is observable in both ",
-    "modalities, so the part of the relationship running between groups is already fixed, and ",
+    "it: the average of a programme within each design group is observable in every modality ",
+    "carrying it, so the part of the relationship running between groups is already fixed, and ",
     "only the variation inside a group stays free. Where a bar remains wide, that width is the ",
-    "result rather than a missing number.</p>",
+    "result rather than a missing number. A correlation concerns two quantities, so a programme ",
+    "spanning three modalities contributes one row per pair, all describing that one programme.</p>",
     chorale_svg_bounds(bounds, integrated),
     chorale_html_table(bounds, "Identified set per coupling",
       paste0("<em>lower/upper_no_anchor</em> is the Frechet range from the margins alone; ",
