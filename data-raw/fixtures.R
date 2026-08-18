@@ -30,8 +30,8 @@ for (layer in c("RNA", "PROT", "METAB")) {
     stringsAsFactors = FALSE
   )
 
-  feature_id <- rownames(mat)
-  if (is.null(feature_id)) feature_id <- as.character(seq_len(nrow(mat)))
+  feature_id <- as.character(mat[["feature_id"]])
+  mat[["feature_id"]] <- NULL
 
   # Sample selection: up to n_per_stratum per anchoring stratum, so every
   # stratum retained is still able to support stratified permutation. Layers

@@ -12,6 +12,7 @@ chorale_simulate(
   n_strains = 8,
   n_per_cell = 3,
   noise_sd = 0.1,
+  effect_size = 1,
   seed = 1
 )
 }
@@ -34,6 +35,11 @@ so no animal appears in more than one modality.}
 
 \item{noise_sd}{Standard deviation of the additive Gaussian measurement
 noise.}
+
+\item{effect_size}{Magnitude of the design effects carried by the shared
+factors, in units of the latent scale. Zero detaches the shared state from
+the design, which is the null the anchor-based matching is calibrated
+against.}
 
 \item{seed}{Integer random seed, for reproducibility.}
 }
@@ -58,14 +64,15 @@ modality-private latent state, both non-Gaussian, plus additive Gaussian
 measurement noise. Samples carry a genetic-panel design (strain, phenotype,
 age, sex) that supplies the anchor structure of Section 6, and every
 shared factor is given at least two pure marker features per modality
-(the pure-feature condition), so recovery can be checked against a known answer.
+(the pure-feature condition), so recovery can be checked against a known
+answer.
 }
 \details{
 The shared latent components are drawn from a Laplace distribution and the
 modality-private components from a distinct, non-symmetric distribution
 per modality (shifted chi-squared with a modality-specific degrees of
-freedom), so that the non-Gaussianity (non-Gaussianity) and pairwise-difference (modality difference)
-identification conditions hold by construction.
+freedom), so that the non-Gaussianity and modality-difference conditions
+hold by construction.
 }
 \examples{
 sim <- chorale_simulate(

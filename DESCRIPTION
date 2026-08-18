@@ -18,6 +18,14 @@ Depends:
     R (>= 4.4)
 Roxygen: list(markdown = TRUE)
 Suggests:
+    biomaRt,
+    DESeq2,
+    edgeR,
+    fgsea,
+    GSVA,
+    limma,
+    msqrob2,
+    QFeatures,
     knitr,
     MOFA2,
     MSFA,
@@ -31,21 +39,16 @@ Suggests:
 Config/testthat/edition: 3
 Imports:
     AnnotationDbi,
-    biomaRt,
-    DESeq2,
-    edgeR,
-    fgsea,
-    GSVA,
+    clue,
+    fastICA,
     lifecycle,
-    limma,
     msigdbr,
-    msqrob2,
     MultiAssayExperiment,
     nanoparquet,
     org.Mm.eg.db,
-    QFeatures,
     reticulate,
     rlang,
+    S4Vectors,
     SummarizedExperiment,
     utils
 Config/roxygen2/version: 8.1.0

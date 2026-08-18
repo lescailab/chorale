@@ -4,39 +4,58 @@
 \alias{chorale_fit}
 \title{Estimate the shared latent state across modalities}
 \usage{
-chorale_fit(containers, n_factors, gene_sets)
+chorale_fit(
+  containers,
+  n_factors,
+  gene_sets = NULL,
+  feature_map = NULL,
+  n_init = 20L,
+  strata_keys = c("phenotype", "age_bin", "sex"),
+  assay_name = NULL,
+  seed = 1L
+)
 }
 \arguments{
 \item{containers}{A named list of \link[SummarizedExperiment:SummarizedExperiment]{SummarizedExperiment::SummarizedExperiment}
 objects, one per modality, as returned by \code{\link[=chorale_load]{chorale_load()}}.}
 
-\item{n_factors}{Integer, or named integer vector per modality, giving the
-number of latent factors to recover per modality. Intended to default to
-the detectability threshold once that gate has run.}
+\item{n_factors}{Integer, or one integer per modality, giving the number of
+components to recover, from the detectability gate.}
 
-\item{gene_sets}{A list of curated gene sets used to constrain factor
-loadings towards a pathway definition at estimation (PLIER-style;
-\code{AGENT_PLAN.md} Section 8.3).}
+\item{gene_sets}{A named list of curated gene sets, as returned by
+\code{\link[=chorale_genesets]{chorale_genesets()}}. Without it, markers are selected on loadings alone
+and factors carry no pathway definition.}
+
+\item{feature_map}{Optional named list, one entry per modality, each a data
+frame from \code{\link[=chorale_map]{chorale_map()}} harmonising that modality's features to Entrez
+identifiers.}
+
+\item{n_init}{Integer number of random initialisations per modality.}
+
+\item{strata_keys}{Design columns defining an anchoring stratum.}
+
+\item{assay_name}{Assay to take from each container.}
+
+\item{seed}{Integer seed.}
 }
 \value{
-A \code{chorale_fit} object (not yet defined).
+An object of class \code{chorale_fit}.
 }
 \description{
-The estimator specified in \code{AGENT_PLAN.md} Section 8.3: per-modality
-non-Gaussian factor recovery by ICA, cross-modality matching of recovered
-error distributions, and anchor weighting from the design covariates. Its
-concrete form is gated by the Stage 3 feasibility checks (\code{chorale_null()}
-preconditions; \code{AGENT_PLAN.md} Section 6): whether the linear
-non-Gaussian identification route applies, or whether the
-structural-sparsity route of \code{MATHEMATICAL_FOUNDATION.md} Section 4
-becomes the primary argument instead. That decision has not yet been
-made (see \code{analysis/feasibility.md}), so this function is not yet
-implemented.
+The estimator of \code{AGENT_PLAN.md} Section 8.3, in four steps. Components are
+recovered per modality by independent component analysis over several
+initialisations. Pure features are then selected on the loadings alone, so
+the identification argument holds before any prior is applied, with ties
+broken towards curated-set coherence. The remaining loadings are shrunk
+towards those sets, so every factor carries a pathway definition at
+estimation. Factors are finally matched across modalities by distributional
+agreement, corroborated by the design strata.
 }
 \examples{
-\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-# Not yet implemented; see `analysis/feasibility.md` for the blocking
-# Stage 3 gate results.
-chorale_fit(containers, n_factors = 5, gene_sets = list())
-\dontshow{\}) # examplesIf}
+sim <- chorale_simulate(n_modalities = 2, n_features = 60,
+                        n_shared_factors = 2, n_private_factors = 1,
+                        n_strains = 2, n_per_cell = 2, seed = 1)
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit
 }

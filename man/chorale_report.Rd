@@ -2,9 +2,9 @@
 % Please edit documentation in R/report.R
 \name{chorale_report}
 \alias{chorale_report}
-\title{Emit interpretable outputs from a chorale fit}
+\title{Emit interpretable outputs from a fit}
 \usage{
-chorale_report(fit, bound, null, path)
+chorale_report(fit, bound = NULL, null = NULL, path, n_top_sets = 5L)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object, as returned by \code{\link[=chorale_fit]{chorale_fit()}}.}
@@ -13,27 +13,35 @@ chorale_report(fit, bound, null, path)
 
 \item{null}{A \code{chorale_null} object, as returned by \code{\link[=chorale_null]{chorale_null()}}.}
 
-\item{path}{Directory to write the output files into.}
+\item{path}{Directory to write into. Created if absent.}
+
+\item{n_top_sets}{Number of curated sets naming each factor.}
 }
 \value{
-Invisibly, \code{path}.
+Invisibly, a character vector of the files written.
 }
 \description{
-Writes the production outputs specified in \code{AGENT_PLAN.md} Section 9
-(\code{factors.tsv}, \code{markers.tsv}, \verb{loadings_<modality>.tsv},
-\verb{scores_<modality>.tsv}, \code{associations.tsv}, \code{concordance.tsv},
-\code{bounds.tsv}, \code{controls.tsv}, \code{factors.gmt}, \code{chorale.h5ad},
-\code{chorale_mae.rds}, \code{report.html}) into \code{path}. No factor is reported
-without a pathway definition and at least two marker features per
-modality; a factor that cannot be named biologically is reported as
-unresolved and excluded from interpretation. Depends on \code{chorale_fit()},
-\code{chorale_bound()} and \code{chorale_null()} output, none of which is yet
-implemented (see \code{analysis/feasibility.md}).
+Writes the outputs of \code{AGENT_PLAN.md} Section 9. Every factor reported
+carries a pathway definition and its marker features; a factor that cannot
+be named is written to the same tables marked unresolved, rather than
+dropped, since a factor that is identified but unnameable is a finding about
+the gene sets rather than an absence.
+}
+\details{
+Cross-modality disagreement is reported alongside agreement. Proteome and
+transcriptome inconsistency in Alzheimer's brain is enriched in the amyloid
+plaque microenvironment and reflects amyloid-delayed protein turnover
+(Yarbro et al., Nat Commun 16:1533, 2025), so factors moving in opposite
+directions across modalities are ranked and kept rather than discarded.
 }
 \examples{
-\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-# Not yet implemented; depends on chorale_fit(), chorale_bound() and
-# chorale_null().
-chorale_report(fit, bound, null, path = tempdir())
-\dontshow{\}) # examplesIf}
+sim <- chorale_simulate(n_modalities = 2, n_features = 120,
+                        n_shared_factors = 2, n_private_factors = 1,
+                        n_strains = 4, n_per_cell = 3, effect_size = 3,
+                        seed = 1)
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+out <- chorale_report(fit, chorale_bound(fit), NULL,
+                      path = withr::local_tempdir())
+basename(out)
 }

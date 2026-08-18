@@ -4,30 +4,47 @@
 \alias{chorale_null}
 \title{Permutation calibration and stability diagnostics}
 \usage{
-chorale_null(fit, n_permutations = 1000, n_init = 20)
+chorale_null(fit, containers, n_permutations = 100L, n_init = 5L, seed = 1L)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object, as returned by \code{\link[=chorale_fit]{chorale_fit()}}.}
 
-\item{n_permutations}{Integer, number of label permutations to run.}
+\item{containers}{The modality containers the fit was built from, needed to
+refit under permutation.}
 
-\item{n_init}{Integer, number of random ICA initialisations per fit, at
-least 20 per \code{AGENT_PLAN.md} Section 8.5.}
+\item{n_permutations}{Number of label permutations.}
+
+\item{n_init}{Initialisations per refit.}
+
+\item{seed}{Integer seed.}
 }
 \value{
-A \code{chorale_null} object (not yet defined).
+An object of class \code{chorale_null} holding the permutation nulls,
+the modality-shuffle null, and per-factor stability.
 }
 \description{
-Shuffles phenotype labels within cohort and stratum, shuffles modality
-labels, and refits across at least twenty random initialisations, since
-ICA is non-convex and non-deterministic and a single fit is not a result
-(\code{AGENT_PLAN.md} Section 8.5). Depends on a \code{chorale_fit} object, and so
-is blocked on \code{chorale_fit()}, which is not yet implemented (see
-\code{analysis/feasibility.md}).
+Every reported result is accompanied by the control that could have
+falsified it. Three run here.
+}
+\details{
+Permuting the phenotype label within cohort and stratum breaks its relation
+to the data while leaving the design intact, so the anchor agreement of a
+genuine shared factor should exceed what permuted labels produce.
+
+Permuting the modality label pools the samples and reassigns them, which
+destroys the modality-specific structure the identification argument
+consumes. Matches that survive it were never resting on that structure.
+
+Stability across initialisations is reported because independent component
+analysis is non-convex: a factor recovered at one initialisation and not at
+another is a draw, not an estimate.
 }
 \examples{
-\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-# Not yet implemented; depends on chorale_fit().
-chorale_null(fit, n_permutations = 1000, n_init = 20)
-\dontshow{\}) # examplesIf}
+sim <- chorale_simulate(n_modalities = 2, n_features = 120,
+                        n_shared_factors = 2, n_private_factors = 1,
+                        n_strains = 4, n_per_cell = 3, effect_size = 3,
+                        seed = 1)
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+chorale_null(fit, containers, n_permutations = 3, n_init = 2)
 }

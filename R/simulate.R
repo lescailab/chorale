@@ -7,13 +7,14 @@
 #' measurement noise. Samples carry a genetic-panel design (strain, phenotype,
 #' age, sex) that supplies the anchor structure of Section 6, and every
 #' shared factor is given at least two pure marker features per modality
-#' (the pure-feature condition), so recovery can be checked against a known answer.
+#' (the pure-feature condition), so recovery can be checked against a known
+#' answer.
 #'
 #' The shared latent components are drawn from a Laplace distribution and the
 #' modality-private components from a distinct, non-symmetric distribution
 #' per modality (shifted chi-squared with a modality-specific degrees of
-#' freedom), so that the non-Gaussianity (non-Gaussianity) and pairwise-difference (modality difference)
-#' identification conditions hold by construction.
+#' freedom), so that the non-Gaussianity and modality-difference conditions
+#' hold by construction.
 #'
 #' @param n_modalities Integer number of modalities to simulate.
 #' @param n_features Integer vector of length `n_modalities`, features per
@@ -27,6 +28,10 @@
 #'  so no animal appears in more than one modality.
 #' @param noise_sd Standard deviation of the additive Gaussian measurement
 #'  noise.
+#' @param effect_size Magnitude of the design effects carried by the shared
+#'  factors, in units of the latent scale. Zero detaches the shared state from
+#'  the design, which is the null the anchor-based matching is calibrated
+#'  against.
 #' @param seed Integer random seed, for reproducibility.
 #'
 #' @returns A list with components:
@@ -55,6 +60,7 @@ chorale_simulate <- function(n_modalities = 3,
                n_strains = 8,
                n_per_cell = 3,
                noise_sd = 0.1,
+               effect_size = 1,
                seed = 1) {
  if (n_modalities < 2) {
   rlang::abort("`n_modalities` must be at least 2.")
@@ -98,10 +104,19 @@ chorale_simulate <- function(n_modalities = 3,
 
  n_total_factors <- n_shared_factors + n_private_factors
 
- # Strain-level random effect on the shared factors, so strain is
- # informative of the shared state (anchor structure, Section 6).
+ # Design effects on the shared factors, planted at a specified magnitude
+ # rather than drawn, so recovery is testable against a known answer. The
+ # phenotype carries the strongest effect and it decays across factors, so the
+ # first shared factor is the one a case/control contrast should recover.
+ # Strain modulates the shared state, and age and sex shift it more weakly.
+ # Setting `effect_size` to zero detaches the shared state from the design,
+ # which is the null the anchor-based matching is calibrated against.
+ decay <- effect_size / seq_len(n_shared_factors)
+ phenotype_effect <- rbind(Ntg = -decay / 2, `5XFAD` = decay / 2)
+ age_effect <- rbind(`6` = -0.4 * decay / 2, `14` = 0.4 * decay / 2)
+ sex_effect <- rbind(F = -0.2 * decay / 2, M = 0.2 * decay / 2)
  strain_effect <- matrix(
-  stats::rnorm(n_strains * n_shared_factors, sd = 0.8),
+  stats::rnorm(n_strains * n_shared_factors, sd = 0.4) * effect_size,
   nrow = n_strains, ncol = n_shared_factors,
   dimnames = list(unique(design$strain), NULL)
  )
@@ -128,11 +143,15 @@ chorale_simulate <- function(n_modalities = 3,
    stats::rexp(n_m * n_shared_factors) - stats::rexp(n_m * n_shared_factors),
    nrow = n_m, ncol = n_shared_factors
   )
-  shared_scores <- shared_scores + strain_effect[cells$strain, , drop = FALSE]
+  shared_scores <- shared_scores +
+   strain_effect[cells$strain, , drop = FALSE] +
+   phenotype_effect[cells$phenotype, , drop = FALSE] +
+   age_effect[as.character(cells$age_months), , drop = FALSE] +
+   sex_effect[cells$sex, , drop = FALSE]
 
   # Private latent scores: shifted chi-squared, degrees of freedom set by
   # modality index, so the private-component distribution is
-  # non-symmetric and pairwise different across modalities (modality difference).
+  # non-symmetric and pairwise different across modalities.
   df_m <- 2 + m
   private_scores <- matrix(
    stats::rchisq(n_m * n_private_factors, df = df_m) - df_m,

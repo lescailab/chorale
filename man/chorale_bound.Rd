@@ -4,25 +4,41 @@
 \alias{chorale_bound}
 \title{Bound the cross-modality coupling}
 \usage{
-chorale_bound(fit)
+chorale_bound(fit, n_grid = 200L)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object, as returned by \code{\link[=chorale_fit]{chorale_fit()}}.}
+
+\item{n_grid}{Number of quantiles used to represent each marginal.}
 }
 \value{
-A \code{chorale_bound} object (not yet defined).
+An object of class \code{chorale_bound}, wrapping a data frame with one
+row per matched factor pair: the Frechet bounds on their correlation
+without anchors, the bounds within design strata, and the narrowing the
+anchors achieve.
 }
 \description{
-Reports Fréchet-style partial-identification bounds on the cross-modality
-coupling alongside a point estimate, and how far the anchor covariates
-(strain, phenotype, age, sex) narrow those bounds
-(\code{MATHEMATICAL_FOUNDATION.md} Section 2; \code{AGENT_PLAN.md} Section 8.4).
-Depends on a \code{chorale_fit} object, and so is blocked on \code{chorale_fit()},
-which is not yet implemented (see \code{analysis/feasibility.md}).
+No animal is measured in more than one modality, so the joint distribution
+of a factor pair is not identified: the data fix each marginal and say
+nothing about how they are coupled. What is available is the Frechet class,
+the set of joints consistent with those marginals, and its bounds are the
+honest report. For a correlation the extremes are attained by the
+comonotone and countermonotone couplings, giving the widest interval the
+data cannot exclude.
+}
+\details{
+Conditioning on the design narrows the interval, because the coupling is
+then only free within a stratum rather than across the whole sample. The
+difference between the unconditional and conditional widths is what the
+anchors buy, and reporting both is the point: where the bounds stay wide,
+the width is the result.
 }
 \examples{
-\dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-# Not yet implemented; depends on chorale_fit().
+sim <- chorale_simulate(n_modalities = 2, n_features = 120,
+                        n_shared_factors = 2, n_private_factors = 1,
+                        n_strains = 4, n_per_cell = 3, effect_size = 3,
+                        seed = 1)
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
 chorale_bound(fit)
-\dontshow{\}) # examplesIf}
 }
