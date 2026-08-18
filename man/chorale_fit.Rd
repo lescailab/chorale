@@ -10,8 +10,10 @@ chorale_fit(
   gene_sets = NULL,
   feature_map = NULL,
   feature_space = NULL,
+  transform = "auto",
   n_init = 20L,
-  strata_keys = c("phenotype", "age_bin", "sex"),
+  consensus = TRUE,
+  strata_keys = NULL,
   assay_name = NULL,
   n_pathway_perm = 200L,
   seed = 1L
@@ -41,9 +43,19 @@ through their class by \code{\link[=chorale_metabolite_matrix]{chorale_metabolit
 everywhere. It is declared rather than guessed, since a wrong guess would
 silently leave a modality out of the pathway comparison.}
 
+\item{transform}{Per-modality measurement-model transform, one of \code{"auto"},
+\code{"none"}, \code{"log"} or \code{"vst"}, given as a single value or a named vector.
+See \code{\link[=chorale_transform]{chorale_transform()}}. Defaults to \code{"auto"}, which reads the transform
+from each matrix.}
+
 \item{n_init}{Integer number of random initialisations per modality.}
 
-\item{strata_keys}{Design columns defining an anchoring stratum.}
+\item{consensus}{Recover each modality's factors as the consensus over the
+initialisations rather than from the single most non-Gaussian one, so a
+reported factor is one the runs agree on.}
+
+\item{strata_keys}{Design columns defining an anchoring stratum. \code{NULL}, the
+default, uses every covariate the designs share.}
 
 \item{assay_name}{Assay to take from each container.}
 

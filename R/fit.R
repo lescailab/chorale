@@ -17,7 +17,8 @@
 #'   initialisation.
 #' @keywords internal
 #' @noRd
-chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
+chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
+                        consensus = TRUE) {
   rlang::check_installed("fastICA")
   best <- NULL
   best_obj <- -Inf
@@ -46,6 +47,23 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
     rlang::abort("Independent component analysis failed at every initialisation.")
   }
 
+  # Taking the single most non-Gaussian run makes the estimate a draw from a
+  # non-convex optimisation. A consensus over runs keeps what they agree on:
+  # every run's factors are matched to the selected run's and aligned in sign,
+  # and the average is retained. Factors the runs disagree about average towards
+  # nothing and are visible as such in the stability column. Across noise levels
+  # at which recovery is still meaningful the consensus tracks the planted
+  # factors more closely than the single best run; where the noise is high
+  # enough that no run recovers them, neither does the consensus.
+  if (consensus) {
+    aligned <- chorale_align_runs(best$scores, runs)
+    if (length(aligned) > 1) {
+      consensus_scores <- Reduce(`+`, aligned) / length(aligned)
+      keep <- apply(consensus_scores, 2, stats::sd) > 0
+      if (all(keep)) best$scores <- scale(consensus_scores)
+    }
+  }
+
   # Loadings in feature space: regress each feature on the recovered sources.
   coefs <- stats::coef(stats::lm(x ~ best$scores))
   loadings <- t(coefs[-1, , drop = FALSE])
@@ -67,6 +85,30 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
                            subspace = subspace,
                            stringsAsFactors = FALSE)
   )
+}
+
+#' Match every run's factors to a reference and align their signs
+#'
+#' A factor recovered at one initialisation is the same factor recovered at
+#' another up to order and sign, which are not identified. Matching one to one
+#' by absolute correlation and flipping the sign to agree puts the runs in a
+#' common frame, which is what allows them to be averaged.
+#'
+#' @keywords internal
+#' @noRd
+chorale_align_runs <- function(reference, runs) {
+  out <- list()
+  for (s in runs) {
+    if (is.null(s) || !identical(dim(s), dim(reference))) next
+    a <- suppressWarnings(stats::cor(reference, s))
+    a[!is.finite(a)] <- 0
+    assign <- as.integer(clue::solve_LSAP(abs(a), maximum = TRUE))
+    matched <- s[, assign, drop = FALSE]
+    signs <- sign(a[cbind(seq_len(nrow(a)), assign)])
+    signs[signs == 0] <- 1
+    out[[length(out) + 1L]] <- sweep(matched, 2, signs, `*`)
+  }
+  out
 }
 
 #' Reproducibility of the recovered factors across initialisations
@@ -443,7 +485,9 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
 #'
 #' @param fits A named list of per-modality fits, each carrying `scores`.
 #' @param designs A named list of per-modality design tables.
-#' @param strata_keys Candidate covariates for the design profile. Those
+#' @param strata_keys Candidate covariates for the design profile. `NULL`, the
+#'   default, considers every covariate the designs carry, so a design the
+#'   package has not seen anchors without naming its columns in advance. Those
 #'   absent, constant, or unshared are dropped, so supplying more than the data
 #'   carry is harmless.
 #' @param n_perm Number of permutations calibrating the statistic.
@@ -461,8 +505,7 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
 #' fit$matches
 chorale_match <- function(fits, designs,
-                          strata_keys = c("phenotype", "sex", "age_months",
-                                          "age_bin", "strain", "region"),
+                          strata_keys = NULL,
                           n_perm = 200L, alpha = 0.05, seed = 1L) {
   chorale_integrate(fits, designs, strata_keys = strata_keys,
                     n_perm = n_perm, alpha = alpha, seed = seed)$matches
@@ -489,13 +532,13 @@ chorale_match <- function(fits, designs,
 #' @keywords internal
 #' @noRd
 chorale_integrate <- function(fits, designs,
-                              strata_keys = c("phenotype", "sex", "age_months",
-                                              "age_bin", "strain", "region"),
+                              strata_keys = NULL,
                               n_perm = 200L, alpha = 0.05, seed = 1L) {
   modalities <- names(fits)
   empty <- list(programmes = data.frame(), matches = data.frame(),
                 leave_one_out = data.frame(), synchronisation = NULL,
-                terms = character(0), null = numeric(0))
+                terms = character(0), null = numeric(0),
+                strata_keys = character(0))
   if (length(modalities) < 2) return(empty)
 
   aligned <- lapply(modalities, function(m) {
@@ -504,11 +547,37 @@ chorale_integrate <- function(fits, designs,
   })
   names(aligned) <- modalities
 
-  shared <- chorale_shared_covariates_all(aligned, strata_keys)
+  # An absent list of candidates means every covariate the designs hold, so the
+  # anchoring follows the data rather than a fixed set of column names that
+  # would suit one study and exclude another.
+  candidates <- strata_keys %||% chorale_candidate_covariates(aligned)
+  shared <- chorale_shared_covariates_all(aligned, candidates)
   chorale_require_phenotype(shared, modalities)
   levels <- chorale_profile_levels(aligned, shared)
   terms <- chorale_profile_terms(levels)
-  if (length(terms) == 0) return(empty)
+  if (length(terms) == 0) {
+    # Nothing can be compared, and returning an empty result would report that
+    # as an absence of shared programmes rather than as an absence of a common
+    # design. Naming the levels each cohort carries points at the cause, which
+    # is almost always the same covariate recorded under different labels.
+    detail <- vapply(shared, function(cv) {
+      per <- vapply(modalities, function(m) {
+        v <- unique(stats::na.omit(as.character(aligned[[m]][[cv]])))
+        paste0(m, ": ", paste(utils::head(sort(v), 4), collapse = "/"))
+      }, character(1))
+      paste0("  ", cv, " -> ", paste(per, collapse = "; "))
+    }, character(1))
+    rlang::abort(
+      paste0(
+        "The modalities share no design term, so no comparison is possible.\n",
+        "Covariates present in every modality but sharing no level:\n",
+        paste(detail, collapse = "\n"),
+        "\nA covariate recorded under different labels in different cohorts ",
+        "needs one vocabulary before it can anchor a comparison."
+      ),
+      class = "chorale_no_shared_terms"
+    )
+  }
 
   profile_of <- function(designs_by_mod) {
     out <- lapply(modalities, function(m) {
@@ -664,7 +733,8 @@ chorale_integrate <- function(fits, designs,
   if (is.null(loo)) loo <- data.frame()
 
   list(programmes = programmes, matches = matches, leave_one_out = loo,
-       synchronisation = sync, terms = terms, null = null_joint)
+       synchronisation = sync, terms = terms, null = null_joint,
+       strata_keys = shared)
 }
 
 #' Require the phenotype to be shared
@@ -691,6 +761,33 @@ chorale_require_phenotype <- function(shared, modalities) {
     )
   }
   invisible(TRUE)
+}
+
+#' Every covariate a set of designs could anchor on
+#'
+#' The identifiers of samples and modalities describe the record rather than the
+#' subject, and a per-sample identifier cannot contrast anything, so they are
+#' excluded. Everything else is a candidate, which is what lets a design the
+#' package has never seen anchor a comparison without naming its columns in
+#' advance.
+#'
+#' @keywords internal
+#' @noRd
+chorale_candidate_covariates <- function(designs) {
+  bookkeeping <- c("sample_id", "modality", "sample", "id", "run", "file",
+                   "filename", "replicate")
+  all_cols <- unique(unlist(lapply(designs, colnames)))
+  candidates <- setdiff(all_cols, bookkeeping)
+  # A column holding a distinct value for nearly every sample identifies the
+  # sample rather than grouping it, so it cannot serve as a contrast.
+  keep <- vapply(candidates, function(cv) {
+    any(vapply(designs, function(d) {
+      if (!cv %in% colnames(d)) return(FALSE)
+      v <- stats::na.omit(d[[cv]])
+      length(v) > 0 && length(unique(v)) < max(2L, floor(0.9 * length(v)))
+    }, logical(1)))
+  }, logical(1))
+  candidates[keep]
 }
 
 #' Covariates present and varying in every design
@@ -860,12 +957,29 @@ chorale_joint_evidence <- function(fit, programmes = NULL, n_perm = NULL,
 #' Add the age band used for anchoring
 #' @keywords internal
 #' @noRd
-chorale_add_age_bin <- function(design) {
+chorale_add_age_bin <- function(design, n_bins = 3L) {
   if ("age_bin" %in% colnames(design)) return(design)
-  if (!"age_months" %in% colnames(design)) return(design)
-  age <- suppressWarnings(as.numeric(as.character(design$age_months)))
-  design$age_bin <- cut(age, breaks = c(0, 4, 9, 18, 100),
-                        labels = c("2mo", "6mo", "14mo", "aged"))
+  age_col <- intersect(c("age", "age_months", "age_years", "age_days"),
+                       colnames(design))
+  if (length(age_col) == 0) return(design)
+  age <- suppressWarnings(as.numeric(as.character(design[[age_col[1]]])))
+  if (all(is.na(age))) return(design)
+
+  distinct <- unique(stats::na.omit(age))
+  if (length(distinct) <= n_bins) {
+    # Few enough distinct ages that each is its own band; imposing cut points
+    # on them would merge groups the design deliberately separates.
+    design$age_bin <- ifelse(is.na(age), NA_character_, as.character(age))
+    return(design)
+  }
+  # Bands are quantiles of the ages observed, so they follow the cohort rather
+  # than an assumption about the organism's lifespan. Labels carry the range
+  # each band covers, so a band means something without knowing the units.
+  breaks <- unique(stats::quantile(age, probs = seq(0, 1, length.out = n_bins + 1L),
+                                   na.rm = TRUE))
+  if (length(breaks) < 3) return(design)
+  design$age_bin <- as.character(cut(age, breaks = breaks,
+                                     include.lowest = TRUE, dig.lab = 4))
   design
 }
 
@@ -906,10 +1020,18 @@ chorale_add_age_bin <- function(design) {
 #'   through their class by [chorale_metabolite_matrix()]. Defaults to `"gene"`
 #'   everywhere. It is declared rather than guessed, since a wrong guess would
 #'   silently leave a modality out of the pathway comparison.
+#' @param transform Per-modality measurement-model transform, one of `"auto"`,
+#'   `"none"`, `"log"` or `"vst"`, given as a single value or a named vector.
+#'   See [chorale_transform()]. Defaults to `"auto"`, which reads the transform
+#'   from each matrix.
+#' @param consensus Recover each modality's factors as the consensus over the
+#'   initialisations rather than from the single most non-Gaussian one, so a
+#'   reported factor is one the runs agree on.
 #' @param n_pathway_perm Annotation-matched permutations calibrating the
 #'   pathway channel. Zero skips it.
 #' @param n_init Integer number of random initialisations per modality.
-#' @param strata_keys Design columns defining an anchoring stratum.
+#' @param strata_keys Design columns defining an anchoring stratum. `NULL`, the
+#'   default, uses every covariate the designs share.
 #' @param assay_name Assay to take from each container.
 #' @param seed Integer seed.
 #'
@@ -927,8 +1049,10 @@ chorale_fit <- function(containers,
                         gene_sets = NULL,
                         feature_map = NULL,
                         feature_space = NULL,
+                        transform = "auto",
                         n_init = 20L,
-                        strata_keys = c("phenotype", "age_bin", "sex"),
+                        consensus = TRUE,
+                        strata_keys = NULL,
                         assay_name = NULL,
                         n_pathway_perm = 200L,
                         seed = 1L) {
@@ -951,6 +1075,7 @@ chorale_fit <- function(containers,
   }
 
   feature_space <- chorale_feature_space(feature_space, modalities)
+  transform_of <- chorale_transform_spec(transform, modalities)
 
   fits <- list()
   designs <- list()
@@ -962,13 +1087,15 @@ chorale_fit <- function(containers,
     design <- as.data.frame(SummarizedExperiment::colData(se))
     design <- chorale_add_age_bin(design)
 
-    x <- scale(t(as.matrix(mat)))
+    tf <- chorale_transform(mat, transform = transform_of[[m]])
+    x <- scale(t(tf$matrix))
     x[!is.finite(x)] <- 0
 
     if (auto_factors) {
       n_factors[[m]] <- chorale_n_factors(x, seed = seed)
     }
-    fit <- chorale_ica(x, n_factors[[m]], n_init = n_init, seed = seed)
+    fit <- chorale_ica(x, n_factors[[m]], n_init = n_init, seed = seed,
+                       consensus = consensus)
 
     prior <- NULL
     if (!is.null(gene_sets)) {
@@ -1002,6 +1129,7 @@ chorale_fit <- function(containers,
       fit$reconstruction <- chorale_reconstruction(x, fit$scores, fit$loadings,
                                                    projected$loadings)
     }
+    fit$transform <- tf$applied
     fit$markers <- mk$markers
     fit$best_candidates <- mk$best_candidates
     fit$purity_margin <- mk$purity_margin
@@ -1036,7 +1164,9 @@ chorale_fit <- function(containers,
         0L
       },
       n_factors = n_factors,
-      strata_keys = strata_keys,
+      # The covariates actually resolved, so everything downstream conditions on
+      # what anchored the comparison rather than on the request that produced it.
+      strata_keys = integration$strata_keys %||% strata_keys,
       gene_sets = gene_sets,
       seed = seed
     ),
@@ -1049,6 +1179,38 @@ chorale_fit <- function(containers,
     chorale_pathway_evidence(out, n_perm = n_pathway_perm, seed = seed)
   } else {
     data.frame()
+  }
+  out
+}
+
+#' Resolve the transform requested for every modality
+#' @keywords internal
+#' @noRd
+chorale_transform_spec <- function(transform, modalities) {
+  valid <- c("auto", "none", "log", "vst")
+  out <- stats::setNames(rep("auto", length(modalities)), modalities)
+  if (is.null(transform)) return(out)
+  if (is.null(names(transform))) {
+    if (length(transform) == 1) {
+      out[] <- as.character(transform)
+    } else if (length(transform) == length(modalities)) {
+      out[] <- as.character(transform)
+    } else {
+      rlang::abort("`transform` must be one value, one per modality, or named.")
+    }
+  } else {
+    unknown <- setdiff(names(transform), modalities)
+    if (length(unknown) > 0) {
+      rlang::abort(paste0("`transform` names unknown modalities: ",
+                          paste(unknown, collapse = ", "), "."))
+    }
+    out[names(transform)] <- as.character(transform)
+  }
+  bad <- setdiff(unique(out), valid)
+  if (length(bad) > 0) {
+    rlang::abort(paste0("`transform` must be one of ",
+                        paste(valid, collapse = ", "), "; got: ",
+                        paste(bad, collapse = ", "), "."))
   }
   out
 }
@@ -1096,6 +1258,74 @@ print.chorale_fit <- function(x, ...) {
       if (is.data.frame(x$matches)) nrow(x$matches) else 0,
       "of which significant:", x$n_shared, "\n")
   invisible(x)
+}
+
+#' Put a modality on the scale its measurement model implies
+#'
+#' Generic centring and scaling treats every assay as though its errors were
+#' additive and its variance constant, which none of these are. Sequencing
+#' counts have variance growing with the mean, so a highly expressed gene
+#' dominates a factor for no biological reason. Label-free proteomic and
+#' lipidomic intensities span orders of magnitude and are conventionally read
+#' on the log scale. Applying the right transform first is what makes the
+#' subsequent centring meaningful.
+#'
+#' `"auto"` reads the transform from the matrix rather than from a promise
+#' about it: values that are non-negative, whole, and spread over several orders
+#' of magnitude are counts and take the variance-stabilising transform; values
+#' that are non-negative and heavily right-skewed are intensities and take the
+#' log; anything already on a symmetric scale is left alone. The choice is
+#' returned so it appears in the record rather than happening silently.
+#'
+#' Batch and study are not removed here. They enter as covariates, since
+#' identification consumes the differences between modalities that a correction
+#' would erase.
+#'
+#' @param mat A features-by-samples numeric matrix.
+#' @param transform One of `"auto"`, `"none"`, `"log"` or `"vst"`.
+#'
+#' @returns A list with `matrix`, the transformed features-by-samples matrix,
+#'   and `applied`, the transform used.
+#' @export
+#' @examples
+#' counts <- matrix(rpois(200, lambda = 50), nrow = 20)
+#' chorale_transform(counts)$applied
+chorale_transform <- function(mat, transform = c("auto", "none", "log", "vst")) {
+  transform <- match.arg(transform)
+  m <- as.matrix(mat)
+  storage.mode(m) <- "double"
+  finite <- m[is.finite(m)]
+
+  if (transform == "auto") {
+    if (length(finite) == 0) {
+      transform <- "none"
+    } else if (min(finite) < 0) {
+      # Negative values are already on a symmetric scale, typically a log ratio.
+      transform <- "none"
+    } else {
+      whole <- all(abs(finite - round(finite)) < 1e-8)
+      spread <- stats::quantile(finite, 0.99) / max(stats::quantile(finite, 0.5), 1)
+      skew <- mean(((finite - mean(finite)) / max(stats::sd(finite), 1e-9))^3)
+      transform <- if (whole && spread > 5) {
+        "vst"
+      } else if (skew > 1 && spread > 5) {
+        "log"
+      } else {
+        "none"
+      }
+    }
+  }
+
+  out <- switch(
+    transform,
+    none = m,
+    # log1p keeps zeros finite, which a plain log would not.
+    log = log1p(pmax(m, 0)),
+    # Anscombe's variance-stabilising transform for counts, under which a
+    # Poisson variance no longer grows with the mean.
+    vst = 2 * sqrt(pmax(m, 0) + 3 / 8)
+  )
+  list(matrix = out, applied = transform)
 }
 
 #' How many components a modality can support

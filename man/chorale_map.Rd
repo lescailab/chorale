@@ -2,16 +2,18 @@
 % Please edit documentation in R/map.R
 \name{chorale_map}
 \alias{chorale_map}
-\title{Harmonise feature identifiers to mouse Entrez gene identifiers}
+\title{Harmonise feature identifiers to Entrez gene identifiers}
 \usage{
-chorale_map(ids, from = "SYMBOL")
+chorale_map(ids, from = "SYMBOL", orgdb = "org.Mm.eg.db")
 }
 \arguments{
 \item{ids}{Character vector of feature identifiers to map.}
 
-\item{from}{Character scalar, the key type of \code{ids} in
-\link[org.Mm.eg.db:org.Mm.eg.db]{org.Mm.eg.db::org.Mm.eg.db} (for example \code{"SYMBOL"}, \code{"ENSEMBL"},
-\code{"UNIPROT"}).}
+\item{from}{Character scalar, the key type of \code{ids} in the annotation
+package, for example \code{"SYMBOL"}, \code{"ENSEMBL"} or \code{"UNIPROT"}.}
+
+\item{orgdb}{The organism annotation package to map through, named or
+supplied as an \code{OrgDb} object. Defaults to mouse.}
 }
 \value{
 A data frame with one row per matched (input identifier, Entrez
@@ -22,15 +24,21 @@ compare to the input to build a full per-modality mapping report.
 }
 \description{
 Maps a vector of feature identifiers (gene symbols, Ensembl or protein
-identifiers) to mouse Entrez gene identifiers via
-\link[org.Mm.eg.db:org.Mm.eg.db]{org.Mm.eg.db::org.Mm.eg.db}. One-to-many mappings are retained rather
-than resolved arbitrarily: every matching Entrez identifier is returned,
-each carrying a fractional weight of \code{1 / n}, where \code{n} is the number of
-Entrez identifiers that input identifier maps to (\code{AGENT_PLAN.md}
-Section 8.2). Metabolite identifiers, which map through enzyme and
-reaction annotations rather than gene identifiers, are out of scope for
-this function.
+identifiers) to Entrez gene identifiers through an organism annotation
+package. One-to-many mappings are retained rather than resolved arbitrarily:
+every matching Entrez identifier is returned, each carrying a fractional
+weight of \code{1 / n}, where \code{n} is the number of Entrez identifiers that input
+identifier maps to.
+}
+\details{
+The organism is an argument rather than a fixture. Any Bioconductor
+\code{OrgDb} will do, so a study of human, rat or any other annotated organism
+maps its features without changing the package. Metabolite identifiers reach
+curated sets through their class rather than through gene identifiers, and
+are handled by \code{\link[=chorale_metabolite_matrix]{chorale_metabolite_matrix()}}.
 }
 \examples{
 chorale_map(c("Bdnf", "Trem2", "not_a_real_gene"), from = "SYMBOL")
+# A human study maps through the human annotation instead.
+# chorale_map(c("BDNF", "TREM2"), from = "SYMBOL", orgdb = "org.Hs.eg.db")
 }

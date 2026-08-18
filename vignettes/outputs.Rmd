@@ -1,7 +1,7 @@
 ---
 title: "The outputs and how to read them"
 description: "Every table the pipeline writes, what each column means, and how to interpret it."
-site_order: 4
+site_order: 5
 site_wide: true
 output:
   rmarkdown::html_vignette:

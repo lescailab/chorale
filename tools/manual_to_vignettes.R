@@ -3,11 +3,12 @@
 # Writes the narrative vignettes from the manual, which is the source of record
 # for them:
 #
-#   knowledge/MANUAL.md  Part I    ->  vignettes/why.Rmd
-#                        Part II   ->  vignettes/how-it-works.Rmd
-#                        Part III  ->  vignettes/outputs.Rmd
-#                        Part IV, conditions and sources
-#                                  ->  vignettes/methods.Rmd
+#   knowledge/MANUAL.md  the problem and the response  ->  why.Rmd
+#                        how the estimator works      ->  how-it-works.Rmd
+#                        the input contract           ->  input-format.Rmd
+#                        the outputs                  ->  outputs.Rmd
+#                        the mathematics, the conditions and the sources
+#                                                     ->  methods.Rmd
 #
 # vignettes/tutorial.Rmd is written by hand and is never touched here: it
 # teaches the workflow rather than describing the method, and has no
@@ -43,10 +44,11 @@ section <- function(from, to) {
   lines[(from + 1L):stop_at]
 }
 
-i_p1 <- heading("^## Part I\\.")
-i_p2 <- heading("^## Part II\\.")
-i_p3 <- heading("^## Part III\\.")
-i_p4 <- heading("^## Part IV\\.")
+i_problem <- heading("^## The problem and the response")
+i_how <- heading("^## How the estimator works")
+i_input <- heading("^## The input contract")
+i_outputs <- heading("^## The outputs and how to read them")
+i_maths <- heading("^## Statistics, mathematics and implementation")
 i_cond <- heading("^## Conditions of applicability")
 
 # The manual nests one level deeper than a vignette, which carries its title in
@@ -63,23 +65,28 @@ spec <- list(
        title = "Why CHORALE exists",
        description = paste("What integration across disjoint cohorts requires,",
                            "what existing methods provide, and what is missing."),
-       body = section(i_p1, i_p2)),
+       body = section(i_problem, i_how)),
   list(slug = "how-it-works", order = 2L, wide = FALSE,
        title = "How the estimator works",
        description = "The six stages of the pipeline in plain terms.",
-       body = section(i_p2, i_p3)),
-  list(slug = "outputs", order = 4L, wide = TRUE,
+       body = section(i_how, i_input)),
+  list(slug = "input-format", order = 3L, wide = TRUE,
+       title = "The input contract",
+       description = paste("What every modality must supply, what every other",
+                           "column does, and the vocabulary labels are read in."),
+       body = section(i_input, i_outputs)),
+  list(slug = "outputs", order = 5L, wide = TRUE,
        title = "The outputs and how to read them",
        description = paste("Every table the pipeline writes, what each column",
                            "means, and how to interpret it."),
-       body = section(i_p3, i_p4)),
+       body = section(i_outputs, i_maths)),
   # The conditions and the sources belong with the mathematics they qualify.
-  list(slug = "methods", order = 5L, wide = TRUE,
+  list(slug = "methods", order = 6L, wide = TRUE,
        title = "Statistics, mathematics and implementation",
        description = paste("Every quantity the pipeline computes, the equation",
                            "behind it, where it is implemented, and the",
                            "literature it rests on."),
-       body = c(trim(section(i_p4, i_cond)), "", lines[i_cond:length(lines)]))
+       body = c(trim(section(i_maths, i_cond)), "", lines[i_cond:length(lines)]))
 )
 
 for (s in spec) {

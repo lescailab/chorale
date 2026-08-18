@@ -21,6 +21,13 @@
 
 library(msigdbr)
 
+# The species the compound annotation is taken from. The set names the table is
+# keyed on are the MSigDB Reactome names, which are the same across species, so
+# a table built for one organism is usable in another wherever the pathway
+# exists there; the pathway identifiers it also carries are species-specific.
+SPECIES <- Sys.getenv("CHORALE_SPECIES", "Mus musculus")
+DB_SPECIES <- Sys.getenv("CHORALE_DB_SPECIES", "MM")
+
 dest <- "inst/extdata/metabolite_pathways.tsv"
 cache <- Sys.getenv("CHORALE_SOURCE_CACHE",
                     file.path(tempdir(), "chorale-metabolite-sources"))
@@ -152,9 +159,9 @@ reactome <- utils::read.delim(r2c, header = FALSE, quote = "",
                               stringsAsFactors = FALSE)
 names(reactome)[1:6] <- c("chebi", "pathway_id", "url", "pathway_name",
                           "evidence", "species")
-reactome <- reactome[reactome$species == "Mus musculus", , drop = FALSE]
+reactome <- reactome[reactome$species == SPECIES, , drop = FALSE]
 reactome$chebi <- paste0("CHEBI:", reactome$chebi)
-message("mouse ChEBI-to-Reactome rows: ", nrow(reactome))
+message(SPECIES, " ChEBI-to-Reactome rows: ", nrow(reactome))
 
 # ---- The target vocabulary: sets the gene side is described in -------------
 #
@@ -163,7 +170,7 @@ message("mouse ChEBI-to-Reactome rows: ", nrow(reactome))
 # modalities land in one coordinate system: a metabolite is placed in a set
 # genes are placed in, not in a vocabulary of its own.
 
-gs <- msigdbr(db_species = "MM", species = "Mus musculus",
+gs <- msigdbr(db_species = DB_SPECIES, species = SPECIES,
               collection = "M2", subcollection = "CP:REACTOME")
 gs_size <- table(gs$gs_name)
 vocabulary <- names(gs_size)[gs_size >= 10 & gs_size <= 500]

@@ -68,21 +68,30 @@ chorale_report <- function(fit, bound = NULL, null = NULL, path,
   written <- c(written, chorale_write(
     chorale_integrated_table(fit, factors, markers, associations, concordance),
     path, "programmes.tsv"))
+  # Each of these summarises the whole fit, so they are computed once here and
+  # handed to the writer rather than recomputed for the rendered report.
+  derived <- list(
+    leave_one_out = chorale_leave_one_out(fit),
+    pathway = chorale_pathway_table(fit),
+    fdr = chorale_fdr(fit, associations = associations),
+    added_value = chorale_added_value(fit, associations = associations),
+    cohorts = chorale_cohort_overlap(fit)
+  )
   written <- c(written, chorale_write(
-    chorale_leave_one_out(fit), path, "leave_one_out.tsv"))
+    derived$leave_one_out, path, "leave_one_out.tsv"))
   written <- c(written, chorale_write(
-    chorale_pathway_table(fit), path, "pathway_evidence.tsv"))
+    derived$pathway, path, "pathway_evidence.tsv"))
   written <- c(written, chorale_write(
-    chorale_fdr(fit), path, "false_discovery.tsv"))
+    derived$fdr, path, "false_discovery.tsv"))
   written <- c(written, chorale_write(
-    chorale_added_value(fit), path, "added_value.tsv"))
+    derived$added_value, path, "added_value.tsv"))
   written <- c(written, chorale_write(
-    chorale_cohort_overlap(fit), path, "cohort_overlap.tsv"))
+    derived$cohorts, path, "cohort_overlap.tsv"))
   written <- c(written, chorale_write_gmt(fit, factors, path))
   written <- c(written, chorale_write_mae(fit, path))
   written <- c(written, chorale_write_html(fit, factors, markers, associations,
                                            concordance, bounds_tbl, controls,
-                                           path))
+                                           path, derived = derived))
   invisible(written)
 }
 
@@ -207,8 +216,10 @@ chorale_association_table <- function(fit, n_perm = 999L) {
     s <- fit$fits[[m]]$scores
     d <- fit$designs[[m]]
     d <- d[match(rownames(s), d$sample_id), , drop = FALSE]
-    for (cov in intersect(c("phenotype", "age_months", "sex", "strain"),
-                          colnames(d))) {
+    # Whatever the fit anchored on, rather than a fixed list of column names
+    # that would suit one study and exclude another.
+    covariates <- fit$strata_keys %||% chorale_candidate_covariates(list(d))
+    for (cov in intersect(covariates, colnames(d))) {
       v <- d[[cov]]
       if (length(unique(stats::na.omit(v))) < 2) next
       for (j in colnames(s)) {
@@ -584,7 +595,7 @@ chorale_svg_effects <- function(integrated) {
       xs(tick), h - pad_b + 26, tick))
   }
   parts <- c(parts, sprintf(
-    "<text x='%.1f' y='%d' class='axis-title' text-anchor='middle'>standardised phenotype effect (5XFAD minus wild type)</text>",
+    "<text x='%.1f' y='%d' class='axis-title' text-anchor='middle'>standardised phenotype effect (case minus control)</text>",
     pad_l + plot_w / 2, h - 8))
 
   for (i in seq_along(progs)) {
@@ -716,7 +727,17 @@ chorale_pathway_table <- function(fit) {
 #' @keywords internal
 #' @noRd
 chorale_write_html <- function(fit, factors, markers, associations,
-                               concordance, bounds, controls, path) {
+                               concordance, bounds, controls, path,
+                               derived = NULL) {
+  if (is.null(derived)) {
+    derived <- list(
+      leave_one_out = chorale_leave_one_out(fit),
+      pathway = chorale_pathway_table(fit),
+      fdr = chorale_fdr(fit),
+      added_value = chorale_added_value(fit),
+      cohorts = chorale_cohort_overlap(fit)
+    )
+  }
   f <- file.path(path, "report.html")
   integrated <- chorale_integrated_table(fit, factors, markers, associations,
                                          concordance)
@@ -852,7 +873,7 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "</details>",
 
     "<h2>Shared biological programmes</h2>",
-    "<p class='legend'>Positive effect means higher in 5XFAD than in wild-type littermates, in ",
+    "<p class='legend'>Positive effect means higher in cases than in controls, in ",
     "units of the pooled standard deviation. Points joined by a line are the same programme seen ",
     "in two modalities. Matching tests whether the design profiles point the same way, in either ",
     "direction, so a programme whose modalities move oppositely is matched and its opposition ",
@@ -891,7 +912,7 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "feature in its number of sets, permuting only which feature is which, so ",
     "the large sets and the frequently annotated features that manufacture ",
     "enrichment where none exists cannot do so here.</p>",
-    chorale_html_table(chorale_pathway_table(fit),
+    chorale_html_table(derived$pathway,
       "Biological corroboration, by programme",
       paste0("<em>pathway_statistic</em> is the agreement of the members' ",
              "pathway profiles, averaged over every pair inside the programme, ",
@@ -910,13 +931,13 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "against the strongest single modality among its members: a programme that ",
     "does not beat the best single modality was visible in one layer and ",
     "accompanied by the others, whatever its joint p-value.</p>",
-    chorale_html_table(chorale_fdr(fit), "False discovery across the search",
+    chorale_html_table(derived$fdr, "False discovery across the search",
       paste0("<em>level</em> is what was tested: a factor against the design, a ",
              "programme against its joint null, or a programme's biology. ",
              "<em>q_value</em> is the Benjamini-Hochberg rate within that ",
              "level; levels are corrected separately, since pooling them would ",
              "penalise a programme for how many factors happened to be fitted.")),
-    chorale_html_table(chorale_added_value(fit),
+    chorale_html_table(derived$added_value,
       "Whether a programme needed more than one modality",
       paste0("<em>best_single_p</em> is the strongest phenotype association any ",
              "one member factor reaches alone, and <em>margin</em> is the gap ",
@@ -927,7 +948,7 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
              "at its floor. <em>needs_multiple</em> requires both: the ",
              "programme beats every single modality, and removing any modality ",
              "weakens it.")),
-    chorale_html_table(chorale_cohort_overlap(fit),
+    chorale_html_table(derived$cohorts,
       "The population the cohorts share",
       paste0("A programme describes the population every contributing cohort ",
              "represents. <em>common_levels</em> are the levels all cohorts ",
@@ -942,7 +963,7 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "if it needs all three. Each row removes one modality and rescores the programme without ",
     "it: a small <em>delta</em> means the programme was resting on the modalities that remain, ",
     "and a large negative one means the removed modality was carrying the evidence.</p>",
-    chorale_html_table(chorale_leave_one_out(fit, integrated),
+    chorale_html_table(derived$leave_one_out,
       "Joint evidence with one modality removed",
       paste0("<em>dropped</em> is the modality left out, <em>joint_statistic</em> and ",
              "<em>joint_p</em> the evidence for the remainder, and <em>delta</em> the change ",

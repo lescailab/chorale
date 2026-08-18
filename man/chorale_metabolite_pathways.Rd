@@ -27,6 +27,13 @@ compound annotation; and a pathway is kept only where the gene-side
 collection also carries it as a set of usable size. \verb{data-raw/} holds the
 script, the source URLs and the licences.
 
+The shipped table takes its compound annotation from mouse Reactome, but it
+is keyed on the MSigDB Reactome set names, which are the same across species,
+so it places a lipid in the same set a human or rat study would use wherever
+that pathway exists there. Rebuilding it for another organism is a matter of
+running the script with that species set, and any table of the same shape can
+be supplied through \code{mapping}.
+
 Parsing a lipid shorthand name into its class is a solved problem and is not
 redone here: \code{\link[=chorale_lipid_class]{chorale_lipid_class()}} uses Goslin where it is installed
 (Kopczynski et al., Anal Chem 92:10957, 2020). What no published resource

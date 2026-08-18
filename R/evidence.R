@@ -18,6 +18,10 @@
 #'
 #' @param fit A `chorale_fit` object.
 #' @param alpha The false-discovery rate to control at.
+#' @param associations A precomputed table of factor-covariate associations, as
+#'   `chorale_report()` builds internally. It costs a permutation test per
+#'   factor and covariate, so a caller that already holds it passes it rather
+#'   than paying for it again.
 #'
 #' @returns A data frame with one row per tested object, carrying `level`
 #'   (`factor`, `programme` or `pathway`), the object's identifier, its
@@ -32,14 +36,16 @@
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
 #' chorale_fdr(fit)
-chorale_fdr <- function(fit, alpha = 0.05) {
+chorale_fdr <- function(fit, alpha = 0.05, associations = NULL) {
   if (!inherits(fit, "chorale_fit")) {
     rlang::abort("`fit` must be a chorale_fit object.")
   }
   rows <- list()
 
   # Level one: each factor's association with the phenotype, within modality.
-  assoc <- try(chorale_association_table(fit), silent = TRUE)
+  # The table costs a permutation test per factor and covariate, so a caller
+  # that already has it passes it rather than paying for it again.
+  assoc <- associations %||% try(chorale_association_table(fit), silent = TRUE)
   if (!inherits(assoc, "try-error") && is.data.frame(assoc) && nrow(assoc) > 0) {
     a <- assoc[assoc$covariate == "phenotype", , drop = FALSE]
     if (nrow(a) > 0) {
@@ -107,6 +113,7 @@ chorale_fdr <- function(fit, alpha = 0.05) {
 #' @param fit A `chorale_fit` object.
 #' @param programmes Output of [chorale_programmes()]; taken from `fit` if
 #'   absent.
+#' @param associations A precomputed table of factor-covariate associations.
 #'
 #' @returns A data frame with one row per programme carrying `joint_p`, the
 #'   `best_single_p` among its members, the `margin` between them on the
@@ -122,14 +129,14 @@ chorale_fdr <- function(fit, alpha = 0.05) {
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
 #' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
 #' chorale_added_value(fit)
-chorale_added_value <- function(fit, programmes = NULL) {
+chorale_added_value <- function(fit, programmes = NULL, associations = NULL) {
   if (!inherits(fit, "chorale_fit")) {
     rlang::abort("`fit` must be a chorale_fit object.")
   }
   if (is.null(programmes)) programmes <- chorale_programmes(fit)
   if (nrow(programmes) == 0) return(data.frame())
 
-  assoc <- try(chorale_association_table(fit), silent = TRUE)
+  assoc <- associations %||% try(chorale_association_table(fit), silent = TRUE)
   single_p <- function(mod, fac) {
     if (inherits(assoc, "try-error") || !is.data.frame(assoc) || nrow(assoc) == 0) {
       return(NA_real_)

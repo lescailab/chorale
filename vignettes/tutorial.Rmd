@@ -1,7 +1,7 @@
 ---
 title: "Tutorial"
 description: "A complete analysis end to end, on data that ships with the package, with every result explained as it appears."
-site_order: 3
+site_order: 4
 site_wide: true
 output:
   rmarkdown::html_vignette:
@@ -73,10 +73,16 @@ Zero animals in common. That is the situation the package is for.
 
 <div class="note">
 <span class="lab">Requirement</span>
-<p>Every design table needs a <code>sample_id</code> column matching the assay columns and a
-<code>phenotype</code> column taking at least two values. The phenotype is a condition of entry,
-not a covariate: the quantity being estimated is a case-control contrast, so a modality that
-cannot express it cannot contribute one and the fit stops with an error naming it.</p>
+<p>Two columns are required: <code>sample_id</code>, matching the assay columns in order, and
+<code>phenotype</code>, on at least two levels. The phenotype is a condition of entry, not a
+covariate: the quantity being estimated is a contrast, so a modality that cannot express one
+cannot contribute to it and the fit stops with an error naming it. Every other column is a
+covariate that anchors the comparison where the modalities share it, and nothing needs declaring
+in advance. Labels are put in one vocabulary as the data are read, so a cohort recording controls
+as <code>WT</code> and another as <code>control</code> still share a level. The
+<a href="../input-format">input contract</a> sets this out in full, and
+<code>chorale_check_design()</code> reports what a collection can anchor on before it is
+fitted.</p>
 </div>
 
 ## Step 2. Put each modality in a container
@@ -342,6 +348,7 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 | Symptom | Cause | What to do |
 |---|---|---|
 | Error naming two modalities that "do not share a phenotype contrast" | A design lacks `phenotype`, or it takes one value after blanks are mapped to missing | Resolve the phenotype for that modality, or drop it |
+| Error that "the modalities share no design term" | Cohorts record a covariate under labels the vocabulary does not cover, so they share no level | Run `chorale_check_design()`, then extend `chorale_label_registry()` and pass it to `chorale_load()` |
 | Matches that contrast missing metadata against disease | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
 | `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
 | No programme supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
@@ -351,5 +358,6 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 
 - [How it works](../how-it-works) for the reasoning behind each stage.
 - [Outputs](../outputs) for every table and column.
+- [The input contract](../input-format) for what your own data must supply.
 - [Methods](../methods) for the equations, the implementation and the literature.
 - [Function reference](../reference/) for every argument of every exported function.

@@ -1,7 +1,7 @@
 ---
 title: "Statistics, mathematics and implementation"
 description: "Every quantity the pipeline computes, the equation behind it, where it is implemented, and the literature it rests on."
-site_order: 5
+site_order: 6
 site_wide: true
 output:
   rmarkdown::html_vignette:

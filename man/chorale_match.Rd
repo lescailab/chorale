@@ -7,7 +7,7 @@
 chorale_match(
   fits,
   designs,
-  strata_keys = c("phenotype", "sex", "age_months", "age_bin", "strain", "region"),
+  strata_keys = NULL,
   n_perm = 200L,
   alpha = 0.05,
   seed = 1L
@@ -18,7 +18,9 @@ chorale_match(
 
 \item{designs}{A named list of per-modality design tables.}
 
-\item{strata_keys}{Candidate covariates for the design profile. Those
+\item{strata_keys}{Candidate covariates for the design profile. \code{NULL}, the
+default, considers every covariate the designs carry, so a design the
+package has not seen anchors without naming its columns in advance. Those
 absent, constant, or unshared are dropped, so supplying more than the data
 carry is harmless.}
 

@@ -1,0 +1,100 @@
+---
+title: "The input contract"
+description: "What every modality must supply, what every other column does, and the vocabulary labels are read in."
+site_order: 3
+site_wide: true
+output:
+  rmarkdown::html_vignette:
+    math_method: mathml
+vignette: >
+  %\VignetteIndexEntry{The input contract}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Two tables per modality: a feature-by-sample matrix of measurements, and a design table with one
+row per sample. Nothing about the organism, the assay or the condition is assumed, and no column
+name beyond the two below is required.
+
+## What every modality must carry
+
+| Column | Meaning |
+|---|---|
+| `sample_id` | Unique within the modality, and matching the matrix column names in order. |
+| `phenotype` | The contrast being estimated, on at least two levels. |
+
+The phenotype is a condition of entry rather than a covariate. The estimand is a contrast, so a
+modality that cannot express one cannot contribute to it, and a run whose modalities do not all
+carry it stops with that named as the reason.
+
+## What every other column does
+
+Every remaining column is a covariate. A covariate the modalities share, and which varies in each,
+sharpens the comparison; one absent from a modality, or constant within it, is dropped without
+consequence. Nothing needs declaring in advance: a design carrying `tissue_source` and `donor_age`
+anchors on those as readily as one carrying `strain` and `age_months`.
+
+Two column names are treated as bookkeeping rather than biology and never anchor a comparison:
+`sample_id` and `modality`. A column holding a distinct value for nearly every sample identifies
+the sample rather than grouping it, and is dropped for the same reason.
+
+## The vocabulary labels are read in
+
+Cohorts assembled by different groups record the same thing differently. Untreated subjects appear
+as `WT` in one deposit, `control` in another, `negative` in a third; sex appears as `male` and as
+`M`. Nothing downstream can see that these agree, so a comparison anchored on the design would find
+no level in common and match on nothing.
+
+Labels are therefore put in one vocabulary as the data are read.
+
+| Covariate | Resolves to |
+|---|---|
+| `phenotype` | `case`, `control` |
+| `sex` | `F`, `M` |
+| `genotype` | `carrier`, `non-carrier` |
+
+The vocabulary holds only terms general across biology. Names particular to one organism, model or
+study are absent by design, since a tool carrying the labels of the data it was built on fits
+nothing else. A study whose labels are not covered supplies its own:
+
+```r
+registry <- chorale_label_registry()
+registry$phenotype <- c(registry$phenotype, "apoe4" = "case")
+registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
+se <- chorale_load(matrix, design, labels = registry)
+```
+
+A label the vocabulary does not recognise is left as it is. Two cohorts using different unrecognised
+labels for the same thing share no level, which is a silent way to recover nothing, so
+`chorale_check_design()` reports what a collection can and cannot anchor on before anything is
+fitted.
+
+## Genotype beside phenotype
+
+Where a design records genotype separately from disease status, both are covariates and both anchor
+the comparison: the phenotype carries the contrast the estimand is about, and the genotype enters
+as one more term of the design profile. A study whose contrast *is* the genotype puts it in the
+`phenotype` column, since that column names the role rather than the measurement.
+
+## Organism and annotation
+
+Nothing in the estimator is tied to an organism. Gene identifiers are mapped through whichever
+Bioconductor annotation the study needs, and the curated vocabulary is retrieved for whichever
+species it describes.
+
+```r
+feature_map <- chorale_map(rownames(matrix), from = "ENSEMBL",
+                           orgdb = "org.Hs.eg.db")
+gene_sets <- chorale_genesets(species = "Homo sapiens", db_species = "HS")
+```
+
+The lipid-to-pathway table ships with its compound annotation taken from one organism, and is keyed
+on set names that are the same across species, so it places a lipid in the set a study of another
+organism would use wherever that pathway exists there. A table of the same shape built for another
+organism is supplied in its place.
+
+## What must not be supplied
+
+Batch-corrected and cross-modality-harmonised matrices are inadmissible. Identification consumes
+the differences between modalities, and a correction removes the structure it depends on. Batch and
+study belong in the design as covariates, where they sharpen the comparison rather than erasing it.

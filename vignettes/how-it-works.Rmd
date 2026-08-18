@@ -12,19 +12,28 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-The pipeline runs in six stages. Each is described here in plain terms; Part IV gives the
-mathematics.
+The pipeline runs in six stages. Each is described here in plain terms, with the equations left to
+the mathematics section.
 
 ## 1. Recovering programmes inside each modality
 
-Each modality is analysed on its own, using only its own animals. Independent component analysis
-separates the measured features into a small number of latent axes, each a direction along which
-many features move together. An axis is a candidate biological programme: a set of transcripts, or
-proteins, or lipids that rise and fall as a unit across the animals in that cohort.
+Each modality is first put on the scale its measurement model implies. Sequencing counts have
+variance that grows with the mean, so a highly expressed gene would otherwise dominate an axis for
+no biological reason; label-free intensities span orders of magnitude and are read on the log scale.
+The transform is chosen from the matrix and recorded. Batch and study are not removed, because the
+differences between modalities are what identification consumes.
 
-The method is run from several random starting points and the run reaching the most non-Gaussian
-solution is kept. Independent component analysis is not convex, so one run is a draw rather than an
-estimate, and the spread across runs is reported.
+Each modality is then analysed on its own, using only its own animals. Independent component
+analysis separates the measured features into a small number of latent axes, each a direction along
+which many features move together. An axis is a candidate biological programme: a set of
+transcripts, or proteins, or lipids that rise and fall as a unit across the animals in that cohort.
+How many axes a cohort supports is read from the data by parallel analysis, since a count set too
+high manufactures axes that are noise.
+
+The method is run from several random starting points. Independent component analysis is not
+convex, so one run is a draw rather than an estimate, and what is kept is the consensus across
+runs: their axes are matched to one another, aligned in sign, and averaged, so a reported axis is
+one the runs agree on. How well they agreed is reported alongside.
 
 ## 2. Naming the programmes
 

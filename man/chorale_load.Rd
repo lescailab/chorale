@@ -4,17 +4,26 @@
 \alias{chorale_load}
 \title{Load a single-modality assay into a chorale container}
 \usage{
-chorale_load(assay, col_data, assay_name = "counts")
+chorale_load(
+  assay,
+  col_data,
+  assay_name = "counts",
+  labels = chorale_label_registry()
+)
 }
 \arguments{
 \item{assay}{A feature-by-sample numeric matrix. Column names must match
 \code{col_data$sample_id}.}
 
 \item{col_data}{A data frame of per-sample metadata, one row per column of
-\code{assay}, carrying at least the required columns listed above.}
+\code{assay}, carrying at least \code{sample_id} and \code{phenotype}.}
 
 \item{assay_name}{Character scalar, the name to give the assay in the
 returned container.}
+
+\item{labels}{The vocabulary the design covariates are read in, as returned
+by \code{\link[=chorale_label_registry]{chorale_label_registry()}}. Supply an extended registry where a study
+uses labels the default does not cover.}
 }
 \value{
 A \link[SummarizedExperiment:SummarizedExperiment]{SummarizedExperiment::SummarizedExperiment} with \code{assay_name}
@@ -22,12 +31,21 @@ as its single assay and \code{col_data} as \code{colData}.
 }
 \description{
 Builds a \link[SummarizedExperiment:SummarizedExperiment]{SummarizedExperiment::SummarizedExperiment} from a
-feature-by-sample assay matrix and its per-sample metadata, validating
-that the metadata carries every column a chorale container requires:
-\code{sample_id}, \code{cohort}, \code{modality}, \code{strain}, \code{phenotype}, \code{age_months},
-\code{sex}, \code{region}, \code{batch} (\code{MATHEMATICAL_FOUNDATION.md}, \code{AGENT_PLAN.md}
-Section 8.1). This is the common container every downstream chorale
-function expects, one call per modality.
+feature-by-sample assay matrix and its per-sample metadata. Two columns are
+required, \code{sample_id} and \code{phenotype}, since an estimand defined as a
+contrast cannot be formed without them. Every other column is a covariate
+that sharpens the comparison where the modalities share it and is absent
+without consequence where they do not, so none is required.
+}
+\details{
+Labels are put in one vocabulary as the data are read, through
+\code{\link[=chorale_label_registry]{chorale_label_registry()}}, because cohorts assembled by different groups
+record the same thing differently and nothing downstream can see that \code{WT}
+and \code{Ntg} and \code{control} agree.
+
+This is the common container every downstream chorale function expects, one
+call per modality. \code{\link[=chorale_check_design]{chorale_check_design()}} reports what a collection of
+designs can and cannot support before any of it is fitted.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 30, seed = 1)

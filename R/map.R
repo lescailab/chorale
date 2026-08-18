@@ -1,19 +1,23 @@
-#' Harmonise feature identifiers to mouse Entrez gene identifiers
+#' Harmonise feature identifiers to Entrez gene identifiers
 #'
 #' Maps a vector of feature identifiers (gene symbols, Ensembl or protein
-#' identifiers) to mouse Entrez gene identifiers via
-#' [org.Mm.eg.db::org.Mm.eg.db]. One-to-many mappings are retained rather
-#' than resolved arbitrarily: every matching Entrez identifier is returned,
-#' each carrying a fractional weight of `1 / n`, where `n` is the number of
-#' Entrez identifiers that input identifier maps to (`AGENT_PLAN.md`
-#' Section 8.2). Metabolite identifiers, which map through enzyme and
-#' reaction annotations rather than gene identifiers, are out of scope for
-#' this function.
+#' identifiers) to Entrez gene identifiers through an organism annotation
+#' package. One-to-many mappings are retained rather than resolved arbitrarily:
+#' every matching Entrez identifier is returned, each carrying a fractional
+#' weight of `1 / n`, where `n` is the number of Entrez identifiers that input
+#' identifier maps to.
+#'
+#' The organism is an argument rather than a fixture. Any Bioconductor
+#' `OrgDb` will do, so a study of human, rat or any other annotated organism
+#' maps its features without changing the package. Metabolite identifiers reach
+#' curated sets through their class rather than through gene identifiers, and
+#' are handled by [chorale_metabolite_matrix()].
 #'
 #' @param ids Character vector of feature identifiers to map.
-#' @param from Character scalar, the key type of `ids` in
-#'   [org.Mm.eg.db::org.Mm.eg.db] (for example `"SYMBOL"`, `"ENSEMBL"`,
-#'   `"UNIPROT"`).
+#' @param from Character scalar, the key type of `ids` in the annotation
+#'   package, for example `"SYMBOL"`, `"ENSEMBL"` or `"UNIPROT"`.
+#' @param orgdb The organism annotation package to map through, named or
+#'   supplied as an `OrgDb` object. Defaults to mouse.
 #'
 #' @returns A data frame with one row per matched (input identifier, Entrez
 #'   identifier) pair, columns `id` (the input identifier), `ENTREZID`, and
@@ -23,15 +27,22 @@
 #' @export
 #' @examples
 #' chorale_map(c("Bdnf", "Trem2", "not_a_real_gene"), from = "SYMBOL")
-chorale_map <- function(ids, from = "SYMBOL") {
-  rlang::check_installed("org.Mm.eg.db")
-
+#' # A human study maps through the human annotation instead.
+#' # chorale_map(c("BDNF", "TREM2"), from = "SYMBOL", orgdb = "org.Hs.eg.db")
+chorale_map <- function(ids, from = "SYMBOL", orgdb = "org.Mm.eg.db") {
   if (!is.character(ids)) {
     rlang::abort("`ids` must be a character vector.")
   }
 
+  db <- if (is.character(orgdb)) {
+    rlang::check_installed(orgdb)
+    getExportedValue(orgdb, orgdb)
+  } else {
+    orgdb
+  }
+
   matched <- AnnotationDbi::select(
-    org.Mm.eg.db::org.Mm.eg.db,
+    db,
     keys = unique(ids),
     keytype = from,
     columns = "ENTREZID"
@@ -40,7 +51,8 @@ chorale_map <- function(ids, from = "SYMBOL") {
   names(matched)[names(matched) == from] <- "id"
 
   if (nrow(matched) == 0) {
-    return(data.frame(id = character(), ENTREZID = character(), weight = numeric()))
+    return(data.frame(id = character(), ENTREZID = character(),
+                      weight = numeric()))
   }
 
   n_matches <- stats::ave(matched$id, matched$id, FUN = length)

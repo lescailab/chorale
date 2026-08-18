@@ -4,12 +4,17 @@
 \alias{chorale_fdr}
 \title{False-discovery control across the levels of the search}
 \usage{
-chorale_fdr(fit, alpha = 0.05)
+chorale_fdr(fit, alpha = 0.05, associations = NULL)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
 \item{alpha}{The false-discovery rate to control at.}
+
+\item{associations}{A precomputed table of factor-covariate associations, as
+\code{chorale_report()} builds internally. It costs a permutation test per
+factor and covariate, so a caller that already holds it passes it rather
+than paying for it again.}
 }
 \value{
 A data frame with one row per tested object, carrying \code{level}

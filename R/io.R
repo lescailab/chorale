@@ -1,3 +1,92 @@
+#' The vocabulary the design covariates are read in
+#'
+#' Cohorts assembled by different groups label the same thing differently. One
+#' records untreated subjects as `WT`, another as `control`, a third as
+#' `negative`; one records sex as `male`, another as `M`. Nothing downstream can
+#' see that these agree, so a comparison anchored on the design would find no
+#' level in common and match on nothing.
+#'
+#' The registry holds only vocabulary that is general across biology: the
+#' phenotype resolves to `case` and `control`, which is what the estimand is
+#' about whatever the condition under study; sex resolves to `F` and `M`; a
+#' genotype resolves to `carrier` and `non-carrier`, so a design carrying
+#' genotype separately from disease status can anchor on both.
+#'
+#' Names particular to one organism, model or study are deliberately absent. A
+#' study whose labels the registry does not cover supplies its own entry to
+#' [chorale_load()], which is where knowledge of that study belongs; a label the
+#' registry does not recognise is left as it is rather than guessed at.
+#'
+#' @returns A named list, one entry per covariate, each a named character vector
+#'   mapping a lower-cased label to its canonical value.
+#' @export
+#' @examples
+#' names(chorale_label_registry())
+#' # A study whose labels the registry does not cover extends it.
+#' registry <- chorale_label_registry()
+#' registry$phenotype <- c(registry$phenotype, "apoe4" = "case")
+#' registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
+#' names(registry)
+chorale_label_registry <- function() {
+  list(
+    phenotype = c(
+      "case" = "case", "cases" = "case", "affected" = "case",
+      "diseased" = "case", "positive" = "case", "pos" = "case",
+      "treated" = "case", "mutant" = "case", "mut" = "case",
+      "transgenic" = "case", "tg" = "case", "1" = "case", "true" = "case",
+      "control" = "control", "controls" = "control", "ctrl" = "control",
+      "unaffected" = "control", "healthy" = "control", "normal" = "control",
+      "negative" = "control", "neg" = "control",
+      "untreated" = "control", "vehicle" = "control", "sham" = "control",
+      "wildtype" = "control", "wild-type" = "control", "wild type" = "control",
+      "wt" = "control", "non-transgenic" = "control",
+      "nontransgenic" = "control", "ntg" = "control",
+      "reference" = "control", "ref" = "control", "0" = "control",
+      "false" = "control"
+    ),
+    sex = c(
+      "f" = "F", "female" = "F", "females" = "F", "woman" = "F", "women" = "F",
+      "m" = "M", "male" = "M", "males" = "M", "man" = "M", "men" = "M"
+    ),
+    genotype = c(
+      "carrier" = "carrier", "het" = "carrier", "heterozygous" = "carrier",
+      "hom" = "carrier", "homozygous" = "carrier", "mutant" = "carrier",
+      "mut" = "carrier", "variant" = "carrier", "alt" = "carrier",
+      "transgenic" = "carrier", "tg" = "carrier",
+      "non-carrier" = "non-carrier", "noncarrier" = "non-carrier",
+      "wildtype" = "non-carrier", "wild-type" = "non-carrier",
+      "wt" = "non-carrier", "reference" = "non-carrier",
+      "ref" = "non-carrier", "ntg" = "non-carrier"
+    )
+  )
+}
+
+#' Put design labels in one vocabulary across cohorts
+#'
+#' Applies [chorale_label_registry()] to a design table. A label the registry
+#' does not recognise is left as it is, since inventing a mapping for an
+#' unrecognised label would be worse than reporting it.
+#'
+#' @param col_data A design table.
+#' @param labels A registry, as returned by [chorale_label_registry()], or a
+#'   list of entries to merge into it.
+#'
+#' @returns The design table with the covariates the registry covers put in one
+#'   vocabulary.
+#' @keywords internal
+#' @noRd
+chorale_canonical_labels <- function(col_data, labels = chorale_label_registry()) {
+  for (cv in names(labels)) {
+    if (!cv %in% colnames(col_data)) next
+    map <- labels[[cv]]
+    ch <- as.character(col_data[[cv]])
+    hit <- match(tolower(trimws(ch)), names(map))
+    ch[!is.na(hit)] <- unname(map[hit[!is.na(hit)]])
+    col_data[[cv]] <- ch
+  }
+  col_data
+}
+
 #' Treat blank and placeholder strings as missing
 #'
 #' @keywords internal
@@ -22,26 +111,38 @@ chorale_blank_to_na <- function(col_data) {
 #' @keywords internal
 #' @noRd
 chorale_required_col_data <- function() {
-  c(
-    "sample_id", "cohort", "modality", "strain", "phenotype",
-    "age_months", "sex", "region", "batch"
-  )
+  # Only what the estimand cannot do without: an identifier for each sample and
+  # the contrast being estimated. Everything else is a covariate that sharpens
+  # the comparison where it is present and is absent without consequence where
+  # it is not, so requiring it would exclude designs the method can handle.
+  c("sample_id", "phenotype")
 }
 
 #' Load a single-modality assay into a chorale container
 #'
 #' Builds a [SummarizedExperiment::SummarizedExperiment] from a
-#' feature-by-sample assay matrix and its per-sample metadata, validating
-#' that the metadata carries every column a chorale container requires:
-#' `sample_id`, `cohort`, `modality`, `strain`, `phenotype`, `age_months`,
-#' `sex`, `region`, `batch` (`MATHEMATICAL_FOUNDATION.md`, `AGENT_PLAN.md`
-#' Section 8.1). This is the common container every downstream chorale
-#' function expects, one call per modality.
+#' feature-by-sample assay matrix and its per-sample metadata. Two columns are
+#' required, `sample_id` and `phenotype`, since an estimand defined as a
+#' contrast cannot be formed without them. Every other column is a covariate
+#' that sharpens the comparison where the modalities share it and is absent
+#' without consequence where they do not, so none is required.
+#'
+#' Labels are put in one vocabulary as the data are read, through
+#' [chorale_label_registry()], because cohorts assembled by different groups
+#' record the same thing differently and nothing downstream can see that `WT`
+#' and `Ntg` and `control` agree.
+#'
+#' This is the common container every downstream chorale function expects, one
+#' call per modality. [chorale_check_design()] reports what a collection of
+#' designs can and cannot support before any of it is fitted.
 #'
 #' @param assay A feature-by-sample numeric matrix. Column names must match
 #'   `col_data$sample_id`.
 #' @param col_data A data frame of per-sample metadata, one row per column of
-#'   `assay`, carrying at least the required columns listed above.
+#'   `assay`, carrying at least `sample_id` and `phenotype`.
+#' @param labels The vocabulary the design covariates are read in, as returned
+#'   by [chorale_label_registry()]. Supply an extended registry where a study
+#'   uses labels the default does not cover.
 #' @param assay_name Character scalar, the name to give the assay in the
 #'   returned container.
 #'
@@ -52,7 +153,8 @@ chorale_required_col_data <- function() {
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 30, seed = 1)
 #' se <- chorale_load(sim$modalities[[1]], sim$col_data[[1]])
 #' se
-chorale_load <- function(assay, col_data, assay_name = "counts") {
+chorale_load <- function(assay, col_data, assay_name = "counts",
+                         labels = chorale_label_registry()) {
   if (!is.matrix(assay)) {
     rlang::abort("`assay` must be a matrix, features in rows and samples in columns.")
   }
@@ -77,6 +179,9 @@ chorale_load <- function(assay, col_data, assay_name = "counts") {
   # carrying "" alongside one real level would otherwise look like a two-level
   # contrast and be analysed as one.
   col_data <- chorale_blank_to_na(col_data)
+  # Cohorts label the same thing differently, so the anchoring covariates are
+  # put in one vocabulary before anything tries to compare them.
+  col_data <- chorale_canonical_labels(col_data, labels)
 
   rownames(col_data) <- col_data$sample_id
   assay_list <- stats::setNames(list(assay), assay_name)
@@ -131,4 +236,85 @@ chorale_fixture <- function(layer = c("RNA", "PROT", "METAB"), path = NULL) {
   rownames(col_data) <- col_data$sample_id
 
   list(assay = assay, col_data = col_data)
+}
+
+#' What a collection of designs can support, before anything is fitted
+#'
+#' The estimator anchors on the covariates the modalities share, so a design
+#' that looks complete on its own can still leave nothing to compare: a
+#' covariate present everywhere but recorded under different labels shares no
+#' level, and a covariate constant within a cohort carries no contrast. Both
+#' produce an empty comparison for reasons that are invisible in any one design.
+#'
+#' This reports, for every covariate, which modalities carry it, whether it
+#' varies in each, and which of its levels are common to all. Reading it before
+#' fitting is what turns a silent absence of results into a statement about the
+#' data.
+#'
+#' @param designs A named list of design tables, or of containers from
+#'   [chorale_load()].
+#' @param labels The vocabulary to read the designs in.
+#'
+#' @returns A data frame with one row per covariate, carrying the modalities
+#'   that hold it, whether it varies in all of them, its shared levels, and
+#'   whether it can anchor a comparison. Attribute `usable` lists the covariates
+#'   that can.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
+#' containers <- Map(chorale_load, sim$modalities, sim$col_data)
+#' chorale_check_design(containers)
+chorale_check_design <- function(designs, labels = chorale_label_registry()) {
+  if (!is.list(designs) || length(designs) < 1) {
+    rlang::abort("`designs` must be a list of design tables or containers.")
+  }
+  if (is.null(names(designs))) {
+    names(designs) <- paste0("modality_", seq_along(designs))
+  }
+  designs <- lapply(designs, function(d) {
+    if (inherits(d, "SummarizedExperiment")) {
+      d <- as.data.frame(SummarizedExperiment::colData(d))
+    }
+    chorale_canonical_labels(chorale_blank_to_na(as.data.frame(d)), labels)
+  })
+
+  covariates <- setdiff(unique(unlist(lapply(designs, colnames))),
+                        c("sample_id", "modality"))
+  rows <- lapply(covariates, function(cv) {
+    present <- names(designs)[vapply(designs, function(d) cv %in% colnames(d),
+                                     logical(1))]
+    varies <- vapply(designs[present], function(d) {
+      length(unique(stats::na.omit(d[[cv]]))) >= 2
+    }, logical(1))
+    numeric_all <- all(vapply(designs[present], function(d) {
+      is.numeric(d[[cv]]) && length(unique(stats::na.omit(d[[cv]]))) > 2
+    }, logical(1)))
+    shared <- if (numeric_all) {
+      "continuous"
+    } else {
+      lv <- lapply(designs[present], function(d) {
+        unique(as.character(stats::na.omit(d[[cv]])))
+      })
+      paste(sort(Reduce(intersect, lv)), collapse = ", ")
+    }
+    n_shared <- if (numeric_all) Inf else {
+      length(Reduce(intersect, lapply(designs[present], function(d) {
+        unique(as.character(stats::na.omit(d[[cv]])))
+      })))
+    }
+    data.frame(
+      covariate = cv,
+      in_all_modalities = length(present) == length(designs),
+      varies_in_all = length(present) == length(designs) && all(varies),
+      shared_levels = shared,
+      can_anchor = length(present) == length(designs) && all(varies) &&
+        n_shared >= 2,
+      stringsAsFactors = FALSE
+    )
+  })
+  out <- do.call(rbind, rows)
+  out <- out[order(-out$can_anchor, out$covariate), , drop = FALSE]
+  rownames(out) <- NULL
+  attr(out, "usable") <- out$covariate[out$can_anchor]
+  out
 }

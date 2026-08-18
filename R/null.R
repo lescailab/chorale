@@ -57,16 +57,28 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
     for (m in names(permuted)) {
       cd <- SummarizedExperiment::colData(permuted[[m]])
       d <- chorale_add_age_bin(as.data.frame(cd))
-      parts <- list(
-        as.character(d[["cohort"]] %||% rep("all", nrow(d))),
-        as.character(d[["age_bin"]] %||% rep("all", nrow(d))),
-        as.character(d[["sex"]] %||% rep("all", nrow(d)))
-      )
-      parts <- lapply(parts, function(v) {
+      # The phenotype is permuted within blocks of otherwise-alike samples, so
+      # the design survives and only its relation to the data is broken. The
+      # blocks are formed from whatever covariates the design carries, since
+      # naming them in advance would suit one study and exclude another. A
+      # covariate too finely divided to leave any block permutable is dropped.
+      block_cols <- setdiff(chorale_candidate_covariates(list(d)), "phenotype")
+      parts <- lapply(block_cols, function(cv) {
+        v <- as.character(d[[cv]])
         v[is.na(v)] <- "unknown"
         v
       })
-      strata <- do.call(paste, c(parts, sep = "|"))
+      strata <- if (length(parts) == 0) {
+        rep("all", nrow(d))
+      } else {
+        repeat {
+          key <- do.call(paste, c(parts, sep = "|"))
+          if (max(table(key)) > 1 || length(parts) == 0) break
+          parts <- parts[-length(parts)]
+        }
+        if (length(parts) == 0) rep("all", nrow(d)) else
+          do.call(paste, c(parts, sep = "|"))
+      }
       set.seed(seed + i)
       # Permute the phenotype within each stratum, so the design is preserved
       # and only its relation to the data is broken.

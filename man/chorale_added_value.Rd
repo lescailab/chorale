@@ -4,13 +4,15 @@
 \alias{chorale_added_value}
 \title{Whether a programme needed more than one modality}
 \usage{
-chorale_added_value(fit, programmes = NULL)
+chorale_added_value(fit, programmes = NULL, associations = NULL)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
 \item{programmes}{Output of \code{\link[=chorale_programmes]{chorale_programmes()}}; taken from \code{fit} if
 absent.}
+
+\item{associations}{A precomputed table of factor-covariate associations.}
 }
 \value{
 A data frame with one row per programme carrying \code{joint_p}, the
