@@ -891,7 +891,8 @@ chorale_add_age_bin <- function(design) {
 #' @param containers A named list of [SummarizedExperiment::SummarizedExperiment]
 #'   objects, one per modality, as returned by [chorale_load()].
 #' @param n_factors Integer, or one integer per modality, giving the number of
-#'   components to recover, from the detectability gate.
+#'   components to recover, from the detectability gate. `"auto"` sets it per
+#'   modality by parallel analysis, through [chorale_n_factors()].
 #' @param gene_sets A named list of curated gene sets, as returned by
 #'   [chorale_genesets()]. Without it, markers are selected on loadings alone
 #'   and factors carry no pathway definition.
@@ -939,8 +940,15 @@ chorale_fit <- function(containers,
   }
   modalities <- names(containers)
 
-  if (length(n_factors) == 1) n_factors <- rep(n_factors, length(containers))
-  names(n_factors) <- modalities
+  # "auto" defers the count to parallel analysis on each modality, which is the
+  # only parameter the estimator cannot infer from its own objective.
+  auto_factors <- identical(n_factors, "auto")
+  if (!auto_factors) {
+    if (length(n_factors) == 1) n_factors <- rep(n_factors, length(containers))
+    names(n_factors) <- modalities
+  } else {
+    n_factors <- stats::setNames(rep(NA_integer_, length(modalities)), modalities)
+  }
 
   feature_space <- chorale_feature_space(feature_space, modalities)
 
@@ -957,6 +965,9 @@ chorale_fit <- function(containers,
     x <- scale(t(as.matrix(mat)))
     x[!is.finite(x)] <- 0
 
+    if (auto_factors) {
+      n_factors[[m]] <- chorale_n_factors(x, seed = seed)
+    }
     fit <- chorale_ica(x, n_factors[[m]], n_init = n_init, seed = seed)
 
     prior <- NULL
@@ -1085,4 +1096,54 @@ print.chorale_fit <- function(x, ...) {
       if (is.data.frame(x$matches)) nrow(x$matches) else 0,
       "of which significant:", x$n_shared, "\n")
   invisible(x)
+}
+
+#' How many components a modality can support
+#'
+#' The number of factors is the one parameter the estimator cannot infer from
+#' its own objective, and setting it too high manufactures axes that are noise.
+#' Parallel analysis answers it from the data: each feature is permuted
+#' independently, which destroys the covariance while leaving every marginal
+#' intact, and a component counts only where its eigenvalue exceeds what that
+#' permuted null reaches. The threshold is therefore calibrated against the
+#' modality's own marginals rather than against an assumed noise level.
+#'
+#' The count is a property of the cohort rather than of the feature space: a
+#' modality with few samples supports few components whatever the number of
+#' features measured.
+#'
+#' @param x A samples-by-features numeric matrix, centred and scaled.
+#' @param n_perm Permutations forming the null.
+#' @param quantile Quantile of the null eigenvalues a component must exceed.
+#' @param max_factors Upper bound on the count returned.
+#' @param seed Integer seed.
+#'
+#' @returns An integer count, at least two.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 80,
+#'                         n_shared_factors = 2, n_private_factors = 1,
+#'                         n_strains = 4, n_per_cell = 3, seed = 1)
+#' x <- scale(t(sim$modalities[[1]]))
+#' chorale_n_factors(x, n_perm = 20)
+chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
+                              max_factors = 20L, seed = 1L) {
+  x <- as.matrix(x)
+  x[!is.finite(x)] <- 0
+  n <- nrow(x)
+  observed <- svd(x, nu = 0, nv = 0)$d^2 / max(n - 1L, 1L)
+
+  set.seed(seed)
+  null <- matrix(NA_real_, nrow = n_perm, ncol = length(observed))
+  for (b in seq_len(n_perm)) {
+    xb <- apply(x, 2, sample)
+    d <- svd(xb, nu = 0, nv = 0)$d^2 / max(n - 1L, 1L)
+    null[b, seq_along(d)] <- d
+  }
+  threshold <- apply(null, 2, stats::quantile, probs = quantile, na.rm = TRUE)
+  k <- sum(observed > threshold[seq_along(observed)], na.rm = TRUE)
+
+  # A modality cannot support more components than a fifth of its samples
+  # without the recovered axes describing individual animals.
+  as.integer(max(2L, min(k, max_factors, floor(n / 5))))
 }

@@ -72,6 +72,12 @@ chorale_report <- function(fit, bound = NULL, null = NULL, path,
     chorale_leave_one_out(fit), path, "leave_one_out.tsv"))
   written <- c(written, chorale_write(
     chorale_pathway_table(fit), path, "pathway_evidence.tsv"))
+  written <- c(written, chorale_write(
+    chorale_fdr(fit), path, "false_discovery.tsv"))
+  written <- c(written, chorale_write(
+    chorale_added_value(fit), path, "added_value.tsv"))
+  written <- c(written, chorale_write(
+    chorale_cohort_overlap(fit), path, "cohort_overlap.tsv"))
   written <- c(written, chorale_write_gmt(fit, factors, path))
   written <- c(written, chorale_write_mae(fit, path))
   written <- c(written, chorale_write_html(fit, factors, markers, associations,
@@ -896,6 +902,40 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
              "question could not be asked rather than that the answer was no. ",
              "<em>evidence</em> records which channels the programme rests ",
              "on.")),
+
+    "<h2>Multiplicity and added value</h2>",
+    "<p class='legend'>A run tests every factor, every programme and every ",
+    "programme's biology, so the surviving results carry a false-discovery rate ",
+    "controlled within each of those levels. Beside it, each programme is set ",
+    "against the strongest single modality among its members: a programme that ",
+    "does not beat the best single modality was visible in one layer and ",
+    "accompanied by the others, whatever its joint p-value.</p>",
+    chorale_html_table(chorale_fdr(fit), "False discovery across the search",
+      paste0("<em>level</em> is what was tested: a factor against the design, a ",
+             "programme against its joint null, or a programme's biology. ",
+             "<em>q_value</em> is the Benjamini-Hochberg rate within that ",
+             "level; levels are corrected separately, since pooling them would ",
+             "penalise a programme for how many factors happened to be fitted.")),
+    chorale_html_table(chorale_added_value(fit),
+      "Whether a programme needed more than one modality",
+      paste0("<em>best_single_p</em> is the strongest phenotype association any ",
+             "one member factor reaches alone, and <em>margin</em> is the gap ",
+             "from the joint evidence on the negative log scale. ",
+             "<em>worst_leave_one_out_delta</em> is the largest change in the ",
+             "statistic when a modality is removed, read from the statistic ",
+             "rather than the p-value because a permutation p-value saturates ",
+             "at its floor. <em>needs_multiple</em> requires both: the ",
+             "programme beats every single modality, and removing any modality ",
+             "weakens it.")),
+    chorale_html_table(chorale_cohort_overlap(fit),
+      "The population the cohorts share",
+      paste0("A programme describes the population every contributing cohort ",
+             "represents. <em>common_levels</em> are the levels all cohorts ",
+             "populate and <em>min_share_covered</em> the smallest fraction of ",
+             "a cohort those levels hold. <em>max_total_variation</em> is the ",
+             "largest distance between two cohorts' distributions of the ",
+             "covariate, zero meaning they realise it identically. A covariate ",
+             "marked not <em>comparable</em> is one no claim should cross.")),
 
     "<h2>What each modality contributes</h2>",
     "<p class='legend'>A programme carried by three modalities is only a result of integration ",

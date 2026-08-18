@@ -22,7 +22,8 @@ chorale_fit(
 objects, one per modality, as returned by \code{\link[=chorale_load]{chorale_load()}}.}
 
 \item{n_factors}{Integer, or one integer per modality, giving the number of
-components to recover, from the detectability gate.}
+components to recover, from the detectability gate. \code{"auto"} sets it per
+modality by parallel analysis, through \code{\link[=chorale_n_factors]{chorale_n_factors()}}.}
 
 \item{gene_sets}{A named list of curated gene sets, as returned by
 \code{\link[=chorale_genesets]{chorale_genesets()}}. Without it, markers are selected on loadings alone

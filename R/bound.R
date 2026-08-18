@@ -298,3 +298,128 @@ print.chorale_bound <- function(x, ...) {
       round(stats::median(x$bounds$width_anchored), 3), "\n")
   invisible(x)
 }
+
+#' Sampling uncertainty in the identified set
+#'
+#' The interval [chorale_bound()] reports is a plug-in estimate: it is the set
+#' of correlations consistent with the marginals as observed, and says nothing
+#' about how those marginals would move under resampling. A programme built on
+#' forty animals and one built on four hundred can carry the same plug-in
+#' interval and very different confidence in it.
+#'
+#' Samples are resampled within design stratum, so the design distribution the
+#' bounds are conditioned on is preserved, and the interval is recomputed on
+#' each resample. The reported region runs from the lower percentile of the
+#' lower endpoints to the upper percentile of the upper endpoints, which is the
+#' outer envelope of the identified sets the data support rather than an
+#' interval for a point.
+#'
+#' Factor estimation is not resampled by default, so the region carries sampling
+#' error in the marginals and not the uncertainty of the factorisation itself.
+#' Setting `refit` reruns the whole estimator on each resample, which does carry
+#' it, at a cost of one full fit per replicate.
+#'
+#' @param fit A `chorale_fit` object.
+#' @param containers The modality containers the fit was built from. Required
+#'   when `refit` is set.
+#' @param n_boot Number of resamples.
+#' @param level Coverage of the reported region.
+#' @param n_grid Quantiles representing each marginal.
+#' @param refit Refit the estimator on every resample, so the region carries
+#'   the uncertainty of the factorisation as well as of the marginals.
+#' @param n_init Initialisations per refit, when `refit` is set.
+#' @param seed Integer seed.
+#'
+#' @returns A data frame with one row per matched factor pair, carrying the
+#'   plug-in endpoints and the resampled region around them.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 120,
+#'                         n_shared_factors = 2, n_private_factors = 1,
+#'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
+#'                         seed = 1)
+#' containers <- Map(chorale_load, sim$modalities, sim$col_data)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' chorale_bound_uncertainty(fit, n_boot = 20)
+chorale_bound_uncertainty <- function(fit, containers = NULL, n_boot = 200L,
+                                      level = 0.95, n_grid = 200L,
+                                      refit = FALSE, n_init = 5L, seed = 1L) {
+  if (!inherits(fit, "chorale_fit")) {
+    rlang::abort("`fit` must be a chorale_fit object.")
+  }
+  if (refit && is.null(containers)) {
+    rlang::abort("`containers` is required when `refit` is set.")
+  }
+  base <- chorale_bound(fit, n_grid = n_grid)$bounds
+  if (nrow(base) == 0) return(data.frame())
+
+  key <- paste(base$modality_a, base$factor_a, base$modality_b, base$factor_b)
+  lo <- matrix(NA_real_, nrow = n_boot, ncol = nrow(base),
+               dimnames = list(NULL, key))
+  hi <- lo
+
+  # Resampling within stratum keeps each modality's design distribution, so the
+  # conditioning the bounds rest on is not itself resampled away.
+  strata_of <- function(m) {
+    s <- fit$fits[[m]]$scores
+    chorale_stratum_key(rownames(s), fit$designs[[m]], fit$strata_keys)
+  }
+
+  set.seed(seed)
+  for (b in seq_len(n_boot)) {
+    boot <- fit
+    ok <- TRUE
+    for (m in fit$modalities) {
+      s <- fit$fits[[m]]$scores
+      k <- strata_of(m)
+      idx <- unlist(lapply(split(seq_len(nrow(s)), k), function(i) {
+        if (length(i) == 0) return(integer(0))
+        sample(i, length(i), replace = TRUE)
+      }), use.names = FALSE)
+      if (length(idx) < 4) {
+        ok <- FALSE
+        break
+      }
+      resampled <- s[idx, , drop = FALSE]
+      # Names must stay unique for the design join, and each resampled row
+      # keeps the design row it was drawn from.
+      d <- fit$designs[[m]]
+      d <- d[match(rownames(s)[idx], d$sample_id), , drop = FALSE]
+      new_id <- make.unique(as.character(d$sample_id))
+      rownames(resampled) <- d$sample_id <- new_id
+      boot$fits[[m]]$scores <- resampled
+      boot$designs[[m]] <- d
+    }
+    if (!ok) next
+    if (refit) {
+      rf <- try(chorale_fit(containers, n_factors = fit$n_factors,
+                            n_init = n_init, strata_keys = fit$strata_keys,
+                            n_pathway_perm = 0L, seed = seed + b), silent = TRUE)
+      if (inherits(rf, "try-error")) next
+      boot <- rf
+    }
+    bb <- try(chorale_bound(boot, n_grid = n_grid)$bounds, silent = TRUE)
+    if (inherits(bb, "try-error") || nrow(bb) == 0) next
+    bkey <- paste(bb$modality_a, bb$factor_a, bb$modality_b, bb$factor_b)
+    j <- match(key, bkey)
+    lo[b, ] <- bb$lower_anchored[j]
+    hi[b, ] <- bb$upper_anchored[j]
+  }
+
+  a <- (1 - level) / 2
+  region_lower <- apply(lo, 2, stats::quantile, probs = a, na.rm = TRUE)
+  region_upper <- apply(hi, 2, stats::quantile, probs = 1 - a, na.rm = TRUE)
+  n_used <- apply(lo, 2, function(v) sum(is.finite(v)))
+
+  data.frame(
+    base[, c("modality_a", "modality_b", "factor_a", "factor_b")],
+    lower_anchored = base$lower_anchored,
+    upper_anchored = base$upper_anchored,
+    region_lower = round(pmax(-1, region_lower), 4),
+    region_upper = round(pmin(1, region_upper), 4),
+    region_width = round(pmin(1, region_upper) - pmax(-1, region_lower), 4),
+    n_resamples = as.integer(n_used),
+    coverage = level,
+    stringsAsFactors = FALSE
+  )
+}
