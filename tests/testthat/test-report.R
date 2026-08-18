@@ -67,13 +67,54 @@ test_that("the GMT lists marker features per factor", {
   expect_gt(length(parts), 2)
 })
 
+test_that("the integrated result is written as its own table", {
+  r <- report_run()
+  expect_true("programmes.tsv" %in% basename(r$files))
+  p <- utils::read.delim(file.path(r$path, "programmes.tsv"))
+  if (nrow(r$fit$matches) > 0) {
+    expect_equal(nrow(p), nrow(r$fit$matches))
+    expect_true(all(c("programme", "pathway", "phenotype_effect_a",
+                      "phenotype_effect_b", "direction") %in% colnames(p)))
+  }
+})
+
+test_that("the report leads with integration, not with per-modality factors", {
+  r <- report_run()
+  html <- paste(readLines(file.path(r$path, "report.html"), warn = FALSE),
+                collapse = "\n")
+  # The integrated section must precede the per-modality detail.
+  expect_lt(regexpr("What integration found", html, fixed = TRUE)[1],
+            regexpr("Supporting detail", html, fixed = TRUE)[1])
+  expect_true(grepl("Shared biological programmes", html, fixed = TRUE))
+})
+
+test_that("every table carries a legend", {
+  r <- report_run()
+  html <- paste(readLines(file.path(r$path, "report.html"), warn = FALSE),
+                collapse = "\n")
+  n_tables <- length(gregexpr("<h3>", html, fixed = TRUE)[[1]])
+  n_legends <- length(gregexpr("class='legend'", html, fixed = TRUE)[[1]])
+  expect_gte(n_legends, n_tables)
+})
+
+test_that("charts are inline and labelled for assistive technology", {
+  r <- report_run()
+  html <- paste(readLines(file.path(r$path, "report.html"), warn = FALSE),
+                collapse = "\n")
+  skip_if(!grepl("<svg", html, fixed = TRUE))
+  expect_true(grepl("role='img'", html, fixed = TRUE))
+  expect_true(grepl("aria-label=", html, fixed = TRUE))
+  # Identity never rests on colour alone: a legend accompanies the marks.
+  expect_true(grepl("legend-row", html, fixed = TRUE))
+})
+
 test_that("the report renders as self-contained HTML", {
   r <- report_run()
   html <- readLines(file.path(r$path, "report.html"), warn = FALSE)
   expect_true(any(grepl("<html", html)))
-  expect_true(any(grepl("chorale report", html)))
-  # Self-contained: no external stylesheet or script is referenced.
-  expect_false(any(grepl("<script|href=\"http", html)))
+  expect_true(any(grepl("What integration found", html)))
+  # Self-contained: no external stylesheet, script or remote asset.
+  expect_false(any(grepl("<script|href=\"http|src=\"http", html)))
 })
 
 test_that("chorale_report rejects a non-fit", {
