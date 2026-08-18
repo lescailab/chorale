@@ -60,3 +60,50 @@ chorale_load <- function(assay, col_data, assay_name = "counts") {
     colData = col_data
   )
 }
+
+#' Read a committed test fixture
+#'
+#' Reads one of the fixture matrices under `tests/testthat/fixtures/`,
+#' returning a feature-by-sample numeric matrix with its identifiers
+#' restored. The fixtures are derived from the validated production layers by
+#' `data-raw/fixtures.R`, so they carry real identifiers, real missingness and
+#' real distributions at a size continuous integration can run.
+#'
+#' @param layer Character scalar, one of `"RNA"`, `"PROT"` or `"METAB"`.
+#' @param path Directory holding the fixtures. Defaults to the installed
+#'   fixture directory, and resolves under `testthat::test_path()` when called
+#'   from a test.
+#'
+#' @returns A list with `assay`, a feature-by-sample numeric matrix, and
+#'   `col_data`, the matching per-sample design table.
+#' @export
+#' @examplesIf dir.exists(system.file("fixtures", package = "chorale"))
+#' fx <- chorale_fixture("RNA")
+#' dim(fx$assay)
+chorale_fixture <- function(layer = c("RNA", "PROT", "METAB"), path = NULL) {
+  layer <- match.arg(layer)
+  if (is.null(path)) {
+    path <- system.file("fixtures", package = "chorale")
+    if (!nzchar(path)) {
+      path <- file.path("tests", "testthat", "fixtures")
+    }
+  }
+
+  matrix_file <- file.path(path, paste0(layer, "_matrix.parquet"))
+  design_file <- file.path(path, paste0(layer, "_design.tsv"))
+  if (!file.exists(matrix_file)) {
+    rlang::abort(paste0("Fixture not found: ", matrix_file))
+  }
+
+  tbl <- nanoparquet::read_parquet(matrix_file)
+  feature_id <- tbl[["feature_id"]]
+  tbl[["feature_id"]] <- NULL
+  assay <- as.matrix(tbl)
+  rownames(assay) <- feature_id
+
+  col_data <- utils::read.delim(design_file, stringsAsFactors = FALSE)
+  col_data <- col_data[match(colnames(assay), col_data$sample_id), , drop = FALSE]
+  rownames(col_data) <- col_data$sample_id
+
+  list(assay = assay, col_data = col_data)
+}

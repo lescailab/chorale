@@ -2,6 +2,7 @@
 
 export(chorale_bound)
 export(chorale_fit)
+export(chorale_fixture)
 export(chorale_load)
 export(chorale_map)
 export(chorale_null)

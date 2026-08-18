@@ -1,0 +1,25 @@
+sample_id	cohort	modality	strain	genotype	age_months	sex	region	batch	age_bin
+anon_sample_0064	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
+anon_sample_0065	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
+anon_sample_0061	cohort_b	METAB	C57BL/6J	5XFAD	2	male	cerebral cortex	batch1	2mo
+anon_sample_0062	cohort_b	METAB	C57BL/6J	5XFAD	2	male	cerebral cortex	batch1	2mo
+anon_sample_0068	cohort_b	METAB	C57BL/6J	5XFAD	2	female	cerebral cortex	batch1	2mo
+anon_sample_0028	cohort_b	METAB	C57BL/6J	WT	6	female	cerebral cortex	batch1	6mo
+anon_sample_0026	cohort_b	METAB	C57BL/6J	5XFAD	6	male	cerebral cortex	batch1	6mo
+anon_sample_0031	cohort_b	METAB	C57BL/6J	5XFAD	6	female	cerebral cortex	batch1	6mo
+anon_sample_0072	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch2	2mo
+anon_sample_0071	cohort_b	METAB	C57BL/6J	WT	2	female	cerebral cortex	batch2	2mo
+anon_sample_0034	cohort_b	METAB	C57BL/6J	WT	6	female	cerebral cortex	batch2	6mo
+anon_sample_0066	cohort_b	METAB	C57BL/6J	WT	2	female	hippocampus	batch1	2mo
+anon_sample_0067	cohort_b	METAB	C57BL/6J	WT	2	female	hippocampus	batch1	2mo
+anon_sample_0063	cohort_b	METAB	C57BL/6J	5XFAD	2	male	hippocampus	batch1	2mo
+anon_sample_0069	cohort_b	METAB	C57BL/6J	5XFAD	2	female	hippocampus	batch1	2mo
+anon_sample_0027	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch1	6mo
+anon_sample_0030	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch1	6mo
+anon_sample_0029	cohort_b	METAB	C57BL/6J	WT	6	female	hippocampus	batch1	6mo
+anon_sample_0025	cohort_b	METAB	C57BL/6J	5XFAD	6	male	hippocampus	batch1	6mo
+anon_sample_0070	cohort_b	METAB	C57BL/6J	5XFAD	2	female	hippocampus	batch2	2mo
+anon_sample_0036	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch2	6mo
+anon_sample_0035	cohort_b	METAB	C57BL/6J	5XFAD	6	male	hippocampus	batch2	6mo
+anon_sample_0032	cohort_b	METAB	C57BL/6J	5XFAD	6	female	hippocampus	batch2	6mo
+anon_sample_0033	cohort_b	METAB	C57BL/6J	5XFAD	6	female	hippocampus	batch2	6mo

@@ -1,0 +1,25 @@
+sample_id	cohort	modality	strain	genotype	age_months	sex	region	batch	age_bin
+anon_sample_0001	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0002	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0003	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0004	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0005	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0006	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0007	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0008	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0009	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0010	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0011	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0012	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0013	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0014	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0015	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0016	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0017	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0018	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0019	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0020	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0021	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0022	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0023	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+anon_sample_0024	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
