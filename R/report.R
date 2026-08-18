@@ -70,6 +70,8 @@ chorale_report <- function(fit, bound = NULL, null = NULL, path,
     path, "programmes.tsv"))
   written <- c(written, chorale_write(
     chorale_leave_one_out(fit), path, "leave_one_out.tsv"))
+  written <- c(written, chorale_write(
+    chorale_pathway_table(fit), path, "pathway_evidence.tsv"))
   written <- c(written, chorale_write_gmt(fit, factors, path))
   written <- c(written, chorale_write_mae(fit, path))
   written <- c(written, chorale_write_html(fit, factors, markers, associations,
@@ -319,6 +321,20 @@ chorale_control_table <- function(fit, null) {
       )
     }
   }
+  for (m in fit$modalities) {
+    rec <- fit$fits[[m]]$reconstruction
+    if (is.null(rec)) next
+    rows[[length(rows) + 1]] <- data.frame(
+      control = paste0("curated projection: ", m),
+      value = signif(rec$projected, 4),
+      detail = sprintf(
+        paste("variance the curated sets explain, against %.3f for the fitted",
+              "loadings; the sets describe the factors, they do not replace",
+              "them"),
+        rec$fitted),
+      stringsAsFactors = FALSE
+    )
+  }
   rows[[length(rows) + 1]] <- data.frame(
     control = "factors clearing the pure-feature condition",
     value = sum(vapply(fit$modalities, function(m) {
@@ -405,7 +421,8 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
   # would render a negative analysis as a positive integration.
   cols <- c("programme", "n_modalities", "modalities", "programme_pathway",
             "modality", "factor", "markers", "phenotype_effect", "phenotype_p",
-            "joint_statistic", "joint_p")
+            "joint_statistic", "joint_p", "pathway_statistic", "pathway_p",
+            "n_shared_sets", "evidence")
   pg <- chorale_programmes(fit, significant_only = TRUE)
   if (nrow(pg) == 0) {
     # An empty result is still a result, so it is written with its columns
@@ -436,6 +453,10 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
     if (nrow(r) == 0) return("")
     paste(chorale_readable_features(utils::head(r$feature, n)), collapse = ", ")
   }
+
+  # The pathway channel is a second, independent line of evidence, so every
+  # programme says which of the two it rests on.
+  pg <- chorale_evidence_label(pg, fit$pathway_evidence)
 
   pg$pathway <- vapply(seq_len(nrow(pg)), function(i)
     pathway(pg$modality[i], pg$factor[i]) %||% NA_character_, character(1))
@@ -667,6 +688,20 @@ chorale_svg_bounds <- function(bounds, integrated = NULL) {
          paste(parts, collapse = ""), "</svg>")
 }
 
+#' Pathway corroboration per programme, ready to render
+#' @keywords internal
+#' @noRd
+chorale_pathway_table <- function(fit) {
+  pe <- fit$pathway_evidence
+  if (is.null(pe) || nrow(pe) == 0) return(data.frame())
+  pg <- chorale_programmes(fit, significant_only = TRUE)
+  if (nrow(pg) == 0) return(data.frame())
+  pe <- pe[pe$programme %in% pg$programme, , drop = FALSE]
+  if (nrow(pe) == 0) return(data.frame())
+  span <- pg[!duplicated(pg$programme), c("programme", "modalities")]
+  merge(span, pe, by = "programme", sort = FALSE)
+}
+
 #' Self-contained report
 #' @keywords internal
 #' @noRd
@@ -817,9 +852,8 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
       paste0("One row per modality that carries a programme, so a programme measured in three ",
              "modalities occupies three rows sharing a <em>programme</em> identifier. ",
              "<em>n_modalities</em> and <em>modalities</em> record how far it reaches. ",
-             "<em>programme_pathway</em> is the curated set the loadings were ",
-             "shrunk towards at estimation, so it is a definition rather than an annotation ",
-             "added afterwards. <em>markers</em> are features loading on that programme and ",
+             "<em>programme_pathway</em> is the curated set that best describes the ",
+             "factor's loadings. <em>markers</em> are features loading on that programme and ",
              "almost nothing else, which is what makes the axis interpretable. ",
              "<em>phenotype_effect</em> and <em>phenotype_p</em> are the case/control effect and ",
              "its permutation p-value within that modality; comparing the sign across rows of one ",
@@ -833,7 +867,31 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
              "pays. The null reruns the whole procedure, assignment included, so the p-value ",
              "accounts for the freedom the estimator had rather than conditioning on the ",
              "programme it chose. Only programmes whose joint evidence beat that null appear ",
-             "here.")),
+             "here. <em>evidence</em> says whether the biology corroborates ",
+             "the design, which the section below sets out.")),
+
+    "<h2>Does the biology agree as well as the design?</h2>",
+    "<p class='legend'>A programme is recovered by asking whether factors in ",
+    "different modalities respond to the case/control design the same way. ",
+    "Whether they also implicate the same biology is a separate question, and ",
+    "it is asked separately here. The factors were fitted without the curated ",
+    "sets, so agreement on biology cannot have been built into them, and a ",
+    "programme carrying both kinds of evidence is standing on two independent ",
+    "legs rather than one. The null holds every set at its size and every ",
+    "feature in its number of sets, permuting only which feature is which, so ",
+    "the large sets and the frequently annotated features that manufacture ",
+    "enrichment where none exists cannot do so here.</p>",
+    chorale_html_table(chorale_pathway_table(fit),
+      "Biological corroboration, by programme",
+      paste0("<em>pathway_statistic</em> is the agreement of the members' ",
+             "pathway profiles, averaged over every pair inside the programme, ",
+             "and <em>pathway_p</em> calibrates it against the ",
+             "annotation-matched null. <em>n_shared_sets</em> is how much ",
+             "vocabulary the modalities have in common: where it is small the ",
+             "channel has little to say, and an empty result means the ",
+             "question could not be asked rather than that the answer was no. ",
+             "<em>evidence</em> records which channels the programme rests ",
+             "on.")),
 
     "<h2>What each modality contributes</h2>",
     "<p class='legend'>A programme carried by three modalities is only a result of integration ",

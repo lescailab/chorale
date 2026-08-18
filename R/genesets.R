@@ -3,7 +3,7 @@
 #' Each entry names one collection and records how to retrieve it from
 #' MSigDB. The registry is the exchange point of the gene-set layer: adding an
 #' entry, or passing a replacement registry to [chorale_genesets()], changes
-#' which vocabulary the factors are constrained towards and named in, without
+#' which vocabulary the factors are described and compared in, without
 #' touching the estimator.
 #'
 #' The default registry is deliberately organism-agnostic and disease-agnostic.
@@ -49,12 +49,13 @@ chorale_geneset_registry <- function() {
   )
 }
 
-#' Retrieve curated gene sets for constraint and interpretation
+#' Retrieve curated sets for description and cross-modality comparison
 #'
 #' Returns curated gene sets as Entrez identifiers, the space
 #' [chorale_map()] harmonises features into. The sets serve two purposes: they
-#' constrain factor loadings at estimation, and they supply the vocabulary a
-#' factor is named in afterwards.
+#' supply the vocabulary a factor is named in, and they place factors from
+#' different modalities in one biological coordinate system, which is what lets
+#' their agreement be assessed on biology as well as on the design.
 #'
 #' Sets far outside the size window are dropped. Very small sets are matched by
 #' chance and very large ones name nothing specific, so both weaken a factor
@@ -147,7 +148,7 @@ chorale_genesets <- function(collections = c("hallmark", "reactome", "cell_type"
 
 #' Represent gene sets as a feature-by-set indicator matrix
 #'
-#' Builds the prior matrix the estimator constrains loadings against: rows are
+#' Builds the feature-by-set matrix the pathway layer reads: rows are
 #' the features of one modality, columns are gene sets, and an entry is 1 where
 #' the feature belongs to the set. Features carry fractional weight where an
 #' identifier maps to several genes, so a one-to-many mapping contributes

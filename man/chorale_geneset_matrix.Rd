@@ -24,7 +24,7 @@ A numeric matrix with one row per feature and one column per
 retained gene set.
 }
 \description{
-Builds the prior matrix the estimator constrains loadings against: rows are
+Builds the feature-by-set matrix the pathway layer reads: rows are
 the features of one modality, columns are gene sets, and an entry is 1 where
 the feature belongs to the set. Features carry fractional weight where an
 identifier maps to several genes, so a one-to-many mapping contributes

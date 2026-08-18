@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{chorale_constrain}
 \alias{chorale_constrain}
-\title{Shrink non-anchor loadings towards curated sets}
+\title{Express factor loadings in the space of curated sets}
 \usage{
 chorale_constrain(loadings, prior, markers, lambda = 1)
 }
@@ -17,15 +17,24 @@ chorale_constrain(loadings, prior, markers, lambda = 1)
 \item{lambda}{Ridge penalty on the set coefficients.}
 }
 \value{
-A list with \code{loadings}, the constrained matrix, and \code{set_weights},
-a sets-by-factors matrix giving each factor's composition in set space.
+A list with \code{loadings}, the projected matrix, and \code{set_weights}, a
+sets-by-factors matrix giving each factor's composition in set space.
 }
 \description{
-Expresses the loadings of features that are not markers as a combination of
-curated gene sets, in the manner of PLIER, so each factor carries a pathway
-definition from estimation rather than from later annotation. Marker
-loadings are left untouched, since they carry the purity the identification
-argument rests on and a dense prior would erode it.
+Regresses the loadings of features that are not markers on the curated set
+indicators, in the manner of PLIER, giving each factor a composition in set
+space. Marker loadings are excluded from the regression, since they carry
+the purity the identification argument rests on.
+}
+\details{
+This is a projection computed after the factors are fitted, not a
+constrained factorisation. The \code{loadings} element it returns is the
+projected matrix, and the scores that produced the original loadings are not
+refitted to it, so the projection does not reconstruct the data. The
+estimator therefore keeps the fitted loadings and uses only \code{set_weights},
+as the composition each factor has in the curated vocabulary. The
+reconstruction each version achieves is reported by \code{\link[=chorale_fit]{chorale_fit()}}, so the
+distance between them is visible rather than assumed away.
 }
 \examples{
 set.seed(1)

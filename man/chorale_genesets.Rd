@@ -2,7 +2,7 @@
 % Please edit documentation in R/genesets.R
 \name{chorale_genesets}
 \alias{chorale_genesets}
-\title{Retrieve curated gene sets for constraint and interpretation}
+\title{Retrieve curated sets for description and cross-modality comparison}
 \usage{
 chorale_genesets(
   collections = c("hallmark", "reactome", "cell_type"),
@@ -40,8 +40,9 @@ an attribute \code{collection} recording which collection each set came from.
 \description{
 Returns curated gene sets as Entrez identifiers, the space
 \code{\link[=chorale_map]{chorale_map()}} harmonises features into. The sets serve two purposes: they
-constrain factor loadings at estimation, and they supply the vocabulary a
-factor is named in afterwards.
+supply the vocabulary a factor is named in, and they place factors from
+different modalities in one biological coordinate system, which is what lets
+their agreement be assessed on biology as well as on the design.
 }
 \details{
 Sets far outside the size window are dropped. Very small sets are matched by

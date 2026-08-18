@@ -9,9 +9,11 @@ chorale_fit(
   n_factors,
   gene_sets = NULL,
   feature_map = NULL,
+  feature_space = NULL,
   n_init = 20L,
   strata_keys = c("phenotype", "age_bin", "sex"),
   assay_name = NULL,
+  n_pathway_perm = 200L,
   seed = 1L
 )
 }
@@ -30,11 +32,22 @@ and factors carry no pathway definition.}
 frame from \code{\link[=chorale_map]{chorale_map()}} harmonising that modality's features to Entrez
 identifiers.}
 
+\item{feature_space}{Optional named character vector, one entry per
+modality, saying what its features are: \code{"gene"} for a transcriptome or
+proteome, whose identifiers reach the curated sets through
+\code{\link[=chorale_map]{chorale_map()}}, or \code{"lipid"} for a lipidome, whose features reach them
+through their class by \code{\link[=chorale_metabolite_matrix]{chorale_metabolite_matrix()}}. Defaults to \code{"gene"}
+everywhere. It is declared rather than guessed, since a wrong guess would
+silently leave a modality out of the pathway comparison.}
+
 \item{n_init}{Integer number of random initialisations per modality.}
 
 \item{strata_keys}{Design columns defining an anchoring stratum.}
 
 \item{assay_name}{Assay to take from each container.}
+
+\item{n_pathway_perm}{Annotation-matched permutations calibrating the
+pathway channel. Zero skips it.}
 
 \item{seed}{Integer seed.}
 }

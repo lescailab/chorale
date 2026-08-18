@@ -6,9 +6,11 @@ Authors@R:
     person("Francesco", "Lescai", , "francesco.lescai@unipv.it", role = c("aut", "cre"))
 Description: Estimates a shared latent biological state across molecular
     modalities measured on disjoint sample sets, using identification
-    results for unpaired multi-domain linear latent models. Provides
-    pathway-constrained, interpretable factors together with
-    falsifiability controls, including permutation calibration and
+    results for unpaired multi-domain linear latent models. Solves the
+    correspondence between modalities jointly rather than pairwise, and
+    corroborates it on a curated pathway vocabulary shared by every
+    modality, lipidomes included. Provides falsifiability controls,
+    including permutation calibration, annotation-matched nulls and
     initialisation stability diagnostics, and reports
     partial-identification bounds on the cross-modality coupling.
 License: MIT + file LICENSE
@@ -30,6 +32,7 @@ Suggests:
     MOFA2,
     MSFA,
     rliger,
+    rgoslin,
     rmarkdown,
     ruv,
     RUVSeq,

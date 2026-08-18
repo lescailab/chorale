@@ -177,13 +177,21 @@ chorale_markers <- function(loadings, purity_ratio = 0.25, min_markers = 2L,
   )
 }
 
-#' Shrink non-anchor loadings towards curated sets
+#' Express factor loadings in the space of curated sets
 #'
-#' Expresses the loadings of features that are not markers as a combination of
-#' curated gene sets, in the manner of PLIER, so each factor carries a pathway
-#' definition from estimation rather than from later annotation. Marker
-#' loadings are left untouched, since they carry the purity the identification
-#' argument rests on and a dense prior would erode it.
+#' Regresses the loadings of features that are not markers on the curated set
+#' indicators, in the manner of PLIER, giving each factor a composition in set
+#' space. Marker loadings are excluded from the regression, since they carry
+#' the purity the identification argument rests on.
+#'
+#' This is a projection computed after the factors are fitted, not a
+#' constrained factorisation. The `loadings` element it returns is the
+#' projected matrix, and the scores that produced the original loadings are not
+#' refitted to it, so the projection does not reconstruct the data. The
+#' estimator therefore keeps the fitted loadings and uses only `set_weights`,
+#' as the composition each factor has in the curated vocabulary. The
+#' reconstruction each version achieves is reported by [chorale_fit()], so the
+#' distance between them is visible rather than assumed away.
 #'
 #' @param loadings A features-by-factors numeric matrix.
 #' @param prior A feature-by-set indicator matrix from
@@ -191,8 +199,8 @@ chorale_markers <- function(loadings, purity_ratio = 0.25, min_markers = 2L,
 #' @param markers A named list of marker features per factor.
 #' @param lambda Ridge penalty on the set coefficients.
 #'
-#' @returns A list with `loadings`, the constrained matrix, and `set_weights`,
-#'   a sets-by-factors matrix giving each factor's composition in set space.
+#' @returns A list with `loadings`, the projected matrix, and `set_weights`, a
+#'   sets-by-factors matrix giving each factor's composition in set space.
 #' @export
 #' @examples
 #' set.seed(1)
@@ -232,6 +240,34 @@ chorale_constrain <- function(loadings, prior, markers, lambda = 1) {
   }
 
   list(loadings = out, set_weights = set_weights)
+}
+
+#' Variance the loadings explain, as fitted and after projection
+#'
+#' The fitted loadings and the scores are one object: together they reconstruct
+#' the data. The projection onto curated sets is a different matrix, and the
+#' scores were not refitted to it. Reporting what each explains keeps the
+#' distance between the estimate and its annotation in view, so a curated
+#' vocabulary too coarse to describe the factors is visible as such rather than
+#' silently replacing them.
+#'
+#' @keywords internal
+#' @noRd
+chorale_reconstruction <- function(x, scores, fitted_loadings,
+                                   projected_loadings) {
+  total <- sum(x^2)
+  explained <- function(l) {
+    shared <- intersect(colnames(x), rownames(l))
+    if (length(shared) == 0 || total <= 0) return(NA_real_)
+    resid <- x[, shared, drop = FALSE] -
+      scores %*% t(l[shared, , drop = FALSE])
+    1 - sum(resid^2) / sum(x[, shared, drop = FALSE]^2)
+  }
+  data.frame(
+    fitted = explained(fitted_loadings),
+    projected = explained(projected_loadings),
+    stringsAsFactors = FALSE
+  )
 }
 
 #' Moore-Penrose inverse
@@ -807,6 +843,15 @@ chorale_add_age_bin <- function(design) {
 #' @param feature_map Optional named list, one entry per modality, each a data
 #'   frame from [chorale_map()] harmonising that modality's features to Entrez
 #'   identifiers.
+#' @param feature_space Optional named character vector, one entry per
+#'   modality, saying what its features are: `"gene"` for a transcriptome or
+#'   proteome, whose identifiers reach the curated sets through
+#'   [chorale_map()], or `"lipid"` for a lipidome, whose features reach them
+#'   through their class by [chorale_metabolite_matrix()]. Defaults to `"gene"`
+#'   everywhere. It is declared rather than guessed, since a wrong guess would
+#'   silently leave a modality out of the pathway comparison.
+#' @param n_pathway_perm Annotation-matched permutations calibrating the
+#'   pathway channel. Zero skips it.
 #' @param n_init Integer number of random initialisations per modality.
 #' @param strata_keys Design columns defining an anchoring stratum.
 #' @param assay_name Assay to take from each container.
@@ -825,9 +870,11 @@ chorale_fit <- function(containers,
                         n_factors,
                         gene_sets = NULL,
                         feature_map = NULL,
+                        feature_space = NULL,
                         n_init = 20L,
                         strata_keys = c("phenotype", "age_bin", "sex"),
                         assay_name = NULL,
+                        n_pathway_perm = 200L,
                         seed = 1L) {
   if (!is.list(containers) || length(containers) < 2) {
     rlang::abort("`containers` must be a list of at least two modalities.")
@@ -839,6 +886,8 @@ chorale_fit <- function(containers,
 
   if (length(n_factors) == 1) n_factors <- rep(n_factors, length(containers))
   names(n_factors) <- modalities
+
+  feature_space <- chorale_feature_space(feature_space, modalities)
 
   fits <- list()
   designs <- list()
@@ -857,24 +906,35 @@ chorale_fit <- function(containers,
 
     prior <- NULL
     if (!is.null(gene_sets)) {
-      ids <- rownames(mat)
-      weights <- rep(1, length(ids))
-      if (!is.null(feature_map) && !is.null(feature_map[[m]])) {
-        fm <- feature_map[[m]]
-        idx <- match(ids, fm$id)
-        mapped <- !is.na(idx)
-        ids[mapped] <- fm$ENTREZID[idx[mapped]]
-        weights[mapped] <- fm$weight[idx[mapped]]
+      if (identical(unname(feature_space[[m]]), "lipid")) {
+        # A lipidome reaches the sets through its classes rather than through
+        # gene identifiers, so both modalities end up in one vocabulary.
+        prior <- chorale_metabolite_matrix(rownames(mat), gene_sets)
+      } else {
+        ids <- rownames(mat)
+        weights <- rep(1, length(ids))
+        if (!is.null(feature_map) && !is.null(feature_map[[m]])) {
+          fm <- feature_map[[m]]
+          idx <- match(ids, fm$id)
+          mapped <- !is.na(idx)
+          ids[mapped] <- fm$ENTREZID[idx[mapped]]
+          weights[mapped] <- fm$weight[idx[mapped]]
+        }
+        prior <- chorale_geneset_matrix(ids, gene_sets, weights = weights)
+        if (ncol(prior) > 0) rownames(prior) <- rownames(mat)
       }
-      prior <- chorale_geneset_matrix(ids, gene_sets, weights = weights)
-      if (ncol(prior) > 0) rownames(prior) <- rownames(mat)
     }
 
     mk <- chorale_markers(fit$loadings, prior = prior)
     if (!is.null(prior) && ncol(prior) > 0) {
-      constrained <- chorale_constrain(fit$loadings, prior, mk$markers)
-      fit$loadings <- constrained$loadings
-      fit$set_weights <- constrained$set_weights
+      # The projection onto curated sets is an annotation, so it is stored
+      # beside the fit rather than substituted for it. Overwriting the
+      # loadings would leave a matrix the scores no longer reconstruct.
+      projected <- chorale_constrain(fit$loadings, prior, mk$markers)
+      fit$set_weights <- projected$set_weights
+      fit$pathway_loadings <- projected$loadings
+      fit$reconstruction <- chorale_reconstruction(x, fit$scores, fit$loadings,
+                                                   projected$loadings)
     }
     fit$markers <- mk$markers
     fit$best_candidates <- mk$best_candidates
@@ -890,9 +950,10 @@ chorale_fit <- function(containers,
                                    seed = seed)
   matches <- integration$matches
 
-  structure(
+  out <- structure(
     list(
       modalities = modalities,
+      feature_space = feature_space,
       fits = fits,
       designs = designs,
       matches = matches,
@@ -915,6 +976,37 @@ chorale_fit <- function(containers,
     ),
     class = "chorale_fit"
   )
+
+  # The pathway channel is a second, independent line of evidence, so it is
+  # computed once here and travels with the fit.
+  out$pathway_evidence <- if (n_pathway_perm > 0) {
+    chorale_pathway_evidence(out, n_perm = n_pathway_perm, seed = seed)
+  } else {
+    data.frame()
+  }
+  out
+}
+
+#' Resolve the declared feature space of every modality
+#' @keywords internal
+#' @noRd
+chorale_feature_space <- function(feature_space, modalities) {
+  if (is.null(feature_space)) {
+    return(stats::setNames(rep("gene", length(modalities)), modalities))
+  }
+  unknown <- setdiff(names(feature_space), modalities)
+  if (length(unknown) > 0) {
+    rlang::abort(paste0("`feature_space` names unknown modalities: ",
+                        paste(unknown, collapse = ", "), "."))
+  }
+  out <- stats::setNames(rep("gene", length(modalities)), modalities)
+  out[names(feature_space)] <- as.character(feature_space)
+  bad <- setdiff(unique(out), c("gene", "lipid"))
+  if (length(bad) > 0) {
+    rlang::abort(paste0("`feature_space` must be \"gene\" or \"lipid\"; got: ",
+                        paste(bad, collapse = ", "), "."))
+  }
+  out
 }
 
 #' @export

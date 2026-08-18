@@ -16,7 +16,7 @@ by \code{\link[msigdbr:msigdbr]{msigdbr::msigdbr()}}, and a human-readable \code
 Each entry names one collection and records how to retrieve it from
 MSigDB. The registry is the exchange point of the gene-set layer: adding an
 entry, or passing a replacement registry to \code{\link[=chorale_genesets]{chorale_genesets()}}, changes
-which vocabulary the factors are constrained towards and named in, without
+which vocabulary the factors are described and compared in, without
 touching the estimator.
 }
 \details{

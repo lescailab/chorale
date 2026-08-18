@@ -25,24 +25,37 @@ chorale estimates a shared latent biological state across omics modalities
 measured on **disjoint sets of animals**, where no subject contributes to more
 than one modality, and expresses that state in biological terms.
 
-The framework rests on a single result: in unpaired multi-domain linear latent
-models the shared latent block is identifiable from marginal distributions
-alone, because the modality-specific components are non-exchangeable and
-non-Gaussian (Sturma et al., NeurIPS 2023, Theorem 3.1; Timilsina, Lyu & Fu,
-arXiv:2409.19422, Theorem 1). Identification fails where those modality-specific
-structures are made statistically alike (Sturma et al., Proposition C.1 and
-Lemma C.2). Modality heterogeneity is therefore treated as the identifying
-resource, and cross-modality harmonisation is excluded.
+The design takes its starting point from work showing that, in unpaired
+multi-domain linear latent models, a shared latent block can be identified from
+marginal distributions alone where the modality-specific components are
+non-exchangeable and non-Gaussian (Sturma et al., NeurIPS 2023; Timilsina,
+Shrestha & Fu, NeurIPS 2024). Identification fails where those
+modality-specific structures are made statistically alike, so modality
+heterogeneity is treated as the identifying resource and cross-modality
+harmonisation is excluded.
 
-Two properties hold throughout.
+What the package implements is not those papers' estimator. They match
+recovered component distributions; chorale compares how factors respond to the
+experimental design, and corroborates the result on a curated pathway
+vocabulary. Its error control is therefore empirical, established by rerunning
+the whole procedure under a null, and is not inherited from those theorems.
 
-**Interpretability by design.** Every latent factor carries a biological
-definition from the moment it is estimated, through pathway-constrained loadings
-and a pure-feature requirement, not by post-hoc annotation.
+Three properties hold throughout.
+
+**One assignment, not many.** The correspondence between modalities is solved
+once over the whole collection rather than a pair at a time, so a programme
+cannot be assembled by chaining pairwise decisions through a single mistaken
+link.
+
+**Two channels that can disagree.** Factors are compared on what they do to the
+design and, separately, on which curated pathways they implicate. The factors
+are fitted without ever seeing those pathways, so agreement on biology
+corroborates the design result instead of restating it. A lipidome joins that
+comparison through its classes, in the same vocabulary the genes use.
 
 **Falsifiability.** Every result is accompanied by its negative control:
-permutation calibration, modality shuffle, and stability across random
-initialisations. No output is reportable without one.
+permutation calibration, annotation-matched nulls, modality shuffle, and
+stability across random initialisations. No output is reportable without one.
 
 ## Status
 
@@ -63,6 +76,8 @@ discovery claims.
 | `chorale_fit()` | Implemented |
 | `chorale_programmes()` | Implemented |
 | `chorale_leave_one_out()` | Implemented |
+| `chorale_pathway_evidence()` | Implemented |
+| `chorale_metabolite_pathways()` | Implemented |
 | `chorale_bound()` | Implemented |
 | `chorale_null()` | Implemented |
 | `chorale_report()` | Implemented |
@@ -121,8 +136,8 @@ cross-modality coupling are reported alongside any point estimate.
 
 - Sturma N, Squires C, Drton M, Uhler C. Unpaired Multi-Domain Causal
   Representation Learning. *NeurIPS* 2023.
-- Timilsina S, Lyu Q, Fu X et al. Identifiable Shared Component Analysis of
-  Unpaired Multimodal Mixtures. arXiv:2409.19422.
+- Timilsina S, Shrestha S, Fu X. Identifiable Shared Component Analysis of
+  Unpaired Multimodal Mixtures. *NeurIPS* 2024. arXiv:2409.19422.
 - Mao W, Zaslavsky E, Hartmann BM, Sealfon SC, Chikina M. Pathway-level
   information extractor (PLIER) for gene expression data. *Nat Methods*
   16:607-610, 2019.
