@@ -1,0 +1,362 @@
+---
+layout: ../layouts/Base.astro
+title: "Tutorial"
+description: "A complete analysis end to end, on data that ships with the package, with every result explained as it appears."
+wide: true
+---
+
+# Tutorial
+
+<p class="lede">A complete analysis from installation to interpretation. Every step runs on
+simulated data that ships with the package, so nothing needs downloading. The output shown is what
+the code actually prints.</p>
+
+<div class="note">
+<span class="lab">What you will end up with</span>
+<p>Two biological programmes recovered across three cohorts that share no animals, each with a
+p-value that accounts for the choices the method made, a statement of how much each modality
+contributed, a range for the coupling the data cannot determine, and a set of controls.</p>
+</div>
+
+## Before you start
+
+```r
+# install.packages("devtools")
+devtools::install_github("lescailab/chorale")
+library(chorale)
+```
+
+R 4.4 or later. Bioconductor dependencies resolve through `BiocManager`. Two optional packages
+widen what the pipeline can do: `msigdbr` supplies curated gene sets, and `rgoslin` parses lipid
+shorthand names. Neither is needed for this tutorial.
+
+## Step 1. Three cohorts with no animal in common
+
+Real studies arrive as one matrix and one design table per modality. `chorale_simulate()` produces
+the same shape, so the workflow below is the one you would run on deposited data.
+
+```r
+sim <- chorale_simulate(
+  n_modalities      = 3,
+  n_features        = 400,
+  n_shared_factors  = 2,
+  n_private_factors = 1,
+  n_strains         = 4,
+  n_per_cell        = 4,
+  effect_size       = 3,
+  seed              = 1
+)
+names(sim$modalities) <- names(sim$col_data) <- c("RNA", "PROT", "METAB")
+```
+
+A lipidome is reported in shorthand, as every lipidomics platform does, so the simulated lipid
+features are renamed accordingly. This matters later: it is how the lipidome reaches the same
+pathway vocabulary as the genes.
+
+```r
+lipid_names <- function(n) {
+  classes <- c("SM", "Cer", "HexCer", "AHexCer", "SHexCer", "CAR", "CE")
+  grid <- expand.grid(carbon = 30:49, db = 0:3, cls = classes, stringsAsFactors = FALSE)
+  nm <- ifelse(grid$cls %in% c("CAR", "CE"),
+               sprintf("%s %d:%d", grid$cls, grid$carbon, grid$db),
+               sprintf("%s %d:%d;O2", grid$cls, grid$carbon, grid$db))
+  unique(nm)[seq_len(n)]
+}
+rownames(sim$modalities$METAB) <- lipid_names(nrow(sim$modalities$METAB))
+
+length(Reduce(intersect, lapply(sim$col_data, function(d) d$sample_id)))
+#> [1] 0
+```
+
+Zero animals in common. That is the situation the package is for.
+
+<div class="note">
+<span class="lab">Requirement</span>
+<p>Every design table needs a <code>sample_id</code> column matching the assay columns and a
+<code>phenotype</code> column taking at least two values. The phenotype is a condition of entry,
+not a covariate: the quantity being estimated is a case-control contrast, so a modality that
+cannot express it cannot contribute one and the fit stops with an error naming it.</p>
+</div>
+
+## Step 2. Put each modality in a container
+
+```r
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+names(containers) <- names(sim$modalities)
+containers$RNA
+#> class: SummarizedExperiment
+#> dim: 400 128
+#> assays(1): counts
+#> colData names(9): sample_id cohort ... region batch
+```
+
+`chorale_load()` also maps blank strings and placeholder values to missing. A covariate holding
+`""` beside one real level would otherwise present as a two-level contrast and produce matches that
+compare missing metadata against disease.
+
+## Step 3. Give every modality one vocabulary
+
+Programmes are compared twice: on what they do to the experiment, and on which biology they
+implicate. The second comparison needs a vocabulary all modalities share.
+
+On real data you would harmonise identifiers and retrieve curated sets:
+
+```r
+feature_map <- list(
+  RNA  = chorale_map(rownames(sim$modalities$RNA),  from = "ENSEMBL"),
+  PROT = chorale_map(rownames(sim$modalities$PROT), from = "UNIPROT")
+)
+gene_sets <- chorale_genesets(c("hallmark", "reactome"), species = "Mus musculus")
+```
+
+For this tutorial the sets are built directly, using Reactome names so the lipidome can reach them:
+
+```r
+ids <- lapply(containers[c("RNA", "PROT")],
+              function(se) rownames(SummarizedExperiment::assay(se)))
+span <- function(a, b) unlist(lapply(ids, function(v) v[a:b]))
+
+gene_sets <- list(
+  REACTOME_SPHINGOLIPID_METABOLISM      = span(1, 140),
+  REACTOME_GLYCOSPHINGOLIPID_METABOLISM = span(120, 260),
+  REACTOME_CARNITINE_SHUTTLE            = span(240, 340),
+  REACTOME_CHYLOMICRON_ASSEMBLY         = span(320, 400)
+)
+```
+
+Genes and proteins enter these sets through their identifiers. Lipids cannot, so a table shipped
+with the package maps each lipid class onto the same sets:
+
+```r
+head(chorale_metabolite_pathways()[, c("abbreviation", "msigdb_name", "n_compounds")])
+```
+
+## Step 4. Fit
+
+```r
+fit <- chorale_fit(
+  containers,
+  n_factors      = c(RNA = 3, PROT = 3, METAB = 3),
+  gene_sets      = gene_sets,
+  feature_space  = c(METAB = "lipid"),
+  n_init         = 10,
+  n_pathway_perm = 200,
+  seed           = 1
+)
+fit
+#> <chorale_fit>
+#>   modalities: RNA, PROT, METAB
+#>   factors per modality: 3, 3, 3
+#>   RNA          3 of 3 factors carry pure features
+#>   PROT         3 of 3 factors carry pure features
+#>   METAB        3 of 3 factors carry pure features
+#>   programmes recovered by the joint assignment: 3 of which supported: 2
+#>   implied factor pairs: 9 of which significant: 4
+```
+
+`feature_space` declares which modality is a lipidome. It is declared rather than guessed, because
+a wrong guess would silently leave a modality out of the biological comparison. Checking that the
+lipids landed where they should:
+
+```r
+colSums(fit$fits$METAB$prior > 0)
+#> REACTOME_SPHINGOLIPID_METABOLISM  REACTOME_GLYCOSPHINGOLIPID_METABOLISM
+#>                             320                                    240
+```
+
+Two of the four sets received lipid members. The carnitine and chylomicron sets did not, because
+the simulated lipid classes that reach them are not present in sufficient number. That is the
+normal state of affairs and it is visible rather than hidden.
+
+<div class="note warn">
+<span class="lab">Choosing n_factors</span>
+<p>The number of factors is not selected automatically. Set it from the detectability of each
+modality: a cohort of seventy animals will not support many components, and asking for more
+produces axes that are noise. Refitting across a range and checking that the recovered programmes
+persist is the practical test.</p>
+</div>
+
+## Step 5. Read the programmes
+
+```r
+pg <- chorale_programmes(fit)
+unique(pg[, c("programme", "n_modalities", "modalities", "joint_statistic", "joint_p")])
+#>   programme n_modalities       modalities joint_statistic     joint_p
+#> 7        P3            3 METAB, PROT, RNA          2.3321 0.004975
+#> 1        P1            3 METAB, PROT, RNA          0.2775 0.014925
+```
+
+Two programmes survived, each carried by all three modalities. `joint_p` is not the best pairwise
+link: it comes from rerunning the entire procedure, assignment included, on shuffled designs, and
+keeping the best value any programme and any set of modalities could have reached by chance. The
+smallest value attainable with 200 permutations is 1/201, which is 0.00498, so P3 is at the floor.
+
+Three programmes were recovered and one was not supported. It is not reported and does not appear
+in the tables.
+
+## Step 6. Ask what each modality contributed
+
+```r
+chorale_leave_one_out(fit)
+#>   programme dropped n_modalities joint_statistic  joint_p   delta
+#> 1        P1     RNA            2          0.1657 0.243781 -0.1118
+#> 2        P1    PROT            2          0.1772 0.194030 -0.1003
+#> 3        P1   METAB            2          0.4896 0.004975  0.2121
+#> 7        P3     RNA            2          2.2034 0.004975 -0.1287
+#> 8        P3    PROT            2          2.5109 0.004975  0.1788
+#> 9        P3   METAB            2          2.2820 0.004975 -0.0501
+```
+
+Read `delta`. For P1, removing the metabolome *raises* the statistic to 0.4896 and the remaining
+pair is significant on its own: the metabolome was diluting a programme that RNA and protein
+carry. For P3, removing any modality lowers or barely changes the statistic and the programme
+survives regardless, so all three are contributing.
+
+This is the column that separates a result integration produced from a result one modality produced
+and the others accompanied.
+
+## Step 7. Does the biology agree as well as the design?
+
+```r
+fit$pathway_evidence
+#>   programme pathway_statistic pathway_p n_shared_sets pathway_supported
+#> 2        P3            0.7995  0.527363             2             FALSE
+#> 1        P1            0.6457  0.661692             2             FALSE
+```
+
+Neither programme is corroborated on biology, which is the correct answer here: the simulator plants
+a phenotype effect but no relationship between the factors and the curated sets, so there is no
+biological structure to agree on. On real data this is where corroboration appears, and its value
+comes from the factors having been fitted before the annotation was consulted.
+
+`n_shared_sets` is 2. Read it before concluding that the biology disagreed: where it is small, the
+question could not really be asked.
+
+## Step 8. What the data cannot determine
+
+```r
+b <- chorale_bound(fit)
+b
+#> <chorale_bound>
+#>   matched pairs bounded: 9
+#>   median width without anchors: 1.952
+#>   median width with anchors:    1.437
+```
+
+Each animal was measured once, so how strongly two programmes move together *within* an animal is
+not identified. What the data support is a range. Averages within each design group are observable
+in every modality, so the part of the relationship running between groups is fixed and only the
+variation inside a group is free.
+
+The median width falls from 1.952 to 1.437. That is what conditioning on the design bought. These
+are not confidence intervals and not estimates: they are the values the data cannot rule out, and
+the interval is what should be reported, never a point inside it.
+
+## Step 9. Run the controls
+
+```r
+ctl <- chorale_null(fit, containers, n_permutations = 20, n_init = 3)
+ctl
+#> <chorale_null>
+#>   supported programmes: 2
+#>   strongest joint evidence: 2.332
+#>   phenotype permutation p-value: 0.0476 (20 permutations)
+#>   modality shuffle: not applicable, modalities share fewer than ten features
+#>   initialisation stability (coefficient of variation):
+#>     RNA          0.000
+#>     PROT         0.000
+#>     METAB        0.033
+```
+
+The phenotype permutation refits the whole pipeline after shuffling case and control labels within
+stratum. The modality shuffle needs a shared feature space, which a transcriptome and a lipidome do
+not have, so it is declared inapplicable rather than quietly passed. Initialisation stability is the
+spread of the fit objective across restarts.
+
+<div class="note warn">
+<span class="lab">Permutation count</span>
+<p>Twenty permutations are used here so the tutorial runs in a minute. The smallest p-value twenty
+permutations can produce is 1/21, so use several hundred for anything you intend to report.</p>
+</div>
+
+## Step 10. Write the report
+
+```r
+out <- chorale_report(fit, b, ctl, path = "results/chorale")
+length(out)
+#> [1] 18
+```
+
+Eighteen files: `report.html` leads with the integrated result, and the tables beside it carry the
+same content for downstream use. The [outputs page](../outputs) documents every column.
+
+## Step 11. The one table to read first
+
+```r
+final <- chorale_evidence_label(pg, fit$pathway_evidence)
+unique(final[, c("programme", "modalities", "joint_p", "pathway_p",
+                 "n_shared_sets", "evidence")])
+#>   programme       modalities  joint_p pathway_p n_shared_sets    evidence
+#> 7        P3 METAB, PROT, RNA 0.004975  0.527363             2 design only
+#> 1        P1 METAB, PROT, RNA 0.014925  0.661692             2 design only
+```
+
+`evidence` says which lines of support a programme has.
+
+<div class="tablewrap">
+
+| Label | Meaning | How much weight it carries |
+|---|---|---|
+| `design and pathway` | The modalities respond to the disease the same way **and** implicate the same biology | Two independent lines. The strongest result the pipeline produces. |
+| `design only` | They agree on the experiment but not in curated vocabulary | Real, but check `n_shared_sets` before deciding the biology disagreed |
+| `pathway only` | They implicate the same biology without a shared design response | Treat as a hypothesis; the design channel did not support it |
+| `neither` | Neither channel survived | Not reported |
+
+</div>
+
+## Using your own data
+
+The workflow above changes in three places.
+
+**Reading the data.** Each modality is a features-by-samples numeric matrix and a design table with
+one row per column of the matrix.
+
+```r
+mat    <- as.matrix(read.delim("data/RNA_matrix.tsv", row.names = 1))
+design <- read.delim("data/RNA_design.tsv")
+se     <- chorale_load(mat, design)
+```
+
+**Identifiers.** Map transcripts and proteins into one space so curated sets reach both.
+
+```r
+feature_map <- list(
+  RNA  = chorale_map(rownames(mat_rna),  from = "ENSEMBL"),
+  PROT = chorale_map(rownames(mat_prot), from = "UNIPROT")
+)
+```
+
+**Inputs to avoid.** Batch-corrected and cross-modality-harmonised matrices are not admissible.
+Identification consumes the differences between modalities, and correction removes the structure it
+uses. Keep study and batch as nuisance covariates in the design instead.
+
+## When something does not work
+
+<div class="tablewrap">
+
+| Symptom | Cause | What to do |
+|---|---|---|
+| Error naming two modalities that "do not share a phenotype contrast" | A design lacks `phenotype`, or it takes one value after blanks are mapped to missing | Resolve the phenotype for that modality, or drop it |
+| Matches that contrast missing metadata against disease | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
+| `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
+| No programme supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
+| Very few factors recovered | Too few animals in that modality | More animals, not more features; reducing feature count does not help |
+
+</div>
+
+## Where to go next
+
+- [How it works](../how-it-works) for the reasoning behind each stage.
+- [Outputs](../outputs) for every table and column.
+- [Methods](../methods) for the equations, the implementation and the literature.
+- [Function reference](../reference/) for every argument of every exported function.

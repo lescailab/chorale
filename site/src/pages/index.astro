@@ -1,0 +1,202 @@
+---
+import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title="Integrating omics measured on different individuals" toc={false}>
+<style>
+  .hero { padding: 4.5rem 0 1rem; max-width: 46rem; }
+  .hero h1 { margin-bottom: 1rem; }
+  .hero .lede { font-size: 1.2rem; }
+  .fig { margin: 3rem 0 1rem; }
+  .fig svg { width: 100%; height: auto; display: block; }
+  .cap { color: var(--fg-3); font-size: .84rem; max-width: 44rem; margin: .6rem 0 0; }
+  .band { border-top: 1px solid var(--rule); margin-top: 4rem; padding-top: 3rem; }
+  .band > h2:first-child { margin-top: 0; }
+  .prose { max-width: 44rem; }
+  .dot { animation: pulse 4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { .dot { animation: none; opacity: .85 } }
+  .flow { stroke-dasharray: 4 5; animation: dash 5s linear infinite; stroke: var(--accent); stroke-width: 1.5; }
+  @keyframes dash { to { stroke-dashoffset: -45 } }
+  @media (prefers-reduced-motion: reduce) { .flow { animation: none } }
+  /* var() does not resolve inside SVG presentation attributes, so fills and
+     strokes that follow the theme are set as CSS properties instead. */
+  .fig svg text { font-family: var(--sans); }
+  .fig .t-strong { fill: var(--fg); font-weight: 600; }
+  .fig .t-soft   { fill: var(--fg-2); }
+  .fig .t-mute   { fill: var(--fg-3); }
+  .fig .t-mono   { fill: var(--fg-3); font-family: var(--mono); }
+  .fig .dot      { fill: var(--accent); }
+  .fig .panel    { fill: var(--bg-2); stroke: var(--rule); }
+  .fig .panel-hi { fill: var(--bg-2); stroke: var(--accent); }
+  .fig .stem     { stroke: var(--rule); stroke-width: 1.5; }
+</style>
+
+<section class="hero">
+  <p class="eyebrow">R package · disjoint-cohort multi-omics</p>
+  <h1>Omics measured on different individuals, integrated without inventing the link.</h1>
+  <p class="lede">
+    Tissue is consumed by the assay, so the transcriptome, the proteome and the lipidome of a
+    disease model are usually measured in different animals. CHORALE finds the biological
+    programmes several of those cohorts carry together, states how far the data constrain the
+    relationship between them, and reports the checks the result survived.
+  </p>
+  <div class="btnrow">
+    <a class="btn" href={base + '/tutorial'}>Run the tutorial</a>
+    <a class="btn ghost" href={base + '/why'}>Why it exists</a>
+    <a class="btn ghost" href="https://github.com/lescailab/chorale">Source</a>
+  </div>
+</section>
+
+<section class="fig reveal">
+  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts of animals with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared programme.">
+    <defs>
+      <linearGradient id="g" x1="0" x2="1">
+        <stop offset="0" style="stop-color:var(--accent);stop-opacity:.14"/>
+        <stop offset=".5" style="stop-color:var(--accent);stop-opacity:.4"/>
+        <stop offset="1" style="stop-color:var(--accent);stop-opacity:.14"/>
+      </linearGradient>
+    </defs>
+
+    {[0,1,2].map((i) => {
+      const x = 90 + i * 310;
+      const label = ['transcriptome','proteome','lipidome'][i];
+      const n = ['221 animals','72 animals','96 animals'][i];
+      return (
+        <g>
+          <text x={x + 85} y="20" text-anchor="middle" font-size="13" class="t-strong">{label}</text>
+          <text x={x + 85} y="38" text-anchor="middle" font-size="11" class="t-mono">{n}</text>
+          {[0,1,2,3,4,5,6,7].map((j) => (
+            <circle class="dot" cx={x + 12 + (j % 4) * 48} cy={58 + Math.floor(j / 4) * 18}
+                    r="5" style={`animation-delay:${(i * 8 + j) * 0.18}s`} />
+          ))}
+          <rect x={x} y="100" width="170" height="56" rx="8" class="panel"/>
+          <text x={x + 85} y="124" text-anchor="middle" font-size="11.5" class="t-soft">latent axis</text>
+          <text x={x + 85} y="142" text-anchor="middle" font-size="11.5" class="t-mute">recovered separately</text>
+          <line class="stem" x1={x + 85} y1="156" x2={x + 85} y2="190"/>
+        </g>
+      );
+    })}
+
+    <line class="flow" x1="175" y1="190" x2="725" y2="190"/>
+    <rect x="235" y="198" width="430" height="34" rx="8" class="panel-hi"/>
+    <text x="450" y="220" text-anchor="middle" font-size="12" class="t-strong">compared on the design, and again on curated biology</text>
+    <line class="stem" x1="450" y1="232" x2="450" y2="250"/>
+
+    <rect x="0" y="250" width="900" height="36" rx="9" fill="url(#g)"/>
+    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one shared programme, carried by all three</text>
+  </svg>
+  <p class="cap">
+    No animal appears twice. The cohorts are joined by what they have in common, which is the
+    experimental design and a shared vocabulary of biological processes, never by a constructed
+    pairing between individuals.
+  </p>
+</section>
+
+<section class="band prose reveal">
+  <h2>What it gives you that a pairwise workflow does not</h2>
+  <div class="cards">
+    <div class="card">
+      <span class="num">01</span>
+      <h3>One assignment, not many</h3>
+      <p>Correspondence is solved once over all modalities together, so a programme cannot be
+         assembled by chaining pairwise decisions through a single mistaken link.</p>
+    </div>
+    <div class="card">
+      <span class="num">02</span>
+      <h3>Two channels that can disagree</h3>
+      <p>Factors are fitted without ever seeing curated pathways, so agreement on biology
+         corroborates the result rather than restating it.</p>
+    </div>
+    <div class="card">
+      <span class="num">03</span>
+      <h3>A range, not a fabricated number</h3>
+      <p>Where the coupling within an individual is not identified, the output is the set of
+         correlations the data cannot exclude.</p>
+    </div>
+    <div class="card">
+      <span class="num">04</span>
+      <h3>A lipidome in the gene vocabulary</h3>
+      <p>A shipped table places lipid classes in the same pathway sets the genes occupy, so
+         enzymes and their substrates land together.</p>
+    </div>
+    <div class="card">
+      <span class="num">05</span>
+      <h3>Selection-aware calibration</h3>
+      <p>The null reruns the whole procedure, assignment included, so the p-value accounts for the
+         freedom the method had.</p>
+    </div>
+    <div class="card">
+      <span class="num">06</span>
+      <h3>Failure is an output</h3>
+      <p>A run in which nothing survives its null says so, and writes empty programme tables rather
+         than promoting an unsupported assignment.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band prose reveal">
+  <h2>What it claims, and what it does not</h2>
+  <div class="gap">
+    <div>
+      <h4>Not claimed</h4>
+      <p>That the coupling between two molecules inside one animal has been recovered. Each animal
+         was measured once, and no amount of data of this kind will identify it.</p>
+      <p>That the identification theorems for unpaired latent models transfer to this estimator.
+         They concern matched component distributions; this compares design responses.</p>
+      <p>That agreement of design profiles proves a shared latent variable. Two distinct
+         programmes can move with a phenotype in the same way.</p>
+    </div>
+    <div>
+      <h4>Claimed</h4>
+      <p>That several independently sampled cohorts show compatible, complementary perturbation of
+         the same population-level process, at a stated error rate established by rerunning the
+         entire procedure under a null.</p>
+      <p>That the identified set reported for a coupling contains every correlation consistent with
+         the observed marginals under a declared target design.</p>
+      <p>That the biological agreement was not built into the factors, because they were fitted
+         before the annotation was consulted.</p>
+    </div>
+  </div>
+  <p>
+    Current outputs on retrieved data say whether the approach is workable on a given pair of
+    cohorts. Independent replication and a benchmark against data whose cross-modality truth is
+    known remain to be completed; the <a href={base + '/methods'}>methods page</a> states which
+    conditions each result depends on.
+  </p>
+</section>
+
+<section class="band prose reveal">
+  <h2>The whole workflow</h2>
+  <p>
+    Three matrices, three design tables, one call. Everything after it reads results rather than
+    configuring the method.
+  </p>
+<pre><code>containers &lt;- Map(chorale_load, matrices, designs)
+
+fit &lt;- chorale_fit(containers,
+                  n_factors     = c(RNA = 4, PROT = 3, METAB = 3),
+                  gene_sets     = chorale_genesets(species = "Mus musculus"),
+                  feature_space = c(METAB = "lipid"))
+
+chorale_programmes(fit)        # what several cohorts carry together
+chorale_leave_one_out(fit)     # whether it needed all of them
+chorale_bound(fit)             # what the data cannot determine
+chorale_report(fit, chorale_bound(fit), chorale_null(fit, containers), "results/")</code></pre>
+  <p>
+    The <a href={base + '/tutorial'}>tutorial</a> runs this end to end on simulated data and explains
+    every number it prints.
+  </p>
+</section>
+
+<section class="band prose reveal">
+  <h2>Install</h2>
+<pre><code># install.packages("devtools")
+devtools::install_github("lescailab/chorale")</code></pre>
+  <p>
+    R 4.4 or later. Bioconductor dependencies resolve through <code>BiocManager</code>.
+    The <a href={base + '/tutorial'}>tutorial</a> runs end to end on simulated data, so nothing
+    needs downloading to see the whole workflow.
+  </p>
+</section>
+</Base>

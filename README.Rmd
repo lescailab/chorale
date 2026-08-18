@@ -83,6 +83,13 @@ pair of cohorts, not what the biology is.
 | `chorale_null()` | Implemented |
 | `chorale_report()` | Implemented |
 
+## Documentation
+
+Full documentation, including a tutorial that runs end to end on simulated data, is published at
+<https://lescailab.github.io/chorale>. The [methods
+section](https://lescailab.github.io/chorale/methods) gives every equation, where it is
+implemented, and the literature it rests on.
+
 ## Installation
 
 ```r

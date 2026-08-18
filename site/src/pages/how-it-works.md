@@ -1,0 +1,103 @@
+---
+layout: ../layouts/Base.astro
+title: "How the estimator works"
+description: "The six stages of the pipeline in plain terms."
+---
+
+# How the estimator works
+
+<p class="lede">The six stages of the pipeline in plain terms.</p>
+
+The pipeline runs in six stages. Each is described here in plain terms; Part IV gives the
+mathematics.
+
+## 1. Recovering programmes inside each modality
+
+Each modality is analysed on its own, using only its own animals. Independent component analysis
+separates the measured features into a small number of latent axes, each a direction along which
+many features move together. An axis is a candidate biological programme: a set of transcripts, or
+proteins, or lipids that rise and fall as a unit across the animals in that cohort.
+
+The method is run from several random starting points and the run reaching the most non-Gaussian
+solution is kept. Independent component analysis is not convex, so one run is a draw rather than an
+estimate, and the spread across runs is reported.
+
+## 2. Naming the programmes
+
+Two things make an axis readable. **Marker features** load on one axis and negligibly on the
+others; they give the axis a definition that does not depend on the rest of the loading vector.
+**Curated sets** describe the axis in the vocabulary of known biology, by regressing its loadings on
+pathway membership.
+
+Markers are chosen on the loadings alone, before any curated set is consulted, so the identification
+argument holds whatever the biology turns out to be. Where more features qualify than are needed,
+the tie is broken towards features that share a curated set, which costs nothing and yields markers
+that can be read.
+
+The curated description is stored beside the fitted loadings, not in place of them. It is computed
+after the axes are fitted and the axis scores are not refitted to it, so it does not reproduce the
+data. The variance the fitted loadings explain and the variance the curated description explains
+are both reported, so a vocabulary too coarse for the data is visible.
+
+## 3. Asking what each programme does to the experiment
+
+No animal appears in two modalities, so programmes cannot be matched by correlating scores. What
+the cohorts share is the experimental design: each has cases and controls, and usually ages and
+sexes as well.
+
+Of every axis one question is asked, and it can be answered without leaving its own modality: *how
+much higher is this axis in cases than in controls?* The answer is one number. Age, sex and any
+other covariate the cohorts share add further numbers of the same kind. Together they form the
+axis's **design profile**.
+
+This is the sense in which the design **anchors** the comparison. It is the common reference frame
+that lets an axis in one modality be set beside an axis in another, doing the job that matched
+individuals would do if they existed.
+
+## 4. Solving the correspondence across all modalities at once
+
+Two axes in two modalities are candidates for the same programme when their design profiles point
+the same way. Every such agreement, for every pair of modalities, enters one matrix. The leading
+directions of that matrix place every axis in a common space, and each modality is then matched
+back against a single frame.
+
+Correspondences recovered this way agree around every cycle: if the transcriptome axis matches a
+proteome axis, and that proteome axis matches a lipidome axis, then the transcriptome axis matches
+that lipidome axis and no other. Every pairwise comparison contributes to every position, so
+consistent evidence reinforces across the collection and inconsistent evidence cancels.
+
+A **programme** is the resulting group: at most one axis per modality, all placed at the same
+position.
+
+## 5. Judging the programme, and asking what carries it
+
+A programme is judged as one object. Its statistic is the agreement of its members' design
+profiles, averaged over every pair inside it. Its null is obtained by shuffling the design among
+animals and running the entire procedure again, assignment included, keeping the best value any
+programme and any set of modalities could have reached by chance. The p-value therefore accounts
+for the freedom the procedure had, rather than conditioning on the programme it happened to choose.
+How many modalities a programme spans is decided against that same null: the widest set whose joint
+evidence survives.
+
+Two further questions are then asked of every surviving programme.
+
+**Did it need all its modalities?** Each is removed in turn and the programme rescored without it. A
+programme whose evidence is unchanged was resting on the modalities that remain; one that collapses
+was carrying something only the combination could see.
+
+**Does the biology agree as well as the design?** Each axis has a position in the curated
+vocabulary, given by which pathways its strongly loading features belong to. Those positions are
+compared, against a null that permutes which feature is which while holding every set at its size
+and every feature in its number of sets. Because the axes were fitted without the curated sets,
+agreement here is independent corroboration rather than a restatement.
+
+## 6. Bounding what the data cannot determine
+
+Knowing that two programmes behave alike across the design still does not say how they move
+together within one animal, and no amount of data of this kind will, because each animal was
+measured once.
+
+What the data do support is a range. Averages within each design group are observable in every
+modality, so the part of the relationship that runs between groups is fixed by the design; only the
+variation inside a group is free. Bounding the free part gives an interval of correlations the data
+cannot exclude. Reporting it both with and without the design shows what the design bought.

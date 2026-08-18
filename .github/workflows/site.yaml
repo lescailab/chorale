@@ -1,0 +1,45 @@
+# Builds the Astro documentation site and publishes it to GitHub Pages.
+# The pkgdown workflow publishes the generated function reference into the
+# reference/ subdirectory of the same branch, so both deploy with clean: false
+# and neither removes the other's files.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+name: site.yaml
+
+permissions: read-all
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-site
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to GitHub pages 🚀
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
+        with:
+          clean: false
+          branch: gh-pages
+          folder: site/dist

@@ -1,0 +1,127 @@
+---
+layout: ../layouts/Base.astro
+title: "The outputs and how to read them"
+description: "Every table the pipeline writes, what each column means, and how to interpret it."
+wide: true
+---
+
+# The outputs and how to read them
+
+<p class="lede">Every table the pipeline writes, what each column means, and how to interpret it.</p>
+
+`chorale_report()` writes the tables below and an HTML report that leads with them. The HTML is the
+document to read first; the tables are the same content for downstream use.
+
+## programmes.tsv, the primary result
+
+One row per modality that carries a programme, so a programme measured in three modalities occupies
+three rows sharing a `programme` identifier.
+
+| Column | Meaning |
+|---|---|
+| `programme` | Identifier of the group. Rows sharing it are one programme seen in different modalities. |
+| `n_modalities`, `modalities` | How far the programme reaches, and which layers carry it. |
+| `programme_pathway` | The curated set that best describes the members' loadings. |
+| `modality`, `factor` | Which latent axis of which modality this row is. |
+| `markers` | Features loading on this axis and almost nothing else. |
+| `phenotype_effect`, `phenotype_p` | The case-control effect within this modality, in pooled standard deviations, and its permutation p-value. |
+| `joint_statistic`, `joint_p` | The programme judged as one object, and its p-value against the full-procedure null. |
+| `pathway_statistic`, `pathway_p`, `n_shared_sets` | The biological channel: agreement in curated vocabulary, its p-value against the annotation-matched null, and how much vocabulary the modalities share. |
+| `evidence` | Which channels support the programme. |
+
+**How to read it.** Start with `evidence`. A programme labelled *design and pathway* is supported by
+two independent lines: the modalities respond to the disease the same way, and they implicate the
+same biology, and the second was not built into the first. A programme labelled *design only* agrees
+on the experiment but not in curated vocabulary, which happens when the biology is genuinely
+different, when the vocabulary is too coarse, or when `n_shared_sets` is small enough that the
+question could not really be asked. Read `n_shared_sets` before concluding the biology disagreed.
+
+Then read `phenotype_effect` across the rows of one programme. Signs that agree mean the modalities
+move together. Signs that oppose are kept and reported rather than discarded: transcript and protein
+discordance in Alzheimer's brain is enriched in the plaque microenvironment and reflects
+amyloid-delayed protein turnover (Yarbro et al. 2025), so opposition is a finding rather than a
+failure of matching.
+
+**One check before believing a small `joint_p`.** A programme can agree strongly across modalities
+while `phenotype_p` is large in every one of them. The modalities are then agreeing on something
+other than the disease, most often batch or age, and the programme describes how the cohorts were
+assembled rather than what the disease did. Read the `phenotype_p` column across the rows of a
+programme before reading its `joint_p`.
+
+## leave_one_out.tsv, what each modality contributed
+
+One row per programme and dropped modality, for programmes spanning three or more. `delta` is the
+change in the joint statistic when that modality is removed.
+
+**How to read it.** A large negative `delta` means the removed modality was carrying the evidence
+and the rest do not stand without it. A `delta` near zero or positive means the programme rested on
+the modalities that remain, and the removed one was accompanying rather than contributing. A
+programme is a result of integration only when no single modality can be removed without cost.
+
+## pathway_evidence.tsv, the biological channel
+
+One row per programme. `pathway_statistic` is the agreement of the members' positions in curated
+vocabulary; `pathway_p` calibrates it against a null that permutes which feature is which while
+holding every set at its size and every feature in its number of sets.
+
+**How to read it.** An empty table, or a row with small `n_shared_sets`, means the question could not
+be asked, not that the answer was no. This is the expected state when one modality is a lipidome
+whose classes reach few of the sets the genes occupy.
+
+## bounds.tsv, what the data cannot determine
+
+One row per pair of members of a programme, since a correlation concerns two quantities. A
+programme spanning three modalities contributes three rows, all describing that one programme.
+
+| Column | Meaning |
+|---|---|
+| `lower_no_anchor`, `upper_no_anchor`, `width_no_anchor` | The range of correlations consistent with the two marginals alone. |
+| `lower_anchored`, `upper_anchored`, `width_anchored` | The range once the design is taken into account. |
+| `narrowing` | What conditioning on the design bought. |
+| `n_strata_used` | Design strata both modalities populate. Zero means there was nothing to condition on. |
+
+**How to read it.** These are not confidence intervals and not estimates. They are the set of values
+the data cannot rule out. A width near two means the data say nothing about the coupling; a narrow
+interval away from zero means the design has pinned the relationship. The number to report is the
+interval, never a point inside it.
+
+## controls.tsv, the checks the result had to survive
+
+One row per control. The phenotype permutation refits the entire pipeline after shuffling the
+case-control label within stratum, and its value is the p-value of the strongest programme's joint
+evidence. The modality shuffle reassigns samples across modalities, and is defined only where the
+modalities share a feature space. Initialisation stability is the coefficient of variation of the
+fit objective across restarts. The curated projection rows give the variance the curated sets
+explain against the variance the fitted loadings explain.
+
+**How to read it.** A control that cannot be computed is declared, not passed. A large gap between
+the two curated projection numbers means the vocabulary describes the axes loosely, so
+`programme_pathway` should be read as a label rather than a definition.
+
+## factors.tsv and markers.tsv, the per-modality detail
+
+`factors.tsv` carries every axis recovered, whether or not it entered a programme. `shared` marks
+those in a supported programme. `n_markers` counts features clearing the purity threshold and
+`purity_margin` reports how cleanly the best ones separate, so an axis with weak markers is visible
+as such. `status` records why an axis is unresolved; an axis that cannot be named is reported rather
+than dropped, since that is a finding about the curated sets.
+
+`markers.tsv` lists the features themselves, with `clears_purity_threshold` distinguishing a marker
+that meets the condition from the nearest available feature where none does.
+
+## The remaining tables
+
+`associations.tsv` gives each axis against each design covariate within modality, with false
+discovery rate control across all rows. `concordance.tsv` gives the rank correlation of two
+modalities' stratum profiles and counts strata where they disagree in sign.
+`loadings_<modality>.tsv` and `scores_<modality>.tsv` give the fitted matrices. `factors.gmt` gives
+the marker definitions in a form pathway tools read. `chorale_mae.rds` carries the fit as a
+`MultiAssayExperiment`.
+
+## Reading a negative result
+
+A run in which no programme survives its null reports that, and writes empty programme tables. This
+is an outcome, not an error. The assignment step always returns a correspondence between factors,
+because it is an assignment; what it does not do is establish that the correspondence means
+anything. Where the null is not beaten, the per-modality tables remain informative and the
+cross-modality claim does not exist.

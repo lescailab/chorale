@@ -5,3 +5,7 @@
 .DS_Store
 .quarto
 docs
+node_modules
+.astro
+dist
+site/shot*.mjs
