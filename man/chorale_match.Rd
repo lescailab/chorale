@@ -7,7 +7,7 @@
 chorale_match(
   fits,
   designs,
-  strata_keys = c("phenotype", "age_bin", "sex"),
+  strata_keys = c("phenotype", "sex", "age_months", "age_bin", "strain", "region"),
   n_perm = 200L,
   alpha = 0.05,
   seed = 1L
@@ -18,33 +18,37 @@ chorale_match(
 
 \item{designs}{A named list of per-modality design tables.}
 
-\item{strata_keys}{Design columns defining a stratum.}
+\item{strata_keys}{Candidate covariates for the design profile. Those
+absent, constant, or unshared are dropped, so supplying more than the data
+carry is harmless.}
 
-\item{n_perm}{Number of stratum-label permutations calibrating agreement.}
+\item{n_perm}{Number of permutations calibrating the statistic.}
 
-\item{alpha}{Retain matches with a permutation p-value below this.}
+\item{alpha}{Significance threshold.}
 
-\item{seed}{Integer seed for the permutations.}
+\item{seed}{Integer seed.}
 }
 \value{
-A data frame, one row per assigned cross-modality factor pair, with
-the anchor agreement, its permutation p-value, the marginal
-Kolmogorov-Smirnov distance, and the number of shared strata.
+A data frame, one row per assigned cross-modality factor pair.
 }
 \description{
-With disjoint samples the modalities share no animal, so factors cannot be
-matched by correlating scores. What they do share is the design: a factor
-measuring the same latent state orders the design strata the same way in
-every modality that measures it. Agreement between stratum profiles is
-therefore the matching statistic, and it is calibrated by permuting the
-stratum labels, so the reported matches are those that beat a null built
-from the same data.
+With disjoint samples no animal is shared, so factors cannot be matched by
+correlating scores. Two things can still be compared.
 }
 \details{
-Marginal distributional distance is reported alongside as a shape check. It
-does not drive the matching: independent components are standardised by
-construction, so their marginals resemble one another whether or not they
-measure the same thing.
+Where the modalities share at least one design covariate, a factor
+measuring the same latent state should act on that covariate the same way in
+both. The statistic is the inner product of the two design-effect profiles,
+and the null is built by permuting the covariate labels across samples
+within each modality. Permuting samples rather than strata matters: the null
+space is then the sample permutations, so precision improves as the cohorts
+grow, and a single shared covariate suffices. Phenotype alone is enough.
+
+The phenotype is required in every modality. The estimand is a case/control
+contrast, so a modality that cannot express it cannot contribute one, and
+matching such a modality on distributional shape alone would not support a
+claim that the factors measure the same thing. Any further covariate the
+modalities happen to share sharpens the profile, and none is required.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 60,

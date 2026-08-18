@@ -45,9 +45,9 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
     fit$matches
   }
   observed <- if (nrow(significant) > 0) {
-    max(significant$anchor_agreement)
+    max(significant$statistic)
   } else if (nrow(fit$matches) > 0) {
-    max(fit$matches$anchor_agreement)
+    max(fit$matches$statistic)
   } else {
     NA_real_
   }
@@ -83,7 +83,7 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
                          n_init = n_init, strata_keys = fit$strata_keys,
                          seed = seed + i)
     phenotype_null[i] <- if (nrow(refit$matches) > 0) {
-      max(refit$matches$anchor_agreement)
+      max(refit$matches$statistic)
     } else {
       0
     }
@@ -173,7 +173,7 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed) {
   }
   list(
     applicable = TRUE,
-    agreement = if (nrow(refit$matches) > 0) max(refit$matches$anchor_agreement) else 0,
+    agreement = if (nrow(refit$matches) > 0) max(refit$matches$statistic) else 0,
     n_matches = nrow(refit$matches),
     reason = NA_character_
   )

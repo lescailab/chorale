@@ -260,31 +260,101 @@ chorale_stratum_means <- function(scores, design, strata_keys) {
   agg / counts
 }
 
+#' Standardised effect of each shared covariate on each factor
+#'
+#' The profile is what a factor does to the design: one standardised effect per
+#' covariate, comparable across modalities measured on different animals. A
+#' binary covariate contributes a standardised mean difference, a continuous
+#' one a rank correlation. Profiles are the matching currency because they are
+#' estimated from samples, so their precision improves with sample size rather
+#' than with the number of design strata.
+#'
+#' @param scores A samples-by-factors matrix.
+#' @param design The design table for those samples.
+#' @param covariates Covariate columns to profile.
+#'
+#' @returns A factors-by-covariates numeric matrix.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
+#' se <- chorale_load(sim$modalities[[1]], sim$col_data[[1]])
+#' x <- scale(t(SummarizedExperiment::assay(se)))
+#' dim(chorale_design_profile(x[, 1:3, drop = FALSE], sim$col_data[[1]],
+#'                            c("phenotype", "sex")))
+chorale_design_profile <- function(scores, design, covariates) {
+  design <- design[match(rownames(scores), design$sample_id), , drop = FALSE]
+  out <- matrix(0, nrow = ncol(scores), ncol = length(covariates),
+                dimnames = list(colnames(scores), covariates))
+  for (cv in covariates) {
+    v <- design[[cv]]
+    for (j in seq_len(ncol(scores))) {
+      y <- scores[, j]
+      ok <- is.finite(y) & !is.na(v)
+      if (sum(ok) < 4) next
+      out[j, cv] <- chorale_effect(y[ok], v[ok])$effect
+    }
+  }
+  out[!is.finite(out)] <- 0
+  out
+}
+
+#' Distributional shape of each factor
+#'
+#' Where two modalities share no covariate, the only thing they hold in common
+#' is the shape of the latent error distributions, which is what the
+#' identification results match on. Independent components are standardised, so
+#' location and scale carry nothing; skewness, tail weight and the quantile
+#' profile do.
+#'
+#' @param scores A samples-by-factors matrix.
+#' @param probs Quantiles describing the shape.
+#'
+#' @returns A factors-by-descriptors numeric matrix.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
+#' x <- scale(t(sim$modalities[[1]]))
+#' dim(chorale_shape_profile(x[, 1:3, drop = FALSE]))
+chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
+  t(apply(scores, 2, function(v) {
+    v <- v[is.finite(v)]
+    if (length(v) < 4) return(rep(0, length(probs) + 2))
+    v <- (v - mean(v)) / stats::sd(v)
+    c(skew = mean(v^3),
+      kurtosis = chorale_excess_kurtosis(v),
+      stats::quantile(v, probs, names = FALSE))
+  }))
+}
+
 #' Match factors across modalities
 #'
-#' With disjoint samples the modalities share no animal, so factors cannot be
-#' matched by correlating scores. What they do share is the design: a factor
-#' measuring the same latent state orders the design strata the same way in
-#' every modality that measures it. Agreement between stratum profiles is
-#' therefore the matching statistic, and it is calibrated by permuting the
-#' stratum labels, so the reported matches are those that beat a null built
-#' from the same data.
+#' With disjoint samples no animal is shared, so factors cannot be matched by
+#' correlating scores. Two things can still be compared.
 #'
-#' Marginal distributional distance is reported alongside as a shape check. It
-#' does not drive the matching: independent components are standardised by
-#' construction, so their marginals resemble one another whether or not they
-#' measure the same thing.
+#' Where the modalities share at least one design covariate, a factor
+#' measuring the same latent state should act on that covariate the same way in
+#' both. The statistic is the inner product of the two design-effect profiles,
+#' and the null is built by permuting the covariate labels across samples
+#' within each modality. Permuting samples rather than strata matters: the null
+#' space is then the sample permutations, so precision improves as the cohorts
+#' grow, and a single shared covariate suffices. Phenotype alone is enough.
+#'
+#' The phenotype is required in every modality. The estimand is a case/control
+#' contrast, so a modality that cannot express it cannot contribute one, and
+#' matching such a modality on distributional shape alone would not support a
+#' claim that the factors measure the same thing. Any further covariate the
+#' modalities happen to share sharpens the profile, and none is required.
 #'
 #' @param fits A named list of per-modality fits, each carrying `scores`.
 #' @param designs A named list of per-modality design tables.
-#' @param strata_keys Design columns defining a stratum.
-#' @param n_perm Number of stratum-label permutations calibrating agreement.
-#' @param alpha Retain matches with a permutation p-value below this.
-#' @param seed Integer seed for the permutations.
+#' @param strata_keys Candidate covariates for the design profile. Those
+#'   absent, constant, or unshared are dropped, so supplying more than the data
+#'   carry is harmless.
+#' @param n_perm Number of permutations calibrating the statistic.
+#' @param alpha Significance threshold.
+#' @param seed Integer seed.
 #'
-#' @returns A data frame, one row per assigned cross-modality factor pair, with
-#'   the anchor agreement, its permutation p-value, the marginal
-#'   Kolmogorov-Smirnov distance, and the number of shared strata.
+#' @returns A data frame, one row per assigned cross-modality factor pair.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 60,
@@ -294,7 +364,8 @@ chorale_stratum_means <- function(scores, design, strata_keys) {
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
 #' fit$matches
 chorale_match <- function(fits, designs,
-                          strata_keys = c("phenotype", "age_bin", "sex"),
+                          strata_keys = c("phenotype", "sex", "age_months",
+                                          "age_bin", "strain", "region"),
                           n_perm = 200L, alpha = 0.05, seed = 1L) {
   modalities <- names(fits)
   rows <- list()
@@ -306,65 +377,53 @@ chorale_match <- function(fits, designs,
       b <- modalities[j]
       sa <- fits[[a]]$scores
       sb <- fits[[b]]$scores
-      anchor_a <- chorale_stratum_means(sa, designs[[a]], strata_keys)
-      anchor_b <- chorale_stratum_means(sb, designs[[b]], strata_keys)
-      common <- intersect(rownames(anchor_a), rownames(anchor_b))
+      da <- designs[[a]][match(rownames(sa), designs[[a]]$sample_id), , drop = FALSE]
+      db <- designs[[b]][match(rownames(sb), designs[[b]]$sample_id), , drop = FALSE]
 
-      if (length(common) < 3) {
-        # Without shared strata there is no anchor evidence, and marginal
-        # matching alone cannot assign factors to one another.
-        next
-      }
+      shared <- chorale_shared_covariates(da, db, strata_keys)
+      chorale_require_phenotype(shared, a, b)
+      basis <- "design effects"
+      pa <- chorale_design_profile(sa, da, shared)
+      pb <- chorale_design_profile(sb, db, shared)
 
-      pa <- anchor_a[common, , drop = FALSE]
-      pb <- anchor_b[common, , drop = FALSE]
-      agree <- suppressWarnings(abs(stats::cor(pa, pb, method = "spearman")))
-      agree[!is.finite(agree)] <- 0
+      stat <- abs(pa %*% t(pb))
+      stat[!is.finite(stat)] <- 0
+      assignment <- chorale_assign(stat)
 
-      # One-to-one assignment, so a factor is claimed by at most one partner.
-      # solve_LSAP requires at least as many columns as rows, so the wider
-      # orientation is solved and the result mapped back.
-      if (nrow(agree) > ncol(agree)) {
-        flipped <- clue::solve_LSAP(t(agree), maximum = TRUE)
-        assignment <- rep(NA_integer_, nrow(agree))
-        assignment[as.integer(flipped)] <- seq_len(ncol(agree))
-      } else {
-        assignment <- as.integer(clue::solve_LSAP(agree, maximum = TRUE))
-      }
-
-      # Permutation null: shuffle the stratum labels of one modality and
-      # record the best agreement any assignment could reach.
       set.seed(seed)
-      null_best <- replicate(n_perm, {
-        perm <- sample(seq_len(nrow(pb)))
-        g <- suppressWarnings(abs(stats::cor(pa, pb[perm, , drop = FALSE],
-                                             method = "spearman")))
+      null_best <- numeric(n_perm)
+      for (b_i in seq_len(n_perm)) {
+        # Permute the covariates across samples, which is the null of a factor
+        # unrelated to the design. The permutation space is the samples, so it
+        # does not shrink when few strata are populated.
+        da_p <- da
+        db_p <- db
+        for (cv in shared) {
+          da_p[[cv]] <- sample(da_p[[cv]])
+          db_p[[cv]] <- sample(db_p[[cv]])
+        }
+        qa <- chorale_design_profile(sa, da_p, shared)
+        qb <- chorale_design_profile(sb, db_p, shared)
+        g <- abs(qa %*% t(qb))
         g[!is.finite(g)] <- 0
-        max(g)
-      })
+        null_best[b_i] <- max(g)
+      }
 
       for (ca in seq_len(ncol(sa))) {
         cb <- assignment[ca]
-        # Where one modality carries more factors than the other, the surplus
-        # factors have no partner and are simply unmatched.
         if (is.na(cb)) next
-        stat <- agree[ca, cb]
-        p <- (1 + sum(null_best >= stat)) / (1 + n_perm)
-        va <- sa[, ca]
-        vb <- sb[, cb]
-        sign_b <- if (stats::cor(pa[, ca], pb[, cb], method = "spearman") < 0) -1 else 1
-        d <- min(
-          suppressWarnings(stats::ks.test(va, vb)$statistic),
-          suppressWarnings(stats::ks.test(va, -vb)$statistic)
-        )
+        value <- stat[ca, cb]
+        p <- (1 + sum(null_best >= value)) / (1 + n_perm)
+        direction <- sum(pa[ca, ] * pb[cb, ])
         rows[[length(rows) + 1]] <- data.frame(
           modality_a = a, modality_b = b,
           factor_a = colnames(sa)[ca], factor_b = colnames(sb)[cb],
-          sign = sign_b,
-          anchor_agreement = as.numeric(stat),
+          sign = if (direction < 0) -1 else 1,
+          basis = basis,
+          n_shared_covariates = length(shared),
+          shared_covariates = paste(shared, collapse = ","),
+          statistic = as.numeric(value),
           p_value = p,
-          ks_distance = as.numeric(d),
-          n_shared_strata = length(common),
           stringsAsFactors = FALSE
         )
       }
@@ -374,11 +433,67 @@ chorale_match <- function(fits, designs,
   out <- do.call(rbind, rows)
   if (is.null(out)) return(data.frame())
   out$significant <- out$p_value < alpha
-  # With few shared strata the permutation test has a floor below which it
-  # cannot reach, whatever the data. Recording it keeps an underpowered
-  # comparison distinguishable from a genuine absence of agreement.
   out$p_attainable_floor <- 1 / (1 + n_perm)
-  out[order(out$p_value, -out$anchor_agreement), , drop = FALSE]
+  out[order(out$p_value, -out$statistic), , drop = FALSE]
+}
+
+#' Require the phenotype to be shared
+#'
+#' The estimand is a case/control contrast, so the phenotype is present in
+#' every modality by construction. A modality whose deposited metadata does not
+#' resolve it cannot contribute a comparable contrast, and matching it on
+#' distributional shape alone would produce a result that could not be defended
+#' as measuring the same thing.
+#'
+#' @keywords internal
+#' @noRd
+chorale_require_phenotype <- function(shared, a, b) {
+  if (!"phenotype" %in% shared) {
+    rlang::abort(
+      paste0(
+        "Modalities '", a, "' and '", b, "' do not share a phenotype contrast. ",
+        "chorale estimates a case/control shared state, so every modality must ",
+        "carry a `phenotype` column taking at least two values. Resolve the ",
+        "phenotype for both modalities, or drop the one that lacks it."
+      ),
+      class = "chorale_missing_phenotype"
+    )
+  }
+  invisible(TRUE)
+}
+
+#' Covariates present and varying in both designs
+#' @keywords internal
+#' @noRd
+chorale_shared_covariates <- function(da, db, candidates) {
+  usable <- function(d, cv) {
+    if (!cv %in% colnames(d)) return(FALSE)
+    v <- d[[cv]]
+    length(unique(stats::na.omit(v))) >= 2
+  }
+  shared <- candidates[vapply(candidates, function(cv) {
+    usable(da, cv) && usable(db, cv)
+  }, logical(1))]
+  # age_bin and age_months describe the same variable, so the finer one is
+  # kept and the coarser dropped to avoid counting it twice.
+  if (all(c("age_months", "age_bin") %in% shared)) {
+    shared <- setdiff(shared, "age_bin")
+  }
+  shared
+}
+
+#' One-to-one assignment tolerating a rectangular statistic
+#' @keywords internal
+#' @noRd
+chorale_assign <- function(stat) {
+  if (nrow(stat) > ncol(stat)) {
+    flipped <- clue::solve_LSAP(t(stat), maximum = TRUE)
+    assignment <- rep(NA_integer_, nrow(stat))
+    assignment[as.integer(flipped)] <- seq_len(ncol(stat))
+    assignment
+  } else {
+    as.integer(clue::solve_LSAP(stat, maximum = TRUE))
+  }
 }
 
 #' Add the age band used for anchoring

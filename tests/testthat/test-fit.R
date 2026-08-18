@@ -45,7 +45,7 @@ test_that("matching finds shared factors when the design carries them", {
   sig <- out$fit$matches[out$fit$matches$significant, , drop = FALSE]
   expect_gt(nrow(sig), 0)
   expect_true(all(sig$p_value < 0.05))
-  expect_true(all(abs(sig$anchor_agreement) > 0.5))
+  expect_true(all(sig$statistic > 0))
 })
 
 test_that("matching is calibrated when the shared state ignores the design", {
@@ -59,7 +59,51 @@ test_that("matching is calibrated when the shared state ignores the design", {
   expect_lt(mean(found), 2)
 })
 
-test_that("matching declines without enough shared strata", {
+test_that("matching works from the phenotype alone", {
+  # Most deposited datasets share little beyond the case/control label, so a
+  # single covariate must suffice.
+  sim <- chorale_simulate(n_modalities = 2, n_features = 150,
+                          n_shared_factors = 3, n_private_factors = 2,
+                          n_strains = 4, n_per_cell = 4, effect_size = 2,
+                          seed = 1)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  fit <- chorale_fit(containers, n_factors = c(5, 5), n_init = 3,
+                     strata_keys = "phenotype", seed = 1)
+  expect_equal(unique(fit$matches$n_shared_covariates), 1L)
+  expect_gt(sum(fit$matches$significant), 0)
+})
+
+test_that("power grows with sample size rather than with strata count", {
+  weak <- function(n_per_cell) {
+    sim <- chorale_simulate(n_modalities = 2, n_features = 150,
+                            n_shared_factors = 3, n_private_factors = 2,
+                            n_strains = 4, n_per_cell = n_per_cell,
+                            effect_size = 0.6, seed = 1)
+    containers <- Map(chorale_load, sim$modalities, sim$col_data)
+    m <- chorale_fit(containers, n_factors = c(5, 5), n_init = 3,
+                     strata_keys = "phenotype", seed = 1)$matches
+    min(m$p_value)
+  }
+  expect_lte(weak(8), weak(1))
+})
+
+test_that("a modality without a phenotype contrast is refused", {
+  # The estimand is a case/control contrast, so a modality that cannot express
+  # one is excluded rather than matched on distribution shape alone.
+  sim <- chorale_simulate(n_modalities = 2, n_features = 150,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 3, n_per_cell = 3, effect_size = 2,
+                          seed = 1)
+  blank <- lapply(sim$col_data, function(d) {
+    d$phenotype <- "unknown"
+    d
+  })
+  containers <- Map(chorale_load, sim$modalities, blank)
+  expect_error(chorale_fit(containers, n_factors = c(3, 3), n_init = 2),
+               class = "chorale_missing_phenotype")
+})
+
+test_that("a constant phenotype is refused", {
   sim <- chorale_simulate(n_modalities = 2, n_features = 80, seed = 1,
                           n_shared_factors = 2, n_private_factors = 1,
                           n_strains = 2, n_per_cell = 2)
@@ -73,7 +117,9 @@ test_that("matching declines without enough shared strata", {
   )
   rownames(fits$a$scores) <- designs$a$sample_id
   rownames(fits$b$scores) <- designs$b$sample_id
-  expect_equal(nrow(chorale_match(fits, designs)), 0)
+  # A constant phenotype carries no contrast, so it is refused.
+  expect_error(chorale_match(fits, designs, n_perm = 20),
+               class = "chorale_missing_phenotype")
 })
 
 test_that("pure features are found on loadings built to be pure", {

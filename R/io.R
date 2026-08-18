@@ -1,3 +1,22 @@
+#' Treat blank and placeholder strings as missing
+#'
+#' @keywords internal
+#' @noRd
+chorale_blank_to_na <- function(col_data) {
+  placeholders <- c("", "NA", "na", "N/A", "n/a", "NaN", "null", "NULL",
+                    "unknown", "Unknown", "not applicable", "not collected",
+                    "missing", ".", "-")
+  for (nm in setdiff(colnames(col_data), "sample_id")) {
+    v <- col_data[[nm]]
+    if (is.character(v) || is.factor(v)) {
+      ch <- as.character(v)
+      ch[trimws(ch) %in% placeholders] <- NA_character_
+      col_data[[nm]] <- ch
+    }
+  }
+  col_data
+}
+
 #' Required sample metadata columns for a chorale container
 #'
 #' @keywords internal
@@ -52,6 +71,12 @@ chorale_load <- function(assay, col_data, assay_name = "counts") {
   if (!identical(colnames(assay), col_data$sample_id)) {
     rlang::abort("`colnames(assay)` must match `col_data$sample_id`, in order.")
   }
+
+  # Blank and placeholder strings are missing values, not levels. Reading a
+  # design from a delimited file turns an absent value into "", and a covariate
+  # carrying "" alongside one real level would otherwise look like a two-level
+  # contrast and be analysed as one.
+  col_data <- chorale_blank_to_na(col_data)
 
   rownames(col_data) <- col_data$sample_id
   assay_list <- stats::setNames(list(assay), assay_name)
