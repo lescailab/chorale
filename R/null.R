@@ -88,11 +88,15 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
 
   stability <- do.call(rbind, lapply(fit$modalities, function(m) {
     s <- fit$fits[[m]]$stability
+    sub <- if ("subspace" %in% colnames(s)) s$subspace else NA_real_
     data.frame(
       modality = m,
       n_init = nrow(s),
-      objective_median = stats::median(s$objective, na.rm = TRUE),
-      objective_sd = stats::sd(s$objective, na.rm = TRUE),
+      # Mean over the other runs of how well their factors match the selected
+      # run's, so a value near one means the same factors were recovered
+      # whatever the start.
+      subspace_agreement = round(mean(sub, na.rm = TRUE), 3),
+      subspace_min = round(min(sub, na.rm = TRUE), 3),
       objective_cv = stats::sd(s$objective, na.rm = TRUE) /
         abs(stats::median(s$objective, na.rm = TRUE)),
       n_failed = sum(is.na(s$objective)),
@@ -123,13 +127,14 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
 #' Refit after reassigning samples across modalities
 #' @keywords internal
 #' @noRd
-chorale_modality_shuffle <- function(containers, fit, n_init, seed) {
+chorale_modality_shuffle <- function(containers, fit, n_init, seed,
+                                     n_shuffles = 20L) {
   features <- lapply(containers, function(se) rownames(SummarizedExperiment::assay(se)))
   common <- Reduce(intersect, features)
   if (length(common) < 10) {
     # Disjoint feature spaces cannot be pooled, so the shuffle is undefined
     # rather than passed.
-    return(list(applicable = FALSE, agreement = NA_real_,
+    return(list(applicable = FALSE, agreement = NA_real_, p_value = NA_real_,
                 reason = "modalities share fewer than ten features"))
   }
 
@@ -147,27 +152,40 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed) {
   colnames(pooled) <- pooled_design$sample_id <-
     make.unique(as.character(pooled_design$sample_id))
 
-  set.seed(seed)
-  assignment <- sample(rep(names(containers), length.out = ncol(pooled)))
-  shuffled <- lapply(names(containers), function(m) {
-    keep <- which(assignment == m)
-    chorale_load(pooled[, keep, drop = FALSE], pooled_design[keep, , drop = FALSE])
-  })
-  names(shuffled) <- names(containers)
+  observed <- chorale_best_joint(fit)
 
-  refit <- try(
-    chorale_fit(shuffled, n_factors = fit$n_factors, n_init = n_init,
-                strata_keys = fit$strata_keys, seed = seed),
-    silent = TRUE
-  )
-  if (inherits(refit, "try-error")) {
-    return(list(applicable = FALSE, agreement = NA_real_,
-                reason = "refit failed under modality shuffle"))
+  # A single reassignment is one draw, not a null. Reassigning repeatedly builds
+  # the distribution of agreement the shuffle reaches by chance, so the observed
+  # agreement can be placed against it with a p-value.
+  null <- rep(NA_real_, n_shuffles)
+  for (b in seq_len(n_shuffles)) {
+    set.seed(seed + b)
+    assignment <- sample(rep(names(containers), length.out = ncol(pooled)))
+    shuffled <- lapply(names(containers), function(m) {
+      keep <- which(assignment == m)
+      chorale_load(pooled[, keep, drop = FALSE],
+                   pooled_design[keep, , drop = FALSE])
+    })
+    names(shuffled) <- names(containers)
+    refit <- try(
+      chorale_fit(shuffled, n_factors = fit$n_factors, n_init = n_init,
+                  strata_keys = fit$strata_keys, n_pathway_perm = 0L,
+                  seed = seed + b),
+      silent = TRUE
+    )
+    if (!inherits(refit, "try-error")) null[b] <- chorale_best_joint(refit)
+  }
+  null <- null[is.finite(null)]
+  if (length(null) == 0) {
+    return(list(applicable = FALSE, agreement = NA_real_, p_value = NA_real_,
+                reason = "every modality shuffle failed to refit"))
   }
   list(
     applicable = TRUE,
-    agreement = chorale_best_joint(refit),
-    n_matches = nrow(refit$matches),
+    agreement = round(stats::median(null), 4),
+    observed = observed,
+    p_value = (1 + sum(null >= observed)) / (1 + length(null)),
+    n_shuffles = length(null),
     reason = NA_character_
   )
 }
@@ -194,14 +212,14 @@ print.chorale_null <- function(x, ...) {
   cat("  phenotype permutation p-value:", signif(x$p_phenotype, 3),
       sprintf("(%d permutations)\n", x$n_permutations))
   if (isTRUE(x$modality_null$applicable)) {
-    cat("  modality shuffle agreement:", round(x$modality_null$agreement, 3), "\n")
+    cat("  modality shuffle p-value:", signif(x$modality_null$p_value, 3), "\n")
   } else {
     cat("  modality shuffle: not applicable,", x$modality_null$reason, "\n")
   }
-  cat("  initialisation stability (coefficient of variation):\n")
+  cat("  factor stability across initialisations (mean matched correlation):\n")
   for (i in seq_len(nrow(x$stability))) {
-    cat(sprintf("    %-12s %.3f\n", x$stability$modality[i],
-                x$stability$objective_cv[i]))
+    cat(sprintf("    %-12s %.3f (weakest %.3f)\n", x$stability$modality[i],
+                x$stability$subspace_agreement[i], x$stability$subspace_min[i]))
   }
   invisible(x)
 }

@@ -22,6 +22,7 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
   best <- NULL
   best_obj <- -Inf
   obj <- rep(NA_real_, n_init)
+  runs <- vector("list", n_init)
 
   for (i in seq_len(n_init)) {
     set.seed(seed + i)
@@ -34,6 +35,7 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
     s <- scale(fit$S)
     o <- mean(abs(apply(s, 2, chorale_excess_kurtosis)), na.rm = TRUE)
     obj[i] <- o
+    runs[[i]] <- s
     if (is.finite(o) && o > best_obj) {
       best_obj <- o
       best <- list(scores = s)
@@ -52,12 +54,40 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L) {
   colnames(best$scores) <- colnames(loadings)
   rownames(best$scores) <- rownames(x)
 
+  # Stability is a statement about the recovered factors, not the objective:
+  # each other run's factors are matched to the selected run's, and the mean
+  # matched correlation says how reproducibly the same subspace is recovered. A
+  # stable objective can coexist with rotated or permuted factors.
+  subspace <- chorale_subspace_stability(best$scores, runs)
+
   list(
     scores = best$scores,
     loadings = loadings,
     stability = data.frame(init = seq_len(n_init), objective = obj,
+                           subspace = subspace,
                            stringsAsFactors = FALSE)
   )
+}
+
+#' Reproducibility of the recovered factors across initialisations
+#'
+#' For each other run, its factors are matched one-to-one to the selected run's
+#' by absolute correlation, and the mean matched correlation is that run's
+#' agreement. A value near one means the same factors were recovered whatever
+#' the start; a low value means the recovery is a draw. `NA` for the selected
+#' run itself and for runs that failed.
+#'
+#' @keywords internal
+#' @noRd
+chorale_subspace_stability <- function(reference, runs) {
+  vapply(runs, function(s) {
+    if (is.null(s) || !identical(dim(s), dim(reference))) return(NA_real_)
+    a <- abs(suppressWarnings(stats::cor(reference, s)))
+    a[!is.finite(a)] <- 0
+    if (nrow(a) != ncol(a)) return(NA_real_)
+    assign <- clue::solve_LSAP(a, maximum = TRUE)
+    mean(a[cbind(seq_len(nrow(a)), as.integer(assign))])
+  }, numeric(1))
 }
 
 #' Excess kurtosis of a vector
@@ -546,6 +576,13 @@ chorale_integrate <- function(fits, designs,
     p_joint <- ps[best]
 
     label <- paste0("P", length(prog_rows) + 1L)
+    # Whether each member factor carries the pure features the identification
+    # argument requires, so a programme resting on factors that do not can be
+    # gated out rather than reported as though it were identified.
+    pure <- vapply(seq_len(nrow(keep)), function(r) {
+      cond <- fits[[keep$modality[r]]]$pure_feature_condition
+      isTRUE(unname(cond[keep$factor[r]]))
+    }, logical(1))
     prog_rows[[length(prog_rows) + 1L]] <- data.frame(
       programme = label,
       n_modalities = nrow(keep),
@@ -555,6 +592,8 @@ chorale_integrate <- function(fits, designs,
       joint_statistic = round(statistic, 4),
       joint_p = p_joint,
       supported = supported,
+      pure_features = pure,
+      all_pure = all(pure),
       stringsAsFactors = FALSE
     )
 
@@ -712,6 +751,10 @@ chorale_assign <- function(stat) {
 #' @param fit A `chorale_fit` object.
 #' @param significant_only Return only programmes whose joint evidence beats
 #'   its null.
+#' @param require_pure_features Return only programmes every member of which
+#'   carries the pure features the identification argument requires. Off by
+#'   default, since marker purity is a threshold diagnostic; setting it makes
+#'   the pure-feature condition an eligibility gate.
 #'
 #' @returns A data frame with one row per (programme, modality, factor)
 #'   membership, carrying `programme`, `n_modalities`, `modalities`,
@@ -725,13 +768,19 @@ chorale_assign <- function(stat) {
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
 #' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
 #' chorale_programmes(fit)
-chorale_programmes <- function(fit, significant_only = TRUE) {
+chorale_programmes <- function(fit, significant_only = TRUE,
+                              require_pure_features = FALSE) {
   if (!inherits(fit, "chorale_fit")) {
     rlang::abort("`fit` must be a chorale_fit object.")
   }
   pg <- fit$programmes
   if (is.null(pg) || nrow(pg) == 0) return(data.frame())
   if (significant_only) pg <- pg[pg$supported, , drop = FALSE]
+  if (require_pure_features && "all_pure" %in% colnames(pg)) {
+    # The identification argument rests on pure features, so a programme whose
+    # factors do not carry them is not identified and is gated out.
+    pg <- pg[pg$all_pure, , drop = FALSE]
+  }
   pg[order(pg$joint_p, -pg$joint_statistic, pg$programme), , drop = FALSE]
 }
 

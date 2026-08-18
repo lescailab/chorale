@@ -300,12 +300,14 @@ chorale_control_table <- function(fit, null) {
     rows[[length(rows) + 1]] <- data.frame(
       control = "modality shuffle",
       value = if (isTRUE(null$modality_null$applicable)) {
-        signif(null$modality_null$agreement, 4)
+        signif(null$modality_null$p_value, 4)
       } else {
         NA_real_
       },
       detail = if (isTRUE(null$modality_null$applicable)) {
-        "joint evidence recovered after reassigning samples across modalities"
+        sprintf(paste("p-value of the observed evidence against %d shuffles",
+                      "reassigning samples across modalities"),
+                null$modality_null$n_shuffles)
       } else {
         paste("not applicable:", null$modality_null$reason)
       },
@@ -313,10 +315,12 @@ chorale_control_table <- function(fit, null) {
     )
     for (i in seq_len(nrow(null$stability))) {
       rows[[length(rows) + 1]] <- data.frame(
-        control = paste0("initialisation stability: ", null$stability$modality[i]),
-        value = signif(null$stability$objective_cv[i], 4),
-        detail = sprintf("%d initialisations, %d failed",
-                         null$stability$n_init[i], null$stability$n_failed[i]),
+        control = paste0("factor stability: ", null$stability$modality[i]),
+        value = signif(null$stability$subspace_agreement[i], 4),
+        detail = sprintf(paste("mean agreement of the recovered factors across",
+                               "%d initialisations, weakest %.3f; %d failed"),
+                         null$stability$n_init[i], null$stability$subspace_min[i],
+                         null$stability$n_failed[i]),
         stringsAsFactors = FALSE
       )
     }
@@ -926,10 +930,12 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     chorale_html_table(controls, "Controls accompanying this run",
       paste0("<em>phenotype permutation</em> refits after shuffling the case/control label within ",
              "stratum; a small value means the observed agreement exceeds what shuffled labels ",
-             "produce. <em>modality shuffle</em> reassigns samples across modalities and is only ",
-             "defined where they share a feature space. <em>initialisation stability</em> is the ",
-             "coefficient of variation of the fit objective across restarts; independent component ",
-             "analysis is non-convex, so a single fit is a draw rather than an estimate.")),
+             "produce. <em>modality shuffle</em> reassigns samples across modalities many times and ",
+             "reports the p-value of the observed evidence against that null; it is defined only ",
+             "where the modalities share a feature space. <em>factor stability</em> is the mean ",
+             "agreement of the recovered factors across restarts, matched one to one; independent ",
+             "component analysis is non-convex, so a low value means the recovery is a draw rather ",
+             "than an estimate.")),
     chorale_html_table(concordance, "Cross-modality concordance",
       paste0("<em>agreement</em> is the rank correlation of the two modalities' stratum profiles. ",
              "<em>discordant_strata</em> counts design strata where the two disagree in sign.")),

@@ -13,7 +13,8 @@ test_that("the controls run and report all three", {
   n <- chorale_null(f$fit, f$containers, n_permutations = 3, n_init = 2)
   expect_s3_class(n, "chorale_null")
   expect_length(n$phenotype_null, 3)
-  expect_true(all(c("modality", "objective_cv") %in% colnames(n$stability)))
+  expect_true(all(c("modality", "subspace_agreement", "subspace_min") %in%
+                    colnames(n$stability)))
   expect_output(print(n), "chorale_null")
 })
 
@@ -55,4 +56,42 @@ test_that("stability records every initialisation", {
   n <- chorale_null(f$fit, f$containers, n_permutations = 2, n_init = 2)
   expect_true(all(n$stability$n_init == 2))
   expect_true(all(n$stability$n_failed == 0))
+})
+
+test_that("factor stability measures the factors, not the objective", {
+  # A stable objective can coexist with rotated or permuted factors, so
+  # stability is reported as how well the recovered factors match across starts.
+  f <- make_fit()
+  n <- chorale_null(f$fit, f$containers, n_permutations = 2, n_init = 4)
+  expect_true(all(n$stability$subspace_agreement >= -1 &
+                    n$stability$subspace_agreement <= 1))
+  # On clean data with a strong effect the same factors should recover whatever
+  # the start.
+  expect_gt(min(n$stability$subspace_min), 0.5)
+})
+
+test_that("the modality shuffle is a sampled null with a p-value", {
+  # Two modalities on one shared feature space, so the shuffle is defined and
+  # returns a calibrated p-value rather than a single draw.
+  set.seed(1)
+  ids <- paste0("g", 1:60)
+  mk <- function(tag) {
+    m <- matrix(stats::rnorm(60 * 40), nrow = 60, dimnames = list(ids, NULL))
+    d <- data.frame(sample_id = paste0(tag, 1:40),
+                    cohort = "sim", modality = tag, strain = "BXD1",
+                    phenotype = rep(c("Ntg", "5XFAD"), each = 20),
+                    age_months = 6, sex = rep(c("F", "M"), 20),
+                    region = "sim", batch = "b1",
+                    stringsAsFactors = FALSE)
+    colnames(m) <- d$sample_id
+    chorale_load(m, d)
+  }
+  containers <- list(a = mk("a"), b = mk("b"))
+  fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+  n <- chorale_null(fit, containers, n_permutations = 2, n_init = 2)
+  skip_if(!isTRUE(n$modality_null$applicable))
+  expect_true(is.finite(n$modality_null$p_value))
+  expect_gte(n$modality_null$p_value, 0)
+  expect_lte(n$modality_null$p_value, 1)
+  expect_gt(n$modality_null$n_shuffles, 1)
 })

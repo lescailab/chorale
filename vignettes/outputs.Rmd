@@ -92,10 +92,13 @@ interval, never a point inside it.
 
 One row per control. The phenotype permutation refits the entire pipeline after shuffling the
 case-control label within stratum, and its value is the p-value of the strongest programme's joint
-evidence. The modality shuffle reassigns samples across modalities, and is defined only where the
-modalities share a feature space. Initialisation stability is the coefficient of variation of the
-fit objective across restarts. The curated projection rows give the variance the curated sets
-explain against the variance the fitted loadings explain.
+evidence. The modality shuffle reassigns samples across modalities many times and gives the
+p-value of the observed evidence against that sampled null; it is defined only where the modalities
+share a feature space. Factor stability is the mean agreement of the recovered factors across
+restarts, matched one to one, so a low value means the recovery is a draw rather than an estimate;
+the objective spread it replaces could not distinguish a stable objective from rotated factors. The
+curated projection rows give the variance the curated sets explain against the variance the fitted
+loadings explain.
 
 **How to read it.** A control that cannot be computed is declared, not passed. A large gap between
 the two curated projection numbers means the vocabulary describes the axes loosely, so

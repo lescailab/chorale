@@ -4,13 +4,18 @@
 \alias{chorale_programmes}
 \title{Programmes recovered by the joint assignment}
 \usage{
-chorale_programmes(fit, significant_only = TRUE)
+chorale_programmes(fit, significant_only = TRUE, require_pure_features = FALSE)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
 \item{significant_only}{Return only programmes whose joint evidence beats
 its null.}
+
+\item{require_pure_features}{Return only programmes every member of which
+carries the pure features the identification argument requires. Off by
+default, since marker purity is a threshold diagnostic; setting it makes
+the pure-feature condition an eligibility gate.}
 }
 \value{
 A data frame with one row per (programme, modality, factor)
