@@ -4,3 +4,5 @@
 ^data-raw$
 ^site$
 ^shot\.mjs$
+^tools$
+^\.claude$
