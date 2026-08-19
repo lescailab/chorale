@@ -130,11 +130,20 @@ chorale_score_recovery <- function(fit, sim) {
 #'
 #' @param grid A data frame of regimes. Recognised columns are `label`,
 #'   `n_modalities`, `n_features`, `n_shared_factors`, `n_private_factors`,
-#'   `n_strains`, `n_per_cell`, `effect_size`, `imbalance` and `n_init`; any
-#'   absent column takes a default. A `same_response` column, when `TRUE`,
+#'   `n_strains`, `n_per_cell`, `effect_size`, `imbalance`, `n_init` and
+#'   `n_factors`; any absent column takes a default. `n_factors` defaults to the
+#'   number of factors planted, and takes `"auto"` where the count should come
+#'   from the detectability gate instead, as it would on data whose dimension
+#'   is not known in advance. A `same_response` column, when `TRUE`,
 #'   plants two shared factors with the same phenotype response, the adversarial
 #'   case in which distinct programmes should not be merged.
 #' @param n_rep Replicates per regime, over which the metrics are averaged.
+#' @param profile Optional [chorale_data_profile()], or a list of one per
+#'   modality, giving every regime the marginals, the missingness and the design
+#'   margins of real data. Where it is supplied the design comes from the
+#'   profile, so `n_strains`, `n_per_cell` and `imbalance` no longer describe
+#'   it, and the difference from the same grid without a profile is what the
+#'   observation model costs.
 #' @param seed Integer seed; replicate `r` of regime `i` uses `seed + 100 * i + r`.
 #'
 #' @returns `grid` with the mean recovery metrics joined on.
@@ -142,11 +151,11 @@ chorale_score_recovery <- function(fit, sim) {
 #' @examples
 #' grid <- data.frame(label = c("clean", "null"), effect_size = c(3, 0))
 #' chorale_validate(grid, n_rep = 1)
-chorale_validate <- function(grid, n_rep = 3L, seed = 1L) {
+chorale_validate <- function(grid, n_rep = 3L, profile = NULL, seed = 1L) {
   default <- list(n_modalities = 3L, n_features = 150L, n_shared_factors = 2L,
                   n_private_factors = 1L, n_strains = 4L, n_per_cell = 4L,
                   effect_size = 3, imbalance = 0, n_init = 5L,
-                  same_response = FALSE)
+                  same_response = FALSE, n_factors = NA)
   get_col <- function(row, name) if (name %in% names(grid)) grid[[name]][row] else default[[name]]
 
   out <- vector("list", nrow(grid))
@@ -157,11 +166,13 @@ chorale_validate <- function(grid, n_rep = 3L, seed = 1L) {
       sig <- NULL
       if (isTRUE(get_col(i, "same_response"))) {
         # Two shared factors responding to the phenotype the same way: distinct
-        # programmes the estimator must keep apart rather than merge.
-        sig <- matrix(0, nrow = ns, ncol = 3,
-                      dimnames = list(NULL, c("phenotype", "age", "sex")))
+        # programmes the estimator must keep apart rather than merge. The
+        # signature spans whatever terms the design carries, so the case is
+        # built the same way whether the design is parametric or profiled.
+        terms <- chorale_signature_terms(profile)
+        sig <- matrix(0, nrow = ns, ncol = length(terms),
+                      dimnames = list(NULL, terms))
         sig[, 1] <- 1
-        if (ns >= 2) sig[2, ] <- c(1, 0, 0)
       }
       sim <- chorale_simulate(
         n_modalities = as.integer(get_col(i, "n_modalities")),
@@ -173,10 +184,18 @@ chorale_validate <- function(grid, n_rep = 3L, seed = 1L) {
         effect_size = get_col(i, "effect_size"),
         imbalance = get_col(i, "imbalance"),
         signature = sig,
+        profile = profile,
         seed = seed + 100L * i + r
       )
       containers <- Map(chorale_load, sim$modalities, sim$col_data)
-      nf <- ns + as.integer(get_col(i, "n_private_factors"))
+      nf <- get_col(i, "n_factors")
+      nf <- if (is.na(nf[1]) || identical(nf, "")) {
+        ns + as.integer(get_col(i, "n_private_factors"))
+      } else if (identical(as.character(nf), "auto")) {
+        "auto"
+      } else {
+        as.integer(nf)
+      }
       fit <- try(chorale_fit(containers, n_factors = nf,
                              n_init = as.integer(get_col(i, "n_init")),
                              seed = seed + 100L * i + r), silent = TRUE)

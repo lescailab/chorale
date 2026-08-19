@@ -16,6 +16,10 @@ chorale_simulate(
   signature = NULL,
   confounder = NULL,
   imbalance = 0,
+  profile = NULL,
+  loadings = NULL,
+  background = TRUE,
+  max_background = 50L,
   seed = 1
 )
 }
@@ -23,18 +27,21 @@ chorale_simulate(
 \item{n_modalities}{Integer number of modalities to simulate.}
 
 \item{n_features}{Integer vector of length \code{n_modalities}, features per
-modality. Recycled if length 1.}
+modality. Recycled if length 1. \code{NULL} is allowed only with \code{profile}, and
+takes every feature of each profile, keeping its identifier, which is what
+planting a named pathway requires.}
 
 \item{n_shared_factors}{Integer number of shared latent factors.}
 
 \item{n_private_factors}{Integer number of modality-private latent factors,
 common to every modality.}
 
-\item{n_strains}{Integer number of strains in the genetic panel.}
+\item{n_strains}{Integer number of strains in the genetic panel. Ignored
+where \code{profile} supplies the design.}
 
 \item{n_per_cell}{Integer number of animals per design cell, per modality.
 Samples are drawn independently per modality, so no animal appears in more
-than one modality.}
+than one modality. Ignored where \code{profile} supplies the design.}
 
 \item{noise_sd}{Standard deviation of the additive Gaussian measurement
 noise.}
@@ -44,12 +51,14 @@ factors, in units of the latent scale. Zero detaches the shared factors
 from the design, which is the complete null the matching is calibrated
 against.}
 
-\item{signature}{Optional \code{n_shared_factors} by three matrix of design
-weights over the phenotype, age and sex contrasts, shared across
-modalities. When absent each shared factor is given a distinct dominant
-contrast. Supplying a signature in which two factors respond to the
-phenotype the same way is how a same-response, distinct-programme
-adversarial case is built.}
+\item{signature}{Optional matrix of design weights, one row per shared factor
+and one column per design term, shared across modalities. The terms are the
+phenotype, age and sex contrasts by default, and the contrasts the profiles
+share where \code{profile} is given; \code{\link[=chorale_signature_terms]{chorale_signature_terms()}} reports them.
+When absent each shared factor is given a distinct dominant contrast.
+Supplying a signature in which two factors respond to the phenotype the
+same way is how a same-response, distinct-programme adversarial case is
+built.}
 
 \item{confounder}{Optional named list adding a nuisance covariate correlated
 with the phenotype, with elements \code{name}, \code{rho} (the correlation) and
@@ -60,13 +69,31 @@ confounding.}
 are populated unevenly across modalities, for testing behaviour under the
 unequal mixtures disjoint cohorts produce.}
 
+\item{profile}{Optional \code{\link[=chorale_data_profile]{chorale_data_profile()}}, or a list of one per
+modality, supplying the marginals, the missingness and the design margins
+of real data.}
+
+\item{loadings}{Optional list, one entry per modality, each a
+features-by-factors matrix used in place of the drawn loadings. This is
+how \code{\link[=chorale_plant]{chorale_plant()}} places a named pathway on the features that belong
+to it.}
+
+\item{background}{Whether to add correlated variation reproducing the tail of
+the profile's correlation eigenspectrum. Without it a simulated matrix
+carries only the planted factors and independent noise, and its covariance
+is far lower-dimensional than a real one. It has no effect without
+\code{profile}.}
+
+\item{max_background}{Largest number of background directions drawn.}
+
 \item{seed}{Integer random seed.}
 }
 \value{
 A list with \code{modalities} (feature-by-sample matrices),
 \code{col_data} (per-modality design tables) and \code{truth}, which carries the
 shared and private loadings and scores per modality, the marker indices,
-the design \code{signature}, and the factor counts, for scoring recovery.
+the design \code{signature}, its \code{terms}, and the factor counts, for scoring
+recovery.
 }
 \description{
 Generates synthetic data for \code{n_modalities} modalities measured on disjoint
@@ -90,6 +117,16 @@ the signature is the answer a recovered assignment is scored against. Each
 shared factor is given a distinct dominant contrast, so the factors' design
 responses are uncorrelated and the recovered components stay separable.
 Private factors carry no signature and no cross-modality partner.
+
+Supplying \code{profile} replaces the parametric observation model with the
+marginals of real data. The latent structure is unchanged, and each simulated
+feature is mapped onto the empirical distribution of a real feature through
+its quantile grid, carrying that feature's missingness with it. The design is
+drawn from the cells the real cohort populated, so a cell no animal occupied
+stays empty. Realism is therefore inherited from a
+\code{\link[=chorale_data_profile]{chorale_data_profile()}} rather than asserted by a distributional choice, and
+the map is monotone per feature, so the sign and the ordering of a planted
+design response survive it.
 }
 \examples{
 sim <- chorale_simulate(

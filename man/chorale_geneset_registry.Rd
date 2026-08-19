@@ -28,7 +28,10 @@ the same registry serves a human analysis unchanged.
 Each collection records its MSigDB code under each source database, since
 the mouse-native and human collections are numbered differently. Retrieving
 mouse sets from the mouse database avoids the ortholog mapping that
-retrieving them from the human database would impose.
+retrieving them from the human database would impose. A collection registered
+under one database only is retrievable from that database alone, and a
+request for another is refused by name: KEGG is distributed in the human
+collections and reaches other organisms through orthologs.
 }
 \examples{
 names(chorale_geneset_registry())
