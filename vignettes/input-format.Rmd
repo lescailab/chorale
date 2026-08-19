@@ -1,20 +1,93 @@
 ---
-title: "The input contract"
-description: "What every modality must supply, what every other column does, and the vocabulary labels are read in."
+title: "The input data"
+description: "The container the tables become, the scale each matrix is on, and what every column does."
 site_order: 3
 site_wide: true
 output:
   rmarkdown::html_vignette:
     math_method: mathml
 vignette: >
-  %\VignetteIndexEntry{The input contract}
+  %\VignetteIndexEntry{The input data}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-Two tables per modality: a feature-by-sample matrix of measurements, and a design table with one
-row per sample. Nothing about the organism, the assay or the condition is assumed, and no column
+Two tables go in per modality: a feature-by-sample matrix of measurements, and a sample table with
+one row per sample. Nothing about the organism, the assay or the condition is assumed, and no column
 name beyond the two below is required.
+
+## The container the tables become
+
+`chorale_load()` puts the two tables into a
+[SummarizedExperiment](https://bioconductor.org/packages/SummarizedExperiment), which is the
+container every later step reads:
+
+```r
+se <- chorale_load(matrix, samples)
+SummarizedExperiment::assay(se)    # the measurements
+SummarizedExperiment::colData(se)  # the sample table
+```
+
+This is Bioconductor's standard structure for a feature-by-sample assay with its sample annotation,
+and using it has three consequences. The measurements and the sample table are one object, so they
+cannot be subset, reordered or filtered out of alignment with one another. Feature and sample
+identifiers stay bound to the numbers rather than living in a separate vector. And a study whose
+data already sit in a `SummarizedExperiment`, or in one of its subclasses such as a `DESeqDataSet`
+or a `SingleCellExperiment`, is already in the right shape:
+
+```r
+se <- chorale_load(SummarizedExperiment::assay(existing),
+                   as.data.frame(SummarizedExperiment::colData(existing)))
+```
+
+`chorale_load()` is the route in because it also resolves the design labels into one vocabulary, as
+described below. An object built by hand can be passed to `chorale_fit()` directly, provided its
+`colData` already carries the required columns in canonical form.
+
+## The measurement matrix
+
+Features in rows, samples in columns, and `colnames(matrix)` equal to `samples$sample_id` in the
+same order. A modality is whatever was measured on its own set of samples: a transcriptome, a
+proteome, a lipidome, a panel of variant dosages. Each is one matrix and one call.
+
+Row names are the feature identifiers, and they are what reaches the curated vocabulary. Gene and
+protein modalities are mapped to Entrez identifiers by [`chorale_map()`](reference/chorale_map),
+from Ensembl identifiers, symbols or UniProt accessions. A lipidome is declared with
+`feature_space = "lipid"` and reaches the sets through its class names instead.
+
+Missing values are permitted. Each feature is centred and scaled before decomposition, and an entry
+that is not finite afterwards is set to the feature mean, so a feature observed in few samples
+contributes little and adds noise in its place. Filter on detection rate before loading.
+
+## The scale each matrix is on
+
+Two different jobs are involved, and only the second is done for you.
+
+**Between samples.** Samples must already be comparable within the modality, because standardisation
+acts on a feature across samples and cannot remove a difference in library size or in total ion
+current. Apply the modality's own normalisation first: size factors, CPM or TPM for sequencing
+counts, total-intensity or median scaling for mass spectrometry.
+
+**Within a feature.** The measurement scale is read from the matrix, so no particular unit is
+required. `transform = "auto"`, the default, chooses per modality:
+
+| What the matrix holds | Applied | Reason |
+|---|---|---|
+| Integer counts spanning orders of magnitude: raw sequencing counts, spectral counts | `vst` | Under Anscombe's transform a Poisson variance no longer grows with the mean, so a highly expressed feature stops dominating an axis for no biological reason. |
+| Positive continuous values, right-skewed: TPM, FPKM, RPKM, normalised LFQ intensities, peak areas | `log` | Label-free intensities span orders of magnitude. `log1p` is used, which keeps zeros finite. |
+| Values already on a symmetric scale: log ratios, log intensities, z-scores, variant dosages | `none` | Already symmetric, and a further transform would distort it. |
+
+The rule is mechanical. Any negative value means the matrix is already on a symmetric scale and
+nothing is applied. Otherwise, whole numbers whose 99th percentile exceeds five times their median
+take the variance-stabilising transform; a skewness above one with the same spread takes the
+logarithm; anything else is left alone. What was applied is recorded in the fit.
+
+Where the matrix is not what its distribution suggests, say it explicitly, one value per modality:
+
+```r
+fit <- chorale_fit(containers, n_factors = "auto",
+                   transform = c(RNA = "vst", PROT = "log", METAB = "none"))
+```
 
 ## What every modality must carry
 
@@ -33,6 +106,19 @@ Every remaining column is a covariate. A covariate the modalities share, and whi
 sharpens the comparison; one absent from a modality, or constant within it, is dropped without
 consequence. Nothing needs declaring in advance: a design carrying `tissue_source` and `donor_age`
 anchors on those as readily as one carrying `strain` and `age_months`.
+
+How a covariate is read follows from its type in the sample table, so the type is what needs getting
+right.
+
+| Stored as | Read as | What it contributes |
+|---|---|---|
+| Character or factor | Categorical | One term per level beyond a reference. The levels used are those every modality realises, sorted, with the first as the reference. Each term is the standardised mean difference of the axis between that level and the reference. |
+| Numeric with more than two distinct values in every modality | Continuous | One term, the Spearman correlation between the axis and the covariate. Units and scale are irrelevant and nothing needs rescaling or binning. |
+| Numeric with two distinct values, or a number stored as text | Categorical | The two values become levels. A continuous covariate stored as text is read this way, which is the common mistake. |
+
+A column named `age`, `age_months`, `age_years` or `age_days` additionally gains a banded companion,
+`age_bin`, cut at quantiles of the ages observed, so a cohort with few distinct ages anchors on the
+bands and one with many anchors on both.
 
 Two column names are treated as bookkeeping rather than biology and never anchor a comparison:
 `sample_id` and `modality`. A column holding a distinct value for nearly every sample identifies

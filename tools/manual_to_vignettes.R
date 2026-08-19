@@ -5,7 +5,7 @@
 #
 #   knowledge/MANUAL.md  the problem and the response  ->  why.Rmd
 #                        how the estimator works      ->  how-it-works.Rmd
-#                        the input contract           ->  input-format.Rmd
+#                        the input data               ->  input-format.Rmd
 #                        the outputs                  ->  outputs.Rmd
 #                        the mathematics, the conditions and the sources
 #                                                     ->  methods.Rmd
@@ -46,7 +46,7 @@ section <- function(from, to) {
 
 i_problem <- heading("^## The problem and the response")
 i_how <- heading("^## How the estimator works")
-i_input <- heading("^## The input contract")
+i_input <- heading("^## The input data")
 i_outputs <- heading("^## The outputs and how to read them")
 i_maths <- heading("^## Statistics, mathematics and implementation")
 i_cond <- heading("^## Conditions of applicability")
@@ -71,9 +71,9 @@ spec <- list(
        description = "The six stages of the pipeline in plain terms.",
        body = section(i_how, i_input)),
   list(slug = "input-format", order = 3L, wide = TRUE,
-       title = "The input contract",
-       description = paste("What every modality must supply, what every other",
-                           "column does, and the vocabulary labels are read in."),
+       title = "The input data",
+       description = paste("The container the tables become, the scale each",
+                           "matrix is on, and what every column does."),
        body = section(i_input, i_outputs)),
   list(slug = "outputs", order = 5L, wide = TRUE,
        title = "The outputs and how to read them",

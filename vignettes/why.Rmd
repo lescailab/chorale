@@ -39,15 +39,17 @@ pairing across eleven cancer datasets. It requires paired data to exist for the 
 in question, and for most deposited resources none exists.
 
 **Methods that join on shared features.** mosaicMPI factorises heterogeneous datasets separately
-and connects the resulting programmes through correlations of their loadings on features the
+and connects the recovered components through correlations of their loadings on features the
 datasets share (Verhey et al. 2024). This requires a common feature space, which transcripts and
 lipids do not have.
 
-**Methods that anchor on a shared label.** Propensity score alignment uses shared treatment or
-perturbation information to align unpaired modalities (Xi et al. 2024); a dual-channel transformer integrates unpaired
-transcriptomic and epigenomic data by cross-modal reconstruction (Liao et al. 2026); UnCOT-AD couples representations across
-three unpaired omics layers in Alzheimer's disease (Abir et al. 2025). In each case the anchor is
-an experimental label the cohorts share rather than the individual.
+**Methods that translate between unpaired cohorts.** Propensity score alignment uses shared
+treatment or perturbation information to align unpaired modalities (Xi et al. 2024). AE-Trans
+reconstructs a transcriptome from a methylome and back with a cross-modal transformer, then
+classifies Alzheimer's disease from the shared embedding (Liao et al. 2026). UnCOT-AD translates
+between transcriptome, methylome and proteome by cycle-consistent mapping and classifies from real
+and translated profiles together (Abir et al. 2025). Anchoring an integration on an experimental
+label rather than on the individual is established, and so is doing it across three layers.
 
 **Identification theory for unpaired data.** Sturma et al. (2023) show that a shared latent block
 is identifiable from unpaired multi-domain data when the modality-specific components are
@@ -55,6 +57,22 @@ non-Gaussian and pairwise different, and give a finite-sample procedure that run
 component analysis separately and matches the recovered component distributions with
 Kolmogorov-Smirnov tests. Timilsina et al. (2024) identify shared components under a modality
 variability assumption using distributional discrepancies inside a joint estimator.
+
+## What those methods report
+
+The translation methods answer a different question from the one asked here. Their target is a
+prediction: both AE-Trans and UnCOT-AD are evaluated on how faithfully one modality reconstructs
+another and on how accurately the combination classifies disease status, and what each delivers is
+a classifier together with translated profiles (Liao et al. 2026; Abir et al. 2025). Neither states
+which biology the modalities have in common, how far the data determine the relationship between
+them, or what agreement would have looked like by chance. AE-Trans records that synthetic pairing
+does not capture the dependence present within a truly paired individual (Liao et al. 2026), and
+neither method places a bound on it.
+
+Sample size separates them further. AE-Trans and UnCOT-AD train deep encoders on 696 transcriptomes,
+142 methylomes and 419 proteomes (Liao et al. 2026; Abir et al. 2025). A deposited bulk resource for
+one condition commonly offers tens of samples per modality, which is the size at which a design
+contrast is estimable and a learned translation is not.
 
 ## What is missing
 
@@ -71,7 +89,7 @@ route is to compare each pair and reconcile the results. Independent pairwise de
 agree with one another, and reconciling them by merging propagates a single wrong pairing through
 the whole result.
 
-**Biology enters as annotation rather than as evidence.** Programmes are typically recovered on
+**Biology enters as annotation rather than as evidence.** Biological functions are typically recovered on
 statistical grounds and named afterwards from curated sets. The naming then cannot corroborate the
 recovery, because it played no part in it and because any factor yields some enrichment.
 
@@ -81,14 +99,14 @@ a vocabulary of its own and compared with the others by hand.
 
 ## What CHORALE does about them
 
-**It reports the identified set instead of inventing a coupling.** Where the data cannot determine
-how strongly two programmes move together within an individual, the output is the range of
-correlations the data cannot exclude, narrowed as far as the experimental design allows. Where that
-range stays wide, its width is the result.
+**It reports the couplings the data admit.** Where the strength with which two functions move
+together within an individual is not determined, the output is the range of correlations consistent
+with the data, narrowed as far as the experimental design allows. The width of that range is part of
+the result.
 
 **It solves the correspondence once, over all modalities together.** Every pairwise agreement enters
-one matrix and the assignment of factors to programmes is recovered from it in a single step, so
-the correspondences agree around every cycle and no programme is assembled by chaining.
+one matrix and the assignment of factors to biological functions is recovered from it in a single step, so
+the correspondences agree around every cycle and no biological function is assembled by chaining.
 
 **It corroborates on biology through a separate channel.** Factors are fitted without ever seeing
 the curated sets. Whether the modalities implicate the same biology is then asked as a second,
@@ -101,7 +119,12 @@ classes onto the pathway sets the genes are described in, so a lipid species and
 in one set. The transcriptome then contributes the enzymes of a pathway and the lipidome the
 molecules that pathway acts on.
 
-**It reports failure as an outcome.** A run in which no programme survives its null says so.
+**Its output is a statement about shared biology, with the calibration attached.** Each candidate is
+scored against a null that reruns the whole procedure, and the result is a table of functions, the
+modalities carrying each, and what each modality contributed. Nothing is fitted to predict the
+phenotype.
+
+**It reports failure as an outcome.** A run in which no biological function survives its null says so.
 
 ## The combination
 

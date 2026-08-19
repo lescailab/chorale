@@ -14,7 +14,7 @@ vignette: >
 
 <div class="note">
 <span class="lab">What you will end up with</span>
-<p>Two biological programmes recovered across three cohorts that share no samples, each with a
+<p>Two shared biological functions recovered across three cohorts that share no samples, each with a
 p-value that accounts for the choices the method made, a statement of how much each modality
 contributed, a range for the coupling the data cannot determine, and a set of controls.</p>
 </div>
@@ -80,7 +80,7 @@ cannot contribute to it and the fit stops with an error naming it. Every other c
 covariate that anchors the comparison where the modalities share it, and nothing needs declaring
 in advance. Labels are put in one vocabulary as the data are read, so a cohort recording controls
 as <code>WT</code> and another as <code>control</code> still share a level. The
-<a href="../input-format">input contract</a> sets this out in full, and
+<a href="../input-format">input data</a> page sets this out in full, and
 <code>chorale_check_design()</code> reports what a collection can anchor on before it is
 fitted.</p>
 </div>
@@ -97,13 +97,18 @@ containers$RNA
 #> colData names(9): sample_id cohort ... region batch
 ```
 
+The container is a `SummarizedExperiment`, Bioconductor's structure for a feature-by-sample assay
+with its sample annotation. The measurements and the sample table are one object from here on, so
+they cannot be subset or reordered out of alignment, and a study whose data already sit in a
+`SummarizedExperiment` or one of its subclasses passes its `assay()` and `colData()` straight in.
+
 `chorale_load()` also maps blank strings and placeholder values to missing. A covariate holding
 `""` beside one real level would otherwise present as a two-level contrast and produce matches that
 compare missing metadata against disease.
 
 ## Step 3. Give every modality one vocabulary
 
-Programmes are compared twice: on what they do to the experiment, and on which biology they
+Candidate functions are compared twice: on what they do to the experiment, and on which biology they
 implicate. The second comparison needs a vocabulary all modalities share.
 
 On real data you would harmonise identifiers and retrieve curated sets:
@@ -175,15 +180,33 @@ Two of the four sets received lipid members. The carnitine and chylomicron sets 
 the simulated lipid classes that reach them are not present in sufficient number. That is the
 normal state of affairs and it is visible rather than hidden.
 
-<div class="note warn">
-<span class="lab">Choosing n_factors</span>
-<p>The number of factors is not selected automatically. Set it from the detectability of each
-modality: a cohort of seventy samples will not support many components, and asking for more
-produces axes that are noise. Refitting across a range and checking that the recovered programmes
-persist is the practical test.</p>
-</div>
+### Where `n_factors = c(RNA = 3, PROT = 3, METAB = 3)` comes from
 
-## Step 5. Read the programmes
+`n_factors` is how many latent axes to recover in each modality, and it is the one quantity the
+estimator cannot read off its own objective: a decomposition into more axes always fits better, so
+the count has to come from outside the fit. Two ways to set it.
+
+**Let parallel analysis choose it.** `n_factors = "auto"` runs
+[`chorale_n_factors()`](reference/chorale_n_factors) on each modality, which compares the variance
+each component explains against what components explain in data with the same dimensions and no
+structure, and keeps those above that threshold:
+
+```r
+chorale_n_factors(scale(t(sim$modalities$RNA)))
+#> [1] 3
+```
+
+Three, which is what the data were simulated with, and what is passed above. On real cohorts this is
+the default to start from.
+
+**Set it deliberately.** The count that matters is what the cohort can support, and cohort size is
+the binding constraint: seventy samples will not sustain many components, and asking for more
+manufactures axes that are noise. Fitting across a range and checking which functions persist is the
+practical test. `fit$fits$RNA$stability` reports, for each random restart, the mean correlation
+between its axes and those of the selected run, and that agreement falls first where the count is
+set too high.
+
+## Step 5. Read the biological functions
 
 ```r
 pg <- chorale_programmes(fit)
@@ -193,12 +216,15 @@ unique(pg[, c("programme", "n_modalities", "modalities", "joint_statistic", "joi
 #> 1        P1            3 METAB, PROT, RNA          0.2775 0.014925
 ```
 
-Two programmes survived, each carried by all three modalities. `joint_p` is not the best pairwise
+The column grouping the rows is named `programme`, which is the term the tables and the function
+names use for a shared biological function.
+
+Two biological functions survived, each carried by all three modalities. `joint_p` is not the best pairwise
 link: it comes from rerunning the entire procedure, assignment included, on shuffled designs, and
-keeping the best value any programme and any set of modalities could have reached by chance. The
+keeping the best value any biological function and any set of modalities could have reached by chance. The
 smallest value attainable with 200 permutations is 1/201, which is 0.00498, so P3 is at the floor.
 
-Three programmes were recovered and one was not supported. It is not reported and does not appear
+Three biological functions were recovered and one was not supported. It is not reported and does not appear
 in the tables.
 
 ## Step 6. Ask what each modality contributed
@@ -215,8 +241,8 @@ chorale_leave_one_out(fit)
 ```
 
 Read `delta`. For P1, removing the metabolome *raises* the statistic to 0.4896 and the remaining
-pair is significant on its own: the metabolome was diluting a programme that RNA and protein
-carry. For P3, removing any modality lowers or barely changes the statistic and the programme
+pair is significant on its own: the metabolome was diluting a biological function that RNA and protein
+carry. For P3, removing any modality lowers or barely changes the statistic and the biological function
 survives regardless, so all three are contributing.
 
 This is the column that separates a result integration produced from a result one modality produced
@@ -231,7 +257,7 @@ fit$pathway_evidence
 #> 1        P1            0.6457  0.661692             2             FALSE
 ```
 
-Neither programme is corroborated on biology, which is the correct answer here: the simulator plants
+Neither biological function is corroborated on biology, which is the correct answer here: the simulator plants
 a phenotype effect but no relationship between the factors and the curated sets, so there is no
 biological structure to agree on. On real data this is where corroboration appears, and its value
 comes from the factors having been fitted before the annotation was consulted.
@@ -250,7 +276,7 @@ b
 #>   median width with anchors:    1.437
 ```
 
-Each individual was measured once, so how strongly two programmes move together *within* an
+Each individual was measured once, so how strongly two biological functions move together *within* an
 individual is
 not identified. What the data support is a range. Averages within each design group are observable
 in every modality, so the part of the relationship running between groups is fixed and only the
@@ -309,7 +335,7 @@ unique(final[, c("programme", "modalities", "joint_p", "pathway_p",
 #> 1        P1 METAB, PROT, RNA 0.014925  0.661692             2 design only
 ```
 
-`evidence` says which lines of support a programme has.
+`evidence` says which lines of support a biological function has.
 
 | Label | Meaning | How much weight it carries |
 |---|---|---|
@@ -352,7 +378,7 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 | Error that "the modalities share no design term" | Cohorts record a covariate under labels the vocabulary does not cover, so they share no level | Run `chorale_check_design()`, then extend `chorale_label_registry()` and pass it to `chorale_load()` |
 | Matches that contrast missing metadata against disease | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
 | `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
-| No programme supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
+| No biological function supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
 | Very few factors recovered | Too few samples in that modality | More samples, not more features; reducing feature count does not help |
 
 ## Where to go next

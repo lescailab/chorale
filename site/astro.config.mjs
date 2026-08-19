@@ -10,6 +10,9 @@ export default defineConfig({
   markdown: {
     remarkPlugins: [remarkMath],
     rehypePlugins: [rehypeKatex],
-    shikiConfig: { themes: { light: 'github-light', dark: 'github-dark' }, wrap: true },
+    shikiConfig: { // The high-contrast pair. Every token colour either of them assigns
+    // clears WCAG AA against this site's two page grounds; the plain
+    // github-light and github-dark do not.
+    themes: { light: 'github-light-high-contrast', dark: 'github-dark-high-contrast' }, wrap: true },
   },
 });

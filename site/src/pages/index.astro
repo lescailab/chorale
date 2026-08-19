@@ -38,8 +38,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p class="lede">
     Measuring several omics layers on the same individuals is rarely possible: the assay consumes
     the sample, each platform needs its own preparation, and the layers of a study usually come
-    from different groups at different times. CHORALE finds the biological programmes such
-    cohorts carry together, states how far the data constrain the relationship between them, and
+    from different groups at different times. CHORALE finds the biological functions such
+    cohorts carry in common, states how far the data constrain the relationship between them, and
     reports the checks the result survived.
   </p>
   <div class="btnrow">
@@ -50,7 +50,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </section>
 
 <section class="fig reveal">
-  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared programme.">
+  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared biological function.">
     <defs>
       <linearGradient id="g" x1="0" x2="1">
         <stop offset="0" style="stop-color:var(--accent);stop-opacity:.14"/>
@@ -85,7 +85,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <line class="stem" x1="450" y1="232" x2="450" y2="250"/>
 
     <rect x="0" y="250" width="900" height="36" rx="9" fill="url(#g)"/>
-    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one shared programme, carried by all three</text>
+    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one shared biological function, carried by all three</text>
   </svg>
   <p class="cap">
     No individual appears twice, and the cohorts need not be the same size. They are joined by
@@ -100,7 +100,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <div class="card">
       <span class="num">01</span>
       <h3>One assignment, not many</h3>
-      <p>Correspondence is solved once over all modalities together, so a programme is never
+      <p>Correspondence is solved once over all modalities together, so a function is never
          assembled by chaining one pair to the next through a single mistaken link.</p>
     </div>
     <div class="card">
@@ -130,7 +130,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <div class="card">
       <span class="num">06</span>
       <h3>Failure is an output</h3>
-      <p>A run in which nothing survives its null says so, and writes empty programme tables rather
+      <p>A run in which nothing survives its null says so, and writes its tables empty rather
          than promoting an unsupported assignment.</p>
     </div>
   </div>
@@ -139,8 +139,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 <section class="band prose reveal">
   <h2>What a result looks like</h2>
   <p>
-    One row per modality carrying a programme, with the evidence that supports it and the
-    contribution each layer made. This is the first table the report writes.
+    One row per modality carrying a shared biological function, with the evidence that supports it
+    and the contribution each layer made. The column grouping the rows is named
+    <code>programme</code>, which is the term the tables and the function names use for the object.
+    This is the first table the report writes.
   </p>
 
 <div class="tablewrap">
@@ -159,9 +161,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     it ranks below.
   </p>
   <p>
-    Alongside it, <code>chorale_leave_one_out()</code> reports what happens to each programme when a
-    modality is removed, which separates a programme the integration produced from one a single
-    layer carried while the others followed along.
+    Alongside it, <code>chorale_leave_one_out()</code> reports what happens to each function when a
+    modality is removed, which separates a result the integration produced from one a single layer
+    carried while the others followed along.
   </p>
 </section>
 
@@ -189,17 +191,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 <section class="band prose reveal">
   <h2>The whole workflow</h2>
   <p>
-    Three matrices, three design tables, one call. Everything after it reads results rather than
-    configuring the method.
+    Three matrices, three sample tables, one call. <code>chorale_load()</code> returns a
+    <code>SummarizedExperiment</code> per modality, and everything after the fit reads results
+    rather than configuring the method.
   </p>
 <pre><code>containers &lt;- Map(chorale_load, matrices, designs)
 
 fit &lt;- chorale_fit(containers,
-                  n_factors     = c(RNA = 4, PROT = 3, METAB = 3),
+                  n_factors     = "auto",
                   gene_sets     = chorale_genesets(species = "Mus musculus"),
                   feature_space = c(METAB = "lipid"))
 
-chorale_programmes(fit)        # what several cohorts carry together
+chorale_programmes(fit)        # the functions several cohorts carry in common
 chorale_leave_one_out(fit)     # whether it needed all of them
 chorale_bound(fit)             # what the data cannot determine
 chorale_report(fit, chorale_bound(fit), chorale_null(fit, containers), "results/")</code></pre>

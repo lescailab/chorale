@@ -125,41 +125,41 @@ eigenvectors give a common embedding,
 
 $$W = V \Lambda V^{\top}, \qquad U = V_{[\,\cdot\,,1:d]} \, \mathrm{diag}\!\left(\sqrt{\max(\lambda_{1:d},0)}\right), \qquad d = \min_m k_m ,$$
 
-whose rows $U_m$ place every factor of every modality in one space of $d$ latent programmes. One
+whose rows $U_m$ place every factor of every modality in one space of $d$ latent biological functions. One
 modality provides the frame: the one with fewest factors, ties broken by $\lVert U_m \rVert_F^2$.
 Each modality is then rounded back to a partial permutation against that frame by solving a linear
 sum assignment problem,
 
 $$\Pi_m = \arg\max_{\Pi} \; \mathrm{tr}\!\left( \Pi^{\top} \, \bigl| U_m U_a^{\top} \bigr| \right),$$
 
-by the Hungarian algorithm (Kuhn 1955), through `clue::solve_LSAP`. A programme is the set of
+by the Hungarian algorithm (Kuhn 1955), through `clue::solve_LSAP`. A biological function is the set of
 factors assigned to one position.
 
 This is the spectral relaxation of permutation synchronisation (Pachauri, Kondor and Singh 2013).
 Its property, and the reason for adopting it, is that correspondences recovered this way are
-consistent around every cycle by construction, so a programme cannot be assembled by chaining
+consistent around every cycle by construction, so a biological function cannot be assembled by chaining
 pairwise decisions through a single mistaken link. Chen, Guibas and Huang (2014) establish for a
 convex relaxation of the same problem that the joint solution recovers the ground-truth assignment
 even when a dominant fraction of the input pairwise maps behave as outliers, an error-correcting
 property no independently solved pairwise procedure possesses. The frame fixes only the labelling of
-programmes; the evidence placing each factor came from the whole collection, since every pairwise
+biological functions; the evidence placing each factor came from the whole collection, since every pairwise
 block enters $W$ and therefore every eigenvector.
 
 The advantage holds when the pairwise inputs are noisy observations of one consistent underlying
-assignment. Where no consistent assignment exists, for instance where one programme genuinely splits
+assignment. Where no consistent assignment exists, for instance where one biological function genuinely splits
 between modalities, the joint solution buys nothing.
 
 *Implementation.* `chorale_synchronise()` in `R/synchronise.R`.
 
-## 6. Programme evidence and its calibration
+## 6. Evidence for a shared biological function and its calibration
 
-For a programme with members $(m_1,f_1),\dots,(m_r,f_r)$,
+For a biological function with members $(m_1,f_1),\dots,(m_r,f_r)$,
 
 $$T = \binom{r}{2}^{-1} \sum_{i<j} \bigl| \langle P_{m_i}[f_i,\cdot],\, P_{m_j}[f_j,\cdot] \rangle \bigr| .$$
 
 The absolute value is taken because opposition is informative: transcript and protein discordance in
 Alzheimer's brain is enriched in the plaque microenvironment and reflects amyloid-delayed protein
-turnover (Yarbro et al. 2025), so opposed programmes are matched and their opposition reported.
+turnover (Yarbro et al. 2025), so opposed biological functions are matched and their opposition reported.
 
 The null preserves the joint design. In permutation $b$, a single permutation $\pi_m$ of the sample
 order is drawn per modality and applied to all shared design columns together, so the dependence
@@ -169,24 +169,24 @@ implausible combinations. Profiles are recomputed, the synchronisation is solved
 
 $$N_b = \max_{g} \; \max_{\substack{S \subseteq \mathrm{members}(g) \\ |S| \ge 2}} T(S), \qquad \hat{p} = \frac{1 + \#\{b : N_b \ge T\}}{1 + B}.$$
 
-Two properties follow. The maximum over programmes and modality subsets is the max-statistic
+Two properties follow. The maximum over biological functions and modality subsets is the max-statistic
 construction of Westfall and Young (1993), which controls the family-wise error rate across the
 selections the procedure could have made, so the p-value accounts for the selection rather than
 conditioning on it. The $(1+r)/(1+B)$ form is the exact estimator of Phipson and Smyth (2010), which
 never returns zero and is not understated by $1/B$.
 
-Which modalities a programme spans is itself a selection, so it is made against this same null: the
-widest subset with $\hat{p} < \alpha$, ties broken by $T$. A programme for which no subset qualifies
+Which modalities a biological function spans is itself a selection, so it is made against this same null: the
+widest subset with $\hat{p} < \alpha$, ties broken by $T$. A biological function for which no subset qualifies
 is retained and marked unsupported, and is excluded from the report.
 
 *Implementation.* `chorale_integrate()`, `chorale_programme_statistic()`, `chorale_best_statistic()`.
 
 ## 7. Leave-one-modality-out
 
-Each member of a programme spanning at least three modalities is removed in turn and the remainder
+Each member of a biological function spanning at least three modalities is removed in turn and the remainder
 rescored against the same null, giving $\Delta = T(S \setminus \{i\}) - T(S)$. This operationalises
 the requirement that an integrated result be more than the strongest single contribution: a
-programme whose evidence is unchanged by removing a modality was not resting on it.
+biological function whose evidence is unchanged by removing a modality was not resting on it.
 
 *Implementation.* `chorale_leave_one_out()`.
 
@@ -201,8 +201,8 @@ the mean loading of the set's members against the factor's loadings as a whole, 
 This is the statistic of PAGE (Kim and Volsky 2005), which is signed and puts sets of different size
 on one footing.
 
-Agreement between two members of a programme is the inner product of their positions over the
-vocabulary their modalities share, and a programme's biological evidence is that agreement averaged
+Agreement between two members of a biological function is the inner product of their positions over the
+vocabulary their modalities share, and its evidence on the biological channel is that agreement averaged
 over its pairs, exactly as in Section 6.
 
 The null is annotation-matched. Feature labels of $C$ are permuted within each modality, which
@@ -310,7 +310,7 @@ setting. The framing throughout is partial identification (Manski 2003): the out
 values consistent with the data, not a point.
 
 These are plug-in identified sets under the declared target. Sampling error, factor estimation and
-the selection of the programme are not in them.
+the selection of the biological function are not in them.
 
 *Implementation.* `chorale_bound()`, `chorale_target_weights()`, `chorale_weighted_quantile()`,
 `chorale_frechet_from_quantiles()`, `chorale_anchored_correlation()`, `chorale_clamp_bounds()` in
@@ -329,7 +329,7 @@ for a bulk multi-omics study yield tens of samples per modality and a handful of
 Design responses are estimable at that size, and the phenotype contrast is the quantity the estimand
 is about.
 
-The consequences are stated rather than assumed. Two distinct biological programmes can respond to
+The consequences are stated rather than assumed. Two distinct shared biological functions can respond to
 the phenotype in the same way, so agreement of design profiles is evidence of a shared
 population-level process, not of a shared latent variable and not of coupling within an individual.
 The finite-sample guarantees of those papers, including the bound that decays exponentially in the
@@ -337,7 +337,7 @@ number of domains, are statements about a decision rule over matched component d
 not transfer. Error control here is empirical, established by rerunning the entire procedure under
 the nulls of Sections 6 and 8.
 
-Solving the assignment jointly and scoring the programme jointly are what a decision rule using all
+Solving the assignment jointly and scoring the biological function jointly are what a decision rule using all
 domains at once requires, and they are adopted for the reason Section 5 gives, not as a route to
 importing those theorems.
 

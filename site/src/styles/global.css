@@ -7,6 +7,9 @@
   --fg-2:      #4e4e46;
   --fg-3:      #7a7a70;
   --rule:      #dcdcd5;
+  /* Code sits on a lighter ground than other panels so the palest token the
+     highlighter assigns still clears WCAG AA against it. */
+  --code-bg:   #f8f8f6;
   --accent:    #1f6f5c;
   --accent-2:  #0f4c3f;
   --accent-bg: #e4f0ec;
@@ -25,7 +28,7 @@
     --bg: #101210; --bg-2: #181b18; --bg-3: #222622;
     --fg: #f2f3ef; --fg-2: #b9bcb4; --fg-3: #8b8f86;
     --rule: #2c302c; --accent: #5fbfa3; --accent-2: #8fd8c1;
-    --accent-bg: #172a24; --warn: #d5a53a;
+    --accent-bg: #172a24; --warn: #d5a53a; --code-bg: #181b18;
     color-scheme: dark;
   }
 }
@@ -33,7 +36,7 @@
   --bg: #101210; --bg-2: #181b18; --bg-3: #222622;
   --fg: #f2f3ef; --fg-2: #b9bcb4; --fg-3: #8b8f86;
   --rule: #2c302c; --accent: #5fbfa3; --accent-2: #8fd8c1;
-  --accent-bg: #172a24; --warn: #d5a53a;
+  --accent-bg: #172a24; --warn: #d5a53a; --code-bg: #181b18;
   color-scheme: dark;
 }
 
@@ -58,11 +61,33 @@ code { font-family: var(--mono); font-size: .875em; }
   border: 1px solid var(--rule);
 }
 pre {
-  background: var(--bg-2) !important; border: 1px solid var(--rule);
+  background: var(--code-bg) !important; border: 1px solid var(--rule);
   border-radius: 10px; padding: 1rem 1.1rem; overflow-x: auto;
   font-size: .855rem; line-height: 1.6; margin: 0 0 1.2rem;
 }
 pre code { background: none; border: 0; padding: 0; }
+
+/* Highlighting ships both palettes: the light one as `color`, the dark one as
+   a `--shiki-dark` custom property on the same element. The dark palette is
+   inert until something reads it, so without the rules below a dark page
+   renders light-theme token colours, and the darkest of them are unreadable
+   against a dark ground. */
+:root[data-theme="dark"] .astro-code,
+:root[data-theme="dark"] .astro-code span {
+  color: var(--shiki-dark) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .astro-code,
+  :root:not([data-theme="light"]) .astro-code span {
+    color: var(--shiki-dark) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
+}
 hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
 
 /* tables scroll inside themselves, never the page */
