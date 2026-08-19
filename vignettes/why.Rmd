@@ -15,10 +15,12 @@ vignette: >
 ## Why disjoint samples are the common case
 
 Multi-omics integration is usually described for a design in which every individual is measured on
-every platform. That design is expensive, and it is rare in animal models, where tissue is consumed
-by the assay: a brain used for transcriptomics is not available for proteomics, and an animal
-sacrificed at one age cannot be sampled at another. The consequence is that most published omics
-resources for a given disease model describe the same biology in different animals.
+every platform. That design is expensive and it is reached rarely. Most assays consume or alter the
+material they read, so a sample used for transcriptomics is not available for proteomics, and a
+subject sampled once cannot be sampled again at the same point. Each platform also imposes its own
+collection, preservation and preparation, and the modalities of a study are commonly produced by
+different groups, at different times, under separate funding. Consequently most deposited omics
+resources describing a condition measure each modality on a different set of individuals.
 
 Integration across such resources is worth attempting because the modalities are complementary.
 Transcript abundance reports regulation, protein abundance reports what the regulation produced
@@ -32,9 +34,9 @@ assays by exploiting the fact that the same individual appears in each (Argelagu
 The individual is the key that joins the tables. Without it these methods have nothing to join on.
 
 **Methods that learn from bridge data.** INTEND trains a cross-omic predictor on paired samples and
-then applies it to unpaired ones (Itai et al. 2023). It is effective and it was benchmarked
-honestly, by withholding known pairing across eleven cancer datasets. It requires paired data to
-exist for the tissue and platform in question, which for most animal-model resources it does not.
+then applies it to unpaired ones (Itai et al. 2023). It was benchmarked by withholding known
+pairing across eleven cancer datasets. It requires paired data to exist for the tissue and platform
+in question, and for most deposited resources none exists.
 
 **Methods that join on shared features.** mosaicMPI factorises heterogeneous datasets separately
 and connects the resulting programmes through correlations of their loadings on features the
@@ -44,8 +46,8 @@ lipids do not have.
 **Methods that anchor on a shared label.** Propensity score alignment uses shared treatment or
 perturbation information to align unpaired modalities (Xi et al. 2024); a dual-channel transformer integrates unpaired
 transcriptomic and epigenomic data by cross-modal reconstruction (Liao et al. 2026); UnCOT-AD couples representations across
-three unpaired omics layers in Alzheimer's disease (Abir et al. 2025). Anchoring on an experimental label is
-therefore an established idea rather than a new one.
+three unpaired omics layers in Alzheimer's disease (Abir et al. 2025). In each case the anchor is
+an experimental label the cohorts share rather than the individual.
 
 **Identification theory for unpaired data.** Sturma et al. (2023) show that a shared latent block
 is identifiable from unpaired multi-domain data when the modality-specific components are
@@ -61,8 +63,8 @@ Four gaps run through that body of work.
 **The unidentified quantity is rarely named.** With disjoint samples, the joint distribution of two
 modalities is not identified: the data fix each marginal and say nothing about how they are
 coupled within an individual. Methods that construct pseudo-pairs produce a number for that
-coupling. The number is an artefact of the construction, and nothing in the data distinguishes it
-from the alternatives.
+coupling. The number follows from the construction, and nothing in the data distinguishes it from
+the alternatives.
 
 **Correspondence is decided pair by pair.** Where more than two modalities are involved, the usual
 route is to compare each pair and reconcile the results. Independent pairwise decisions need not
@@ -101,10 +103,10 @@ molecules that pathway acts on.
 
 **It reports failure as an outcome.** A run in which no programme survives its null says so.
 
-## Where the value lies
+## The combination
 
-The combination is what is distinctive: an assignment solved jointly, two evidence channels that
-can disagree, identified sets in place of a fabricated coupling, calibration that reruns the whole
-selection procedure, and outputs a reader can inspect rather than a score from a black box. Each
-element has precedent; their assembly into an auditable workflow for disjoint bulk-omics cohorts
-does not, to the extent a search of the applied literature reveals.
+Five elements act together: an assignment solved jointly over all modalities, two evidence channels
+that can disagree, identified sets in place of a constructed coupling, calibration that reruns the
+whole selection procedure, and a table at every stage the reader can inspect. Each element has
+precedent in the methods above. Their assembly into one workflow for disjoint omics cohorts is what
+CHORALE provides.

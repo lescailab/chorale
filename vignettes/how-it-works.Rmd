@@ -23,10 +23,10 @@ no biological reason; label-free intensities span orders of magnitude and are re
 The transform is chosen from the matrix and recorded. Batch and study are not removed, because the
 differences between modalities are what identification consumes.
 
-Each modality is then analysed on its own, using only its own animals. Independent component
+Each modality is then analysed on its own, using only its own samples. Independent component
 analysis separates the measured features into a small number of latent axes, each a direction along
 which many features move together. An axis is a candidate biological programme: a set of
-transcripts, or proteins, or lipids that rise and fall as a unit across the animals in that cohort.
+transcripts, or proteins, or lipids that rise and fall as a unit across the samples in that cohort.
 How many axes a cohort supports is read from the data by parallel analysis, since a count set too
 high manufactures axes that are noise.
 
@@ -54,7 +54,7 @@ are both reported, so a vocabulary too coarse for the data is visible.
 
 ## 3. Asking what each programme does to the experiment
 
-No animal appears in two modalities, so programmes cannot be matched by correlating scores. What
+No individual appears in two modalities, so programmes cannot be matched by correlating scores. What
 the cohorts share is the experimental design: each has cases and controls, and usually ages and
 sexes as well.
 
@@ -86,7 +86,7 @@ position.
 
 A programme is judged as one object. Its statistic is the agreement of its members' design
 profiles, averaged over every pair inside it. Its null is obtained by shuffling the design among
-animals and running the entire procedure again, assignment included, keeping the best value any
+samples and running the entire procedure again, assignment included, keeping the best value any
 programme and any set of modalities could have reached by chance. The p-value therefore accounts
 for the freedom the procedure had, rather than conditioning on the programme it happened to choose.
 How many modalities a programme spans is decided against that same null: the widest set whose joint
@@ -107,8 +107,8 @@ agreement here is independent corroboration rather than a restatement.
 ## 6. Bounding what the data cannot determine
 
 Knowing that two programmes behave alike across the design still does not say how they move
-together within one animal, and no amount of data of this kind will, because each animal was
-measured once.
+together within one individual, and no amount of data of this kind will, because each individual
+was measured once.
 
 What the data do support is a range. Averages within each design group are observable in every
 modality, so the part of the relationship that runs between groups is fixed by the design; only the

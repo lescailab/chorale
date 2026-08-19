@@ -325,7 +325,7 @@ inside a joint estimator. The estimator described here matches design responses 
 
 The reason is the sample sizes the design admits. Distribution matching over recovered components
 requires enough samples for the empirical component distributions to separate; the cohorts available
-for a bulk multi-omics disease model yield tens of animals per modality and a handful of components.
+for a bulk multi-omics study yield tens of samples per modality and a handful of components.
 Design responses are estimable at that size, and the phenotype contrast is the quantity the estimand
 is about.
 

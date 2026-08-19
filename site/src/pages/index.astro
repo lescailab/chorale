@@ -36,10 +36,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p class="eyebrow">R package · disjoint-cohort multi-omics</p>
   <h1>Omics measured on different individuals, integrated without inventing the link.</h1>
   <p class="lede">
-    Tissue is consumed by the assay, so the transcriptome, the proteome and the lipidome of a
-    disease model are usually measured in different animals. CHORALE finds the biological
-    programmes several of those cohorts carry together, states how far the data constrain the
-    relationship between them, and reports the checks the result survived.
+    Measuring several omics layers on the same individuals is rarely possible: the assay consumes
+    the sample, each platform needs its own preparation, and the layers of a study usually come
+    from different groups at different times. CHORALE finds the biological programmes such
+    cohorts carry together, states how far the data constrain the relationship between them, and
+    reports the checks the result survived.
   </p>
   <div class="btnrow">
     <a class="btn" href={base + '/tutorial'}>Run the tutorial</a>
@@ -49,7 +50,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </section>
 
 <section class="fig reveal">
-  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts of animals with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared programme.">
+  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared programme.">
     <defs>
       <linearGradient id="g" x1="0" x2="1">
         <stop offset="0" style="stop-color:var(--accent);stop-opacity:.14"/>
@@ -61,7 +62,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     {[0,1,2].map((i) => {
       const x = 90 + i * 310;
       const label = ['transcriptome','proteome','lipidome'][i];
-      const n = ['221 animals','72 animals','96 animals'][i];
+      const n = ['cohort A','cohort B','cohort C'][i];
       return (
         <g>
           <text x={x + 85} y="20" text-anchor="middle" font-size="13" class="t-strong">{label}</text>
@@ -87,20 +88,20 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one shared programme, carried by all three</text>
   </svg>
   <p class="cap">
-    No animal appears twice. The cohorts are joined by what they have in common, which is the
-    experimental design and a shared vocabulary of biological processes, never by a constructed
-    pairing between individuals.
+    No individual appears twice, and the cohorts need not be the same size. They are joined by
+    what they do have in common, which is the experimental design and a shared vocabulary of
+    biological processes, never by a constructed pairing between individuals.
   </p>
 </section>
 
 <section class="band prose reveal">
-  <h2>What it gives you that a pairwise workflow does not</h2>
+  <h2>What it gives you where the same individuals were never measured twice</h2>
   <div class="cards">
     <div class="card">
       <span class="num">01</span>
       <h3>One assignment, not many</h3>
-      <p>Correspondence is solved once over all modalities together, so a programme cannot be
-         assembled by chaining pairwise decisions through a single mistaken link.</p>
+      <p>Correspondence is solved once over all modalities together, so a programme is never
+         assembled by chaining one pair to the next through a single mistaken link.</p>
     </div>
     <div class="card">
       <span class="num">02</span>
@@ -110,9 +111,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     </div>
     <div class="card">
       <span class="num">03</span>
-      <h3>A range, not a fabricated number</h3>
-      <p>Where the coupling within an individual is not identified, the output is the set of
-         correlations the data cannot exclude.</p>
+      <h3>The range the data support</h3>
+      <p>Where the coupling within an individual is not identified, the output is the interval of
+         correlations the data cannot exclude, narrowed as far as the design allows.</p>
     </div>
     <div class="card">
       <span class="num">04</span>
@@ -159,8 +160,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   </p>
   <p>
     Alongside it, <code>chorale_leave_one_out()</code> reports what happens to each programme when a
-    modality is removed, which is what separates a result integration produced from one a single
-    layer produced and the others accompanied.
+    modality is removed, which separates a programme the integration produced from one a single
+    layer carried while the others followed along.
   </p>
 </section>
 
@@ -169,8 +170,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <div class="cards">
     <div class="card">
       <h3>Deposited cohorts</h3>
-      <p>Public transcriptomes, proteomes and lipidomes for one disease model, generated by
-         different groups in different animals.</p>
+      <p>Public transcriptomes, proteomes and lipidomes for one condition, generated by
+         different groups on different individuals.</p>
     </div>
     <div class="card">
       <h3>Uncorrected matrices</h3>
@@ -178,9 +179,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
          batch enter as covariates instead.</p>
     </div>
     <div class="card">
-      <h3>Tens to hundreds of animals</h3>
+      <h3>Tens to hundreds of samples</h3>
       <p>Statistics estimable at the cohort sizes bulk multi-omics resources actually reach, with
-         precision that grows with animals rather than with design strata.</p>
+         precision that grows with samples rather than with design strata.</p>
     </div>
   </div>
 </section>

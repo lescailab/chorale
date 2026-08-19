@@ -14,7 +14,7 @@ vignette: >
 
 <div class="note">
 <span class="lab">What you will end up with</span>
-<p>Two biological programmes recovered across three cohorts that share no animals, each with a
+<p>Two biological programmes recovered across three cohorts that share no samples, each with a
 p-value that accounts for the choices the method made, a statement of how much each modality
 contributed, a range for the coupling the data cannot determine, and a set of controls.</p>
 </div>
@@ -31,7 +31,7 @@ R 4.4 or later. Bioconductor dependencies resolve through `BiocManager`. Two opt
 widen what the pipeline can do: `msigdbr` supplies curated gene sets, and `rgoslin` parses lipid
 shorthand names. Neither is needed for this tutorial.
 
-## Step 1. Three cohorts with no animal in common
+## Step 1. Three cohorts with no individual in common
 
 Real studies arrive as one matrix and one design table per modality. `chorale_simulate()` produces
 the same shape, so the workflow below is the one you would run on deposited data.
@@ -69,7 +69,7 @@ length(Reduce(intersect, lapply(sim$col_data, function(d) d$sample_id)))
 #> [1] 0
 ```
 
-Zero animals in common. That is the situation the package is for.
+Zero individuals in common. That is the situation the package is for.
 
 <div class="note">
 <span class="lab">Requirement</span>
@@ -178,7 +178,7 @@ normal state of affairs and it is visible rather than hidden.
 <div class="note warn">
 <span class="lab">Choosing n_factors</span>
 <p>The number of factors is not selected automatically. Set it from the detectability of each
-modality: a cohort of seventy animals will not support many components, and asking for more
+modality: a cohort of seventy samples will not support many components, and asking for more
 produces axes that are noise. Refitting across a range and checking that the recovered programmes
 persist is the practical test.</p>
 </div>
@@ -250,7 +250,8 @@ b
 #>   median width with anchors:    1.437
 ```
 
-Each animal was measured once, so how strongly two programmes move together *within* an animal is
+Each individual was measured once, so how strongly two programmes move together *within* an
+individual is
 not identified. What the data support is a range. Averages within each design group are observable
 in every modality, so the part of the relationship running between groups is fixed and only the
 variation inside a group is free.
@@ -352,7 +353,7 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 | Matches that contrast missing metadata against disease | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
 | `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
 | No programme supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
-| Very few factors recovered | Too few animals in that modality | More animals, not more features; reducing feature count does not help |
+| Very few factors recovered | Too few samples in that modality | More samples, not more features; reducing feature count does not help |
 
 ## Where to go next
 
