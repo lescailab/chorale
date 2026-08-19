@@ -14,7 +14,10 @@
 #' Each collection records its MSigDB code under each source database, since
 #' the mouse-native and human collections are numbered differently. Retrieving
 #' mouse sets from the mouse database avoids the ortholog mapping that
-#' retrieving them from the human database would impose.
+#' retrieving them from the human database would impose. A collection registered
+#' under one database only is retrievable from that database alone, and a
+#' request for another is refused by name: KEGG is distributed in the human
+#' collections and reaches other organisms through orthologs.
 #'
 #' @returns A named list, one element per collection. Each element holds
 #'   `codes`, a list keyed by MSigDB source database (`"MM"` for mouse-native,
@@ -38,6 +41,12 @@ chorale_geneset_registry <- function() {
         HS = list(collection = "C2", subcollection = "CP:REACTOME")
       ),
       description = "Reactome: curated pathway granularity"
+    ),
+    kegg = list(
+      codes = list(
+        HS = list(collection = "C2", subcollection = "CP:KEGG_LEGACY")
+      ),
+      description = "KEGG: an independent partition of the same biology"
     ),
     cell_type = list(
       codes = list(

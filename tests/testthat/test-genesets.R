@@ -1,10 +1,23 @@
-test_that("the registry names the three default collections", {
+test_that("the registry names the default collections", {
   reg <- chorale_geneset_registry()
-  expect_true(all(c("hallmark", "reactome", "cell_type") %in% names(reg)))
+  expect_true(all(c("hallmark", "reactome", "cell_type", "kegg") %in% names(reg)))
   for (entry in reg) {
     expect_true(all(c("codes", "description") %in% names(entry)))
-    expect_true(all(c("MM", "HS") %in% names(entry$codes)))
+    expect_true(length(entry$codes) >= 1)
+    expect_true("HS" %in% names(entry$codes))
   }
+  # The three collections a factor is described in are registered under both
+  # databases, so an analysis can be moved between them.
+  for (nm in c("hallmark", "reactome", "cell_type")) {
+    expect_true(all(c("MM", "HS") %in% names(reg[[nm]]$codes)))
+  }
+})
+
+test_that("a collection registered under one database is refused for another", {
+  # KEGG is distributed in the human collections and reaches other organisms
+  # through orthologs, so asking for it mouse-native names the reason.
+  expect_null(chorale_geneset_registry()$kegg$codes$MM)
+  expect_error(chorale_genesets("kegg", db_species = "MM"), "no code registered")
 })
 
 test_that("the registry is exchangeable", {

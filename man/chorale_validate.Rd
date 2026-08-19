@@ -4,17 +4,27 @@
 \alias{chorale_validate}
 \title{Run the estimator across a grid of simulated regimes}
 \usage{
-chorale_validate(grid, n_rep = 3L, seed = 1L)
+chorale_validate(grid, n_rep = 3L, profile = NULL, seed = 1L)
 }
 \arguments{
 \item{grid}{A data frame of regimes. Recognised columns are \code{label},
 \code{n_modalities}, \code{n_features}, \code{n_shared_factors}, \code{n_private_factors},
-\code{n_strains}, \code{n_per_cell}, \code{effect_size}, \code{imbalance} and \code{n_init}; any
-absent column takes a default. A \code{same_response} column, when \code{TRUE},
+\code{n_strains}, \code{n_per_cell}, \code{effect_size}, \code{imbalance}, \code{n_init} and
+\code{n_factors}; any absent column takes a default. \code{n_factors} defaults to the
+number of factors planted, and takes \code{"auto"} where the count should come
+from the detectability gate instead, as it would on data whose dimension
+is not known in advance. A \code{same_response} column, when \code{TRUE},
 plants two shared factors with the same phenotype response, the adversarial
 case in which distinct programmes should not be merged.}
 
 \item{n_rep}{Replicates per regime, over which the metrics are averaged.}
+
+\item{profile}{Optional \code{\link[=chorale_data_profile]{chorale_data_profile()}}, or a list of one per
+modality, giving every regime the marginals, the missingness and the design
+margins of real data. Where it is supplied the design comes from the
+profile, so \code{n_strains}, \code{n_per_cell} and \code{imbalance} no longer describe
+it, and the difference from the same grid without a profile is what the
+observation model costs.}
 
 \item{seed}{Integer seed; replicate \code{r} of regime \code{i} uses \code{seed + 100 * i + r}.}
 }

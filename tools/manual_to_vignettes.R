@@ -10,9 +10,9 @@
 #                        the mathematics, the conditions and the sources
 #                                                     ->  methods.Rmd
 #
-# vignettes/tutorial.Rmd is written by hand and is never touched here: it
-# teaches the workflow rather than describing the method, and has no
-# counterpart in the manual.
+# vignettes/tutorial.Rmd and vignettes/simulation.Rmd are written by hand and
+# are never touched here: they teach a workflow rather than describing the
+# method, and have no counterpart in the manual.
 #
 # The manual sits outside the repository, so this runs when the manual changes
 # and the vignettes it produces are committed. `site/sync.R` then builds the

@@ -137,3 +137,108 @@ test_that("the confounder and imbalance options change the data as intended", {
   expect_true(ncol(imb$modalities[[1]]) != ncol(imb$modalities[[2]]) ||
                 nrow(imb$col_data[[1]]) < 256)
 })
+
+test_that("a profile gives the simulation the marginals of the data it came from", {
+  base <- chorale_simulate(n_modalities = 2, n_features = 40,
+                           n_shared_factors = 2, n_private_factors = 1,
+                           n_strains = 3, n_per_cell = 2, seed = 11)
+  real <- exp(base$modalities[[1]])
+  p <- chorale_data_profile(real, base$col_data[[1]],
+                            covariates = c("phenotype", "sex"))
+  sim <- chorale_simulate(n_modalities = 2, n_features = 40,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          profile = p, seed = 12)
+  expect_true(all(sim$modalities[[1]] > 0, na.rm = TRUE))
+  # Every value comes from a real feature's own quantile grid, so none can fall
+  # outside the range the real matrix covered.
+  expect_gte(min(sim$modalities[[1]], na.rm = TRUE), min(real))
+  expect_lte(max(sim$modalities[[1]], na.rm = TRUE), max(real))
+  expect_equal(stats::median(sim$modalities[[1]], na.rm = TRUE),
+               stats::median(real), tolerance = 0.1)
+})
+
+test_that("a profile supplies the design, and unpopulated cells stay empty", {
+  d <- data.frame(sample_id = paste0("s", 1:12),
+                  phenotype = rep(c("case", "control"), each = 6),
+                  sex = c(rep("F", 6), rep("M", 6)),
+                  stringsAsFactors = FALSE)
+  x <- matrix(stats::rnorm(12 * 30), nrow = 30, dimnames = list(NULL, d$sample_id))
+  p <- chorale_data_profile(x, d, covariates = c("phenotype", "sex"))
+  sim <- chorale_simulate(n_modalities = 2, n_features = 30,
+                          n_shared_factors = 1, n_private_factors = 1,
+                          profile = p, seed = 13)
+  cells <- unique(paste(sim$col_data[[1]]$phenotype, sim$col_data[[1]]$sex))
+  expect_setequal(cells, c("case F", "control M"))
+  expect_equal(ncol(sim$modalities[[1]]), 12)
+})
+
+test_that("a profile fixes the design terms a signature is written over", {
+  d <- data.frame(sample_id = paste0("s", 1:8),
+                  phenotype = rep(c("case", "control"), 4),
+                  sex = rep(c("F", "M"), each = 4),
+                  stringsAsFactors = FALSE)
+  x <- matrix(stats::rnorm(8 * 30), nrow = 30, dimnames = list(NULL, d$sample_id))
+  p <- chorale_data_profile(x, d, covariates = c("phenotype", "sex"))
+  expect_equal(chorale_signature_terms(p), c("phenotype", "sex"))
+  expect_equal(chorale_signature_terms(NULL), c("phenotype", "age", "sex"))
+  expect_error(
+    chorale_simulate(n_modalities = 2, n_features = 30, n_shared_factors = 1,
+                     n_private_factors = 1, profile = p,
+                     signature = matrix(1, nrow = 1, ncol = 3)),
+    "one column per design term"
+  )
+})
+
+test_that("a design carrying no varying phenotype cannot be simulated from", {
+  d <- data.frame(sample_id = paste0("s", 1:6), phenotype = "case",
+                  sex = rep(c("F", "M"), 3), stringsAsFactors = FALSE)
+  x <- matrix(stats::rnorm(6 * 20), nrow = 20, dimnames = list(NULL, d$sample_id))
+  p <- chorale_data_profile(x, d, covariates = c("phenotype", "sex"))
+  expect_error(chorale_signature_terms(p), "varying `phenotype`")
+})
+
+test_that("the background reproduces the share the leading direction carries", {
+  set.seed(31)
+  n <- 60
+  common <- stats::rnorm(n)
+  real <- t(outer(common, stats::rnorm(80)) + matrix(stats::rnorm(n * 80, sd = 0.3), n, 80))
+  colnames(real) <- paste0("s", seq_len(n))
+  d <- data.frame(sample_id = colnames(real),
+                  phenotype = rep(c("case", "control"), length.out = n),
+                  sex = rep(c("F", "M"), each = n / 2), stringsAsFactors = FALSE)
+  p <- chorale_data_profile(real, d, covariates = c("phenotype", "sex"))
+
+  leading <- function(mat) {
+    z <- scale(t(mat))
+    z[!is.finite(z)] <- 0
+    e <- pmax(eigen(tcrossprod(z), symmetric = TRUE, only.values = TRUE)$values, 0)
+    e[1] / sum(e)
+  }
+  with_bg <- chorale_simulate(n_modalities = 2, n_features = 80,
+                              n_shared_factors = 2, n_private_factors = 1,
+                              profile = p, background = TRUE, seed = 32)
+  without <- chorale_simulate(n_modalities = 2, n_features = 80,
+                              n_shared_factors = 2, n_private_factors = 1,
+                              profile = p, background = FALSE, seed = 32)
+  target <- p$eigenvalues[1]
+  expect_lt(abs(leading(with_bg$modalities[[1]]) - target),
+            abs(leading(without$modalities[[1]]) - target))
+})
+
+test_that("supplied loadings are used and their pure features read off", {
+  p <- chorale_data_profile(
+    matrix(stats::rnorm(30 * 12), nrow = 30,
+           dimnames = list(paste0("g", 1:30), paste0("s", 1:12))),
+    data.frame(sample_id = paste0("s", 1:12),
+               phenotype = rep(c("case", "control"), 6),
+               sex = rep(c("F", "M"), each = 6), stringsAsFactors = FALSE),
+    covariates = c("phenotype", "sex"))
+  l <- matrix(0.01, nrow = 30, ncol = 2, dimnames = list(paste0("g", 1:30), NULL))
+  l[1:5, 1] <- 1
+  l[1:5, 2] <- 0
+  sim <- chorale_simulate(n_modalities = 2, n_features = NULL,
+                          n_shared_factors = 1, n_private_factors = 1,
+                          profile = p, loadings = list(l, l), seed = 41)
+  expect_equal(rownames(sim$modalities[[1]]), paste0("g", 1:30))
+  expect_true(all(sim$truth$markers[[1]][[1]] %in% 1:5))
+})
