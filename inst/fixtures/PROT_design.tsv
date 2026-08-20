@@ -1,25 +1,25 @@
-sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	age_bin
-anon_sample_0001	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0002	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0003	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0004	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0005	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0006	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0007	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0008	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0009	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0010	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0011	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0012	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0013	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0014	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0015	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0016	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0017	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0018	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0019	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0020	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0021	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0022	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0023	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
-anon_sample_0024	cohort_a	PROT			NA		hippocampus	REDACTED_ACCESSION	NA
+sample_id	modality	phenotype	sex	age	batch
+prot_sample_001	PROT	control	F	1	batch_2
+prot_sample_002	PROT	case	F	1	batch_1
+prot_sample_003	PROT	control	M	1	batch_2
+prot_sample_004	PROT	case	M	1	batch_1
+prot_sample_005	PROT	control	F	2	batch_2
+prot_sample_006	PROT	case	F	2	batch_1
+prot_sample_007	PROT	control	M	2	batch_2
+prot_sample_008	PROT	case	M	2	batch_1
+prot_sample_009	PROT	control	F	3	batch_2
+prot_sample_010	PROT	case	F	3	batch_1
+prot_sample_011	PROT	control	M	3	batch_2
+prot_sample_012	PROT	case	M	3	batch_1
+prot_sample_013	PROT	control	F	1	batch_2
+prot_sample_014	PROT	case	F	1	batch_1
+prot_sample_015	PROT	control	M	1	batch_2
+prot_sample_016	PROT	case	M	1	batch_1
+prot_sample_017	PROT	control	F	2	batch_2
+prot_sample_018	PROT	case	F	2	batch_1
+prot_sample_019	PROT	control	M	2	batch_2
+prot_sample_020	PROT	case	M	2	batch_1
+prot_sample_021	PROT	control	F	3	batch_2
+prot_sample_022	PROT	case	F	3	batch_1
+prot_sample_023	PROT	control	M	3	batch_2
+prot_sample_024	PROT	case	M	3	batch_1

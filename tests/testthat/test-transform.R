@@ -61,7 +61,7 @@ test_that("chorale_fit records the transform it applied", {
                            transform = c(nope = "log")), class = "rlang_error")
 })
 
-test_that("the consensus is the factors the runs agree on", {
+test_that("the medoid is the factor run the starts agree on", {
   sim <- chorale_simulate(n_modalities = 2, n_features = 150,
                           n_shared_factors = 3, n_private_factors = 2,
                           n_strains = 5, n_per_cell = 3, effect_size = 3,
@@ -76,8 +76,8 @@ test_that("the consensus is the factors the runs agree on", {
   single <- chorale_ica(x, 5, n_init = 8, seed = 1, consensus = FALSE)
   cons <- chorale_ica(x, 5, n_init = 8, seed = 1, consensus = TRUE)
   expect_equal(dim(cons$scores), dim(single$scores))
-  # The consensus recovers the planted factors at least as well as the single
-  # most non-Gaussian run.
+  # The stable representative recovers the planted factors at least as well as
+  # the legacy switch, which now maps to the same valid ICA medoid.
   expect_gt(agree(cons), agree(single) - 0.05)
   # Scores stay standardised, which the downstream profiles assume.
   expect_true(all(abs(colMeans(cons$scores)) < 1e-8))

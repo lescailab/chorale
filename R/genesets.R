@@ -46,7 +46,7 @@ chorale_geneset_registry <- function() {
       codes = list(
         HS = list(collection = "C2", subcollection = "CP:KEGG_LEGACY")
       ),
-      description = "KEGG: an independent partition of the same biology"
+      description = "KEGG: a separate curated partition of the same biology"
     ),
     cell_type = list(
       codes = list(
@@ -168,6 +168,9 @@ chorale_genesets <- function(collections = c("hallmark", "reactome", "cell_type"
 #' @param sets A named list of gene sets, as returned by [chorale_genesets()].
 #' @param weights Optional numeric vector, one per feature, giving the
 #'   fractional weight from [chorale_map()]. Defaults to 1 for every feature.
+#' @param mapping Optional data frame from [chorale_map()]. When supplied,
+#'   `feature_ids` are the original assay identifiers and every mapped target is
+#'   aggregated with its fractional weight. This preserves one-to-many maps.
 #' @param min_features Drop sets matching fewer than this many features of the
 #'   modality, since a set that barely intersects the measured features cannot
 #'   define a factor in it.
@@ -179,8 +182,37 @@ chorale_genesets <- function(collections = c("hallmark", "reactome", "cell_type"
 #' sets <- list(set_a = c("1", "2", "3"), set_b = c("3", "4"))
 #' chorale_geneset_matrix(c("1", "2", "3", "4"), sets, min_features = 2)
 chorale_geneset_matrix <- function(feature_ids, sets, weights = NULL,
+                                   mapping = NULL,
                                    min_features = 5L) {
   feature_ids <- as.character(feature_ids)
+  if (!is.null(mapping)) {
+    required <- c("id", "ENTREZID", "weight")
+    if (!is.data.frame(mapping) || !all(required %in% names(mapping))) {
+      rlang::abort("`mapping` must contain id, ENTREZID and weight columns.")
+    }
+    mat <- matrix(0, nrow = length(feature_ids), ncol = length(sets),
+                  dimnames = list(feature_ids, names(sets)))
+    by_id <- split(mapping, as.character(mapping$id))
+    for (i in seq_along(feature_ids)) {
+      rows <- by_id[[feature_ids[i]]]
+      if (is.null(rows) || nrow(rows) == 0L) next
+      target <- as.character(rows$ENTREZID)
+      weight <- as.numeric(rows$weight)
+      for (j in seq_along(sets)) {
+        mat[i, j] <- sum(weight[target %in% as.character(sets[[j]])],
+                         na.rm = TRUE)
+      }
+    }
+    keep <- colSums(mat > 0) >= min_features
+    out <- mat[, keep, drop = FALSE]
+    attr(out, "mapping_provenance") <- data.frame(
+      n_input = length(feature_ids),
+      n_mapped = sum(feature_ids %in% mapping$id),
+      n_mapping_rows = nrow(mapping),
+      one_to_many = sum(table(mapping$id) > 1L),
+      stringsAsFactors = FALSE)
+    return(out)
+  }
   if (is.null(weights)) weights <- rep(1, length(feature_ids))
   if (length(weights) != length(feature_ids)) {
     rlang::abort("`weights` must have one entry per feature.")

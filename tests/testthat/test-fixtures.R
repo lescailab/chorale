@@ -40,11 +40,11 @@ test_that("samples are disjoint across modalities", {
   expect_length(intersect(ids[[2]], ids[[3]]), 0)
 })
 
-test_that("layers resolving covariates populate anchoring strata at least twice", {
+test_that("synthetic layers populate shared design cells at least twice", {
   skip_if_not(dir.exists(fixture_path))
   for (layer in c("RNA", "METAB")) {
     cd <- chorale_fixture(layer, path = fixture_path)$col_data
-    keys <- c("phenotype", "age_bin", "sex")
+    keys <- c("phenotype", "age", "sex")
     complete <- cd[stats::complete.cases(cd[, keys, drop = FALSE]), , drop = FALSE]
     expect_gt(nrow(complete), 0)
     counts <- table(interaction(complete[, keys], drop = TRUE))
@@ -52,7 +52,7 @@ test_that("layers resolving covariates populate anchoring strata at least twice"
   }
 })
 
-test_that("the proteome fixture preserves a real missingness pattern", {
+test_that("the proteome fixture contains controlled synthetic missingness", {
   skip_if_not(dir.exists(fixture_path))
   fx <- chorale_fixture("PROT", path = fixture_path)
   expect_true(is.numeric(fx$assay))

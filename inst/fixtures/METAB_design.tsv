@@ -1,25 +1,25 @@
-sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	age_bin
-anon_sample_0064	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
-anon_sample_0065	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch1	2mo
-anon_sample_0061	cohort_b	METAB	C57BL/6J	5XFAD	2	male	cerebral cortex	batch1	2mo
-anon_sample_0062	cohort_b	METAB	C57BL/6J	5XFAD	2	male	cerebral cortex	batch1	2mo
-anon_sample_0068	cohort_b	METAB	C57BL/6J	5XFAD	2	female	cerebral cortex	batch1	2mo
-anon_sample_0028	cohort_b	METAB	C57BL/6J	WT	6	female	cerebral cortex	batch1	6mo
-anon_sample_0026	cohort_b	METAB	C57BL/6J	5XFAD	6	male	cerebral cortex	batch1	6mo
-anon_sample_0031	cohort_b	METAB	C57BL/6J	5XFAD	6	female	cerebral cortex	batch1	6mo
-anon_sample_0072	cohort_b	METAB	C57BL/6J	WT	2	male	cerebral cortex	batch2	2mo
-anon_sample_0071	cohort_b	METAB	C57BL/6J	WT	2	female	cerebral cortex	batch2	2mo
-anon_sample_0034	cohort_b	METAB	C57BL/6J	WT	6	female	cerebral cortex	batch2	6mo
-anon_sample_0066	cohort_b	METAB	C57BL/6J	WT	2	female	hippocampus	batch1	2mo
-anon_sample_0067	cohort_b	METAB	C57BL/6J	WT	2	female	hippocampus	batch1	2mo
-anon_sample_0063	cohort_b	METAB	C57BL/6J	5XFAD	2	male	hippocampus	batch1	2mo
-anon_sample_0069	cohort_b	METAB	C57BL/6J	5XFAD	2	female	hippocampus	batch1	2mo
-anon_sample_0027	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch1	6mo
-anon_sample_0030	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch1	6mo
-anon_sample_0029	cohort_b	METAB	C57BL/6J	WT	6	female	hippocampus	batch1	6mo
-anon_sample_0025	cohort_b	METAB	C57BL/6J	5XFAD	6	male	hippocampus	batch1	6mo
-anon_sample_0070	cohort_b	METAB	C57BL/6J	5XFAD	2	female	hippocampus	batch2	2mo
-anon_sample_0036	cohort_b	METAB	C57BL/6J	WT	6	male	hippocampus	batch2	6mo
-anon_sample_0035	cohort_b	METAB	C57BL/6J	5XFAD	6	male	hippocampus	batch2	6mo
-anon_sample_0032	cohort_b	METAB	C57BL/6J	5XFAD	6	female	hippocampus	batch2	6mo
-anon_sample_0033	cohort_b	METAB	C57BL/6J	5XFAD	6	female	hippocampus	batch2	6mo
+sample_id	modality	phenotype	sex	age	batch
+metab_sample_001	METAB	control	F	1	batch_2
+metab_sample_002	METAB	case	F	1	batch_1
+metab_sample_003	METAB	control	M	1	batch_2
+metab_sample_004	METAB	case	M	1	batch_1
+metab_sample_005	METAB	control	F	2	batch_2
+metab_sample_006	METAB	case	F	2	batch_1
+metab_sample_007	METAB	control	M	2	batch_2
+metab_sample_008	METAB	case	M	2	batch_1
+metab_sample_009	METAB	control	F	3	batch_2
+metab_sample_010	METAB	case	F	3	batch_1
+metab_sample_011	METAB	control	M	3	batch_2
+metab_sample_012	METAB	case	M	3	batch_1
+metab_sample_013	METAB	control	F	1	batch_2
+metab_sample_014	METAB	case	F	1	batch_1
+metab_sample_015	METAB	control	M	1	batch_2
+metab_sample_016	METAB	case	M	1	batch_1
+metab_sample_017	METAB	control	F	2	batch_2
+metab_sample_018	METAB	case	F	2	batch_1
+metab_sample_019	METAB	control	M	2	batch_2
+metab_sample_020	METAB	case	M	2	batch_1
+metab_sample_021	METAB	control	F	3	batch_2
+metab_sample_022	METAB	case	F	3	batch_1
+metab_sample_023	METAB	control	M	3	batch_2
+metab_sample_024	METAB	case	M	3	batch_1

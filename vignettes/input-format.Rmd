@@ -86,7 +86,8 @@ Where the matrix is not what its distribution suggests, say it explicitly, one v
 
 ```r
 fit <- chorale_fit(containers, n_factors = "auto",
-                   transform = c(RNA = "vst", PROT = "log", METAB = "none"))
+                   transform = c(RNA = "vst", PROT = "log", METAB = "none"),
+                   n_ambiguity_boot = 19) # short vignette run
 ```
 
 ## What every modality must carry
@@ -102,18 +103,18 @@ carry it stops with that named as the reason.
 
 ## What every other column does
 
-Every remaining column is a covariate. A covariate the modalities share, and which varies in each,
-sharpens the comparison; one absent from a modality, or constant within it, is dropped without
-consequence. Nothing needs declaring in advance: a design carrying `tissue_source` and `donor_age`
-anchors on those as readily as one carrying `strain` and `age_months`.
+Every remaining column is a possible secondary covariate. Eligible covariates are fitted jointly
+with phenotype and refine only phenotype-compatible candidates. Excluded covariates are reported
+with a reason: absent modality, incompatible type or levels, excessive missingness, or lack of joint
+estimability.
 
 How a covariate is read follows from its type in the sample table, so the type is what needs getting
 right.
 
 | Stored as | Read as | What it contributes |
 |---|---|---|
-| Character or factor | Categorical | One term per level beyond a reference. The levels used are those every modality realises, sorted, with the first as the reference. Each term is the standardised mean difference of the axis between that level and the reference. |
-| Numeric with more than two distinct values in every modality | Continuous | One term, the Spearman correlation between the axis and the covariate. Units and scale are irrelevant and nothing needs rescaling or binning. |
+| Character or factor | Categorical | One adjusted coefficient per level beyond a common reference. The whole block receives the same total weight as any other secondary covariate. |
+| Numeric with more than two distinct values in every modality | Continuous | One adjusted slope after the covariate is standardised. |
 | Numeric with two distinct values, or a number stored as text | Categorical | The two values become levels. A continuous covariate stored as text is read this way, which is the common mistake. |
 
 A column named `age`, `age_months`, `age_years` or `age_days` additionally gains a banded companion,
@@ -126,10 +127,9 @@ the sample rather than grouping it, and is dropped for the same reason.
 
 ## The vocabulary labels are read in
 
-Cohorts assembled by different groups record the same thing differently. Untreated subjects appear
-as `WT` in one deposit, `control` in another, `negative` in a third; sex appears as `male` and as
-`M`. Nothing downstream can see that these agree, so a comparison anchored on the design would find
-no level in common and match on nothing.
+Cohorts assembled by different groups can record the same thing differently. CHORALE maps only
+unambiguous general labels, such as `ctrl` to `control` and `male` to `M`. Study-specific meanings
+are never guessed.
 
 Labels are therefore put in one vocabulary as the data are read.
 
@@ -145,7 +145,7 @@ nothing else. A study whose labels are not covered supplies its own:
 
 ```r
 registry <- chorale_label_registry()
-registry$phenotype <- c(registry$phenotype, "apoe4" = "case")
+registry$phenotype <- c(registry$phenotype, "study_case" = "case")
 registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
 se <- chorale_load(matrix, design, labels = registry)
 ```
@@ -157,9 +157,10 @@ fitted.
 
 ## Genotype beside phenotype
 
-Where a design records genotype separately from disease status, both are covariates and both anchor
-the comparison: the phenotype carries the contrast the estimand is about, and the genotype enters
-as one more term of the design profile. A study whose contrast *is* the genotype puts it in the
+Where a design records genotype separately from phenotype status, phenotype remains the primary
+criterion and genotype enters as secondary adjusted evidence. Genotype can refine a
+phenotype-compatible match but cannot rescue absent phenotype support. A study whose primary
+contrast *is* the genotype puts it in the
 `phenotype` column, since that column names the role rather than the measurement.
 
 ## Organism and annotation
@@ -181,6 +182,7 @@ organism is supplied in its place.
 
 ## What must not be supplied
 
-Batch-corrected and cross-modality-harmonised matrices are inadmissible. Identification consumes
-the differences between modalities, and a correction removes the structure it depends on. Batch and
-study belong in the design as covariates, where they sharpen the comparison rather than erasing it.
+Supply matrices normalised appropriately within each modality. Avoid cross-modal transformations
+that use the intended answer or constructed sample pairs, because they would leak matching
+information into factor extraction. Record batch and study variables in the design so their effects
+can be adjusted and reported.

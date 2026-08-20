@@ -18,7 +18,7 @@ chorale_pathway_evidence(
 \item{programmes}{Output of \code{\link[=chorale_programmes]{chorale_programmes()}}; taken from \code{fit} if
 absent.}
 
-\item{n_perm}{Number of annotation-matched permutations.}
+\item{n_perm}{Number of score-residual permutations.}
 
 \item{alpha}{Significance threshold.}
 
@@ -42,13 +42,12 @@ profile over the vocabulary its modality and its partner share, the
 agreement of two factors is the inner product of their profiles, and a
 programme's evidence is that agreement averaged over every pair inside it.
 
-The null is annotation-matched. Feature labels are permuted within each
-modality's prior, which leaves every set at its original size and every
-feature in its original number of sets while breaking the relation between
-the loadings and the annotation. Set size and feature frequency are the two
-properties that make an enrichment appear where none exists, so holding both
-fixed is what makes the calibration mean something. As in the design
-channel, the null keeps the best value any programme could have reached.
+The null preserves the assay and its feature correlation. Factor scores are
+residualised on the shared design, their residual rows are permuted, and
+loadings are recomputed by matrix regression against the unchanged assay.
+This breaks factor-to-feature association without pretending that correlated
+features are exchangeable labels. The null keeps the best value any
+programme could have reached.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 120,
@@ -64,6 +63,6 @@ span <- function(from, to) unlist(lapply(ids, function(v) v[from:to]))
 sets <- list(set_a = span(1, 40), set_b = span(30, 80),
              set_c = span(60, 120))
 fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-                   gene_sets = sets)
+                   gene_sets = sets, n_ambiguity_boot = 19)
 chorale_pathway_evidence(fit, n_perm = 20)
 }

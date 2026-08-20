@@ -20,7 +20,16 @@ chorale_control(
   min_lipid_specificity = 0.05,
   n_factors_quantile = 0.95,
   max_factors = 20L,
-  n_grid = 200L
+  n_grid = 200L,
+  phenotype_column = "phenotype",
+  phenotype_reference = "control",
+  profile_covariates = NULL,
+  bound_strata = NULL,
+  exchangeability_blocks = NULL,
+  phenotype_alpha = NULL,
+  ambiguity_level = 0.95,
+  n_ambiguity_boot = 999L,
+  n_cores = 1L
 )
 }
 \arguments{
@@ -31,21 +40,23 @@ and the level at which false discovery is controlled.}
 attainable p-value is \code{1 / (n_perm + 1)}, so a threshold the count cannot
 reach is not reportable.}
 
-\item{n_pathway_perm}{Annotation-matched permutations calibrating the
+\item{n_pathway_perm}{Score-residual permutations calibrating the
 pathway channel. Zero skips the channel.}
 
 \item{n_init}{Initialisations of the factorisation per modality.}
 
-\item{consensus}{Recover factors as the consensus over initialisations
-rather than from the single most non-Gaussian one.}
+\item{consensus}{Deprecated compatibility switch. Factors are always taken
+from the medoid stable run; aligned-run averaging is not an ICA solution.}
 
-\item{require_pure_features}{Report only programmes every member of which
-carries the pure features the identification argument rests on.}
+\item{require_pure_features}{Optional diagnostic filter: report only
+programmes whose every member passes the requested loading-purity rule.
+This is not an identification condition and defaults to \code{FALSE}.}
 
 \item{purity_ratio}{A feature is pure for a factor when its largest
 competing loading is at most this fraction of its own.}
 
-\item{min_markers}{Pure features a factor needs to satisfy the condition.}
+\item{min_markers}{Features a factor needs to pass the optional purity
+diagnostic.}
 
 \item{max_markers}{Markers retained per factor.}
 
@@ -67,6 +78,36 @@ must exceed when the factor count is chosen from the data.}
 \item{max_factors}{Upper bound on a factor count chosen from the data.}
 
 \item{n_grid}{Quantiles representing each marginal when bounding a coupling.}
+
+\item{phenotype_column}{Name of the mandatory phenotype column shared by all
+modalities.}
+
+\item{phenotype_reference}{Reference phenotype level. The default is
+\code{"control"}; an informative error is raised when that level is absent.}
+
+\item{profile_covariates}{Optional covariates allowed to refine phenotype-led
+matching. \code{NULL} discovers every eligible covariate shared by all
+modalities. Phenotype is always included and always remains primary.}
+
+\item{bound_strata}{Covariates used to condition coupling bounds. \code{NULL}
+uses the eligible shared design covariates. This is deliberately separate
+from the variables used for matching.}
+
+\item{exchangeability_blocks}{Optional shared design columns within which
+permutation and bootstrap resampling must stay.}
+
+\item{phenotype_alpha}{Family-wise significance threshold for phenotype
+support. \code{NULL} uses \code{alpha}.}
+
+\item{ambiguity_level}{Confidence level for assignment-margin intervals.}
+
+\item{n_ambiguity_boot}{Bootstrap replicates used to assess whether a
+phenotype-compatible assignment is separated from its alternatives. The
+default gives about 25 draws in each 2.5 per cent tail of a 95 per cent
+interval. Zero uses an analytic margin diagnostic without resampling.}
+
+\item{n_cores}{Worker processes for bootstrap and permutation loops. Results
+are deterministic across worker counts. Windows uses a sequential fallback.}
 }
 \value{
 A named list of the decisions, of class \code{chorale_control}.

@@ -57,6 +57,7 @@ test_that("controls are written even without a null object", {
   ctl <- utils::read.delim(file.path(r$path, "controls.tsv"))
   expect_true(nrow(ctl) >= 1)
   expect_true(any(grepl("pure-feature", ctl$control)))
+  expect_true(any(grepl("not run", ctl$detail)))
 })
 
 test_that("the GMT lists marker features per factor", {
@@ -70,7 +71,10 @@ test_that("the GMT lists marker features per factor", {
 test_that("the integrated result is written as its own table", {
   r <- report_run()
   expect_true("programmes.tsv" %in% basename(r$files))
+  expect_true(all(c("matches.tsv", "excluded_covariates.tsv") %in%
+                    basename(r$files)))
   p <- utils::read.delim(file.path(r$path, "programmes.tsv"))
+  expect_true(all(c("resolution_status", "secondary_evidence") %in% names(p)))
   skip_if(nrow(p) == 0)
   expect_true(all(c("programme", "n_modalities", "modalities", "modality",
                     "factor", "markers", "phenotype_effect") %in% colnames(p)))

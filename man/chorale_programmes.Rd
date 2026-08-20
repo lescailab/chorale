@@ -12,10 +12,9 @@ chorale_programmes(fit, significant_only = TRUE, require_pure_features = FALSE)
 \item{significant_only}{Return only programmes whose joint evidence beats
 its null.}
 
-\item{require_pure_features}{Return only programmes every member of which
-carries the pure features the identification argument requires. Off by
-default, since marker purity is a threshold diagnostic; setting it makes
-the pure-feature condition an eligibility gate.}
+\item{require_pure_features}{Apply the optional loading-purity filter. Off by
+default because simulations have not established a discovery threshold for
+this diagnostic.}
 }
 \value{
 A data frame with one row per (programme, modality, factor)
@@ -43,6 +42,7 @@ sim <- chorale_simulate(n_modalities = 3, n_features = 120,
                         n_strains = 4, n_per_cell = 3, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 chorale_programmes(fit)
 }

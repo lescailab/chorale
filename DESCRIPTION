@@ -1,42 +1,27 @@
 Package: chorale
-Title: Shared Latent State Estimation Across Disjoint Multi-Omics
-    Modalities
+Title: Phenotype-Led Factor Matching Across Disjoint Omics Modalities
 Version: 0.0.0.9000
 Authors@R: 
     person("Francesco", "Lescai", , "francesco.lescai@unipv.it", role = c("aut", "cre"))
-Description: Estimates a shared latent biological state across molecular
-    modalities measured on disjoint sample sets, using identification
-    results for unpaired multi-domain linear latent models. Solves the
-    correspondence between modalities jointly rather than pairwise, and
-    corroborates it on a curated pathway vocabulary shared by every
-    modality, lipidomes included. Provides the negative controls that would
-    catch an artefact, including permutation calibration, annotation-matched
-    nulls and initialisation stability diagnostics, and reports
-    partial-identification bounds on the cross-modality coupling.
+Description: Finds phenotype-led, design-concordant factor groupings across
+    molecular modalities measured on disjoint sample sets. Components are
+    extracted independently within each modality and matched jointly so the
+    resulting correspondences are cycle consistent. Shared covariates refine
+    phenotype-compatible alternatives but cannot replace missing phenotype
+    evidence. Reports ambiguity, pathway corroboration, negative controls and
+    partial-identification bounds instead of selecting an unidentified
+    cross-modality coupling.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Language: en
 Depends:
-    R (>= 4.4)
+    R (>= 4.5)
 Roxygen: list(markdown = TRUE)
 Suggests:
-    biomaRt,
-    DESeq2,
-    edgeR,
-    fgsea,
-    GSVA,
-    limma,
-    msqrob2,
-    QFeatures,
     knitr,
-    MOFA2,
-    MSFA,
-    rliger,
+    org.Mm.eg.db,
     rgoslin,
     rmarkdown,
-    ruv,
-    RUVSeq,
-    sva,
     testthat (>= 3.0.0),
     withr
 Config/testthat/edition: 3
@@ -48,9 +33,7 @@ Imports:
     lifecycle,
     msigdbr,
     MultiAssayExperiment,
-    nanoparquet,
-    org.Mm.eg.db,
-    reticulate,
+    parallel,
     rlang,
     S4Vectors,
     SummarizedExperiment,
@@ -58,5 +41,3 @@ Imports:
 Config/roxygen2/version: 8.1.0
 URL: https://github.com/lescailab/chorale, https://lescailab.github.io/chorale
 BugReports: https://github.com/lescailab/chorale/issues
-Remotes:
-    rdevito/MSFA

@@ -9,6 +9,7 @@ chorale_null_calibration(
   alpha = 0.05,
   n_perm = 200L,
   n_init = 5L,
+  n_ambiguity_boot = 999L,
   ...,
   seed = 1L
 )
@@ -21,6 +22,10 @@ chorale_null_calibration(
 \item{n_perm}{Permutations calibrating each fit.}
 
 \item{n_init}{Initialisations per fit.}
+
+\item{n_ambiguity_boot}{Ambiguity-bootstrap replicates passed to each fitted
+null dataset. The production default is 999; exploratory calibration may
+use fewer for speed.}
 
 \item{...}{Passed to \code{\link[=chorale_simulate]{chorale_simulate()}}, except \code{effect_size}, which is
 fixed at zero.}
@@ -43,5 +48,6 @@ discovery.
 }
 \examples{
 chorale_null_calibration(n_sim = 10, n_perm = 99, n_init = 3,
+                         n_ambiguity_boot = 19,
                          n_features = 120, n_per_cell = 3)
 }

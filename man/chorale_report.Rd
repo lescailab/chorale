@@ -21,18 +21,16 @@ chorale_report(fit, bound = NULL, null = NULL, path, n_top_sets = 5L)
 Invisibly, a character vector of the files written.
 }
 \description{
-Writes the outputs of \code{AGENT_PLAN.md} Section 9. Every factor reported
+Writes the complete fit, controls and interpretation tables. Every factor
 carries a pathway definition and its marker features; a factor that cannot
 be named is written to the same tables marked unresolved, rather than
-dropped, since a factor that is identified but unnameable is a finding about
+dropped, since an unnamed factor is a finding about
 the gene sets rather than an absence.
 }
 \details{
-Cross-modality disagreement is reported alongside agreement. Proteome and
-transcriptome inconsistency in Alzheimer's brain is enriched in the amyloid
-plaque microenvironment and reflects amyloid-delayed protein turnover
-(Yarbro et al., Nat Commun 16:1533, 2025), so factors moving in opposite
-directions across modalities are ranked and kept rather than discarded.
+Cross-modality disagreement is reported alongside agreement. Factors moving
+in opposite directions are aligned for comparison and their orientation is
+retained rather than silently discarded.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 120,
@@ -40,7 +38,8 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 120,
                         n_strains = 4, n_per_cell = 3, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 out <- chorale_report(fit, chorale_bound(fit), NULL,
                       path = withr::local_tempdir())
 basename(out)

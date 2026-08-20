@@ -42,7 +42,7 @@ a simulation has to get right are the properties of that matrix rather than
 of the measurement that produced it. Six of them are what the estimator can
 respond to: the per-feature marginal distribution, the mean-variance
 relation, missingness as a function of abundance, the feature-feature
-correlation structure, the non-Gaussianity identification rests on, and the
+correlation structure, non-Gaussianity relevant to ICA behaviour, and the
 margins of the design. This function measures all six and returns them as one
 object, which \code{\link[=chorale_simulate]{chorale_simulate()}} consumes to give simulated data the shape
 of real data without reproducing the measurement model that produced it.

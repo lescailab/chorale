@@ -38,8 +38,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p class="lede">
     Measuring several omics layers on the same individuals is rarely possible: the assay consumes
     the sample, each platform needs its own preparation, and the layers of a study usually come
-    from different groups at different times. CHORALE finds the biological functions such
-    cohorts carry in common, states how far the data constrain the relationship between them, and
+    from different groups at different times. CHORALE proposes phenotype-led factor
+    correspondences, states how far the data constrain the relationship between them, and
     reports the checks the result survived.
   </p>
   <div class="btnrow">
@@ -85,7 +85,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <line class="stem" x1="450" y1="232" x2="450" y2="250"/>
 
     <rect x="0" y="250" width="900" height="36" rx="9" fill="url(#g)"/>
-    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one shared biological function, carried by all three</text>
+    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one phenotype-supported factor correspondence</text>
   </svg>
   <p class="cap">
     No individual appears twice, and the cohorts need not be the same size. They are joined by
@@ -155,10 +155,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </div>
 
   <p>
-    <strong>P3</strong> is carried by all three cohorts. They respond to the disease the same way,
-    and they implicate the same biology, and the second was established without the factors ever
-    seeing the pathway annotation. <strong>P1</strong> is real but rests on one line of evidence, so
-    it ranks below.
+    <strong>P3</strong> has phenotype support across all three cohorts and pathway corroboration.
+    <strong>P1</strong> has phenotype support but no pathway support; the missing second channel is
+    reported rather than treated as proof of disagreement.
   </p>
   <p>
     Alongside it, <code>chorale_leave_one_out()</code> reports what happens to each function when a

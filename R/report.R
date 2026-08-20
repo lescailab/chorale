@@ -1,16 +1,14 @@
 #' Emit interpretable outputs from a fit
 #'
-#' Writes the outputs of `AGENT_PLAN.md` Section 9. Every factor reported
+#' Writes the complete fit, controls and interpretation tables. Every factor
 #' carries a pathway definition and its marker features; a factor that cannot
 #' be named is written to the same tables marked unresolved, rather than
-#' dropped, since a factor that is identified but unnameable is a finding about
+#' dropped, since an unnamed factor is a finding about
 #' the gene sets rather than an absence.
 #'
-#' Cross-modality disagreement is reported alongside agreement. Proteome and
-#' transcriptome inconsistency in Alzheimer's brain is enriched in the amyloid
-#' plaque microenvironment and reflects amyloid-delayed protein turnover
-#' (Yarbro et al., Nat Commun 16:1533, 2025), so factors moving in opposite
-#' directions across modalities are ranked and kept rather than discarded.
+#' Cross-modality disagreement is reported alongside agreement. Factors moving
+#' in opposite directions are aligned for comparison and their orientation is
+#' retained rather than silently discarded.
 #'
 #' @param fit A `chorale_fit` object, as returned by [chorale_fit()].
 #' @param bound A `chorale_bound` object, as returned by [chorale_bound()].
@@ -26,7 +24,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' out <- chorale_report(fit, chorale_bound(fit), NULL,
 #'                       path = withr::local_tempdir())
 #' basename(out)
@@ -64,6 +63,10 @@ chorale_report <- function(fit, bound = NULL, null = NULL, path,
 
   controls <- chorale_control_table(fit, null)
   written <- c(written, chorale_write(controls, path, "controls.tsv"))
+
+  written <- c(written, chorale_write(fit$matches, path, "matches.tsv"))
+  written <- c(written, chorale_write(
+    fit$excluded_covariates %||% data.frame(), path, "excluded_covariates.tsv"))
 
   written <- c(written, chorale_write(
     chorale_integrated_table(fit, factors, markers, associations, concordance),
@@ -213,28 +216,23 @@ chorale_score_table <- function(fit, m) {
 chorale_association_table <- function(fit, n_perm = 999L) {
   rows <- list()
   for (m in fit$modalities) {
-    s <- fit$fits[[m]]$scores
-    d <- fit$designs[[m]]
-    d <- d[match(rownames(s), d$sample_id), , drop = FALSE]
-    # Whatever the fit anchored on, rather than a fixed list of column names
-    # that would suit one study and exclude another.
-    covariates <- fit$strata_keys %||% chorale_candidate_covariates(list(d))
-    for (cov in intersect(covariates, colnames(d))) {
-      v <- d[[cov]]
-      if (length(unique(stats::na.omit(v))) < 2) next
-      for (j in colnames(s)) {
-        y <- s[, j]
-        ok <- is.finite(y) & !is.na(v)
-        if (sum(ok) < 6) next
-        stat <- chorale_effect(y[ok], v[ok])
-        set.seed(1)
-        null <- replicate(n_perm, chorale_effect(y[ok], sample(v[ok]))$stat)
-        p <- (1 + sum(null >= stat$stat)) / (1 + n_perm)
+    profile <- fit$design_profiles[[m]]
+    if (is.null(profile) || !ncol(profile$effects)) next
+    for (j in rownames(profile$effects)) {
+      for (term in colnames(profile$effects)) {
+        effect <- profile$effects[j, term]
+        se <- profile$se[j, term]
+        z <- effect / se
+        p <- if (is.finite(z)) 2 * stats::pnorm(-abs(z)) else NA_real_
         rows[[length(rows) + 1]] <- data.frame(
-          modality = m, factor = j, covariate = cov,
-          effect_size = signif(stat$effect, 4),
-          statistic = signif(stat$stat, 4),
+          modality = m, factor = j,
+          covariate = unname(profile$term_covariate[term]),
+          contrast = term,
+          effect_size = signif(effect, 4),
+          standard_error = signif(se, 4),
+          statistic = signif(abs(z), 4),
           p_permutation = p,
+          inference = "adjusted Wald diagnostic; programme support uses FWER permutations",
           stringsAsFactors = FALSE
         )
       }
@@ -242,7 +240,9 @@ chorale_association_table <- function(fit, n_perm = 999L) {
   }
   out <- do.call(rbind, rows)
   if (is.null(out)) return(data.frame())
-  out$p_adjusted <- stats::p.adjust(out$p_permutation, method = "BH")
+  # Retained as a compatibility column. Search-adjusted inference lives in the
+  # phenotype-led programme test rather than a second, mismatched BH layer.
+  out$p_adjusted <- out$p_permutation
   out[order(out$p_permutation), , drop = FALSE]
 }
 
@@ -341,6 +341,14 @@ chorale_control_table <- function(fit, null) {
         stringsAsFactors = FALSE
       )
     }
+  } else {
+    rows[[length(rows) + 1]] <- data.frame(
+      control = "external phenotype-refit control", value = NA_real_,
+      detail = "not run; phenotype support inside the fit used its fixed-decomposition null",
+      stringsAsFactors = FALSE)
+    rows[[length(rows) + 1]] <- data.frame(
+      control = "modality shuffle", value = NA_real_, detail = "not run",
+      stringsAsFactors = FALSE)
   }
   for (m in fit$modalities) {
     rec <- fit$fits[[m]]$reconstruction
@@ -443,7 +451,8 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
   cols <- c("programme", "n_modalities", "modalities", "programme_pathway",
             "modality", "factor", "markers", "phenotype_effect", "phenotype_p",
             "joint_statistic", "joint_p", "pathway_statistic", "pathway_p",
-            "n_shared_sets", "evidence")
+            "n_shared_sets", "evidence", "resolution_status",
+            "secondary_evidence", "phenotype_column", "phenotype_reference")
   pg <- chorale_programmes(fit, significant_only = TRUE)
   if (nrow(pg) == 0) {
     # An empty result is still a result, so it is written with its columns
@@ -475,8 +484,8 @@ chorale_integrated_table <- function(fit, factors, markers, associations,
     paste(chorale_readable_features(utils::head(r$feature, n)), collapse = ", ")
   }
 
-  # The pathway channel is a second, independent line of evidence, so every
-  # programme says which of the two it rests on.
+  # The pathway channel is separate but shares fitted factors with the design
+  # channel, so every programme says which evidence is available.
   pg <- chorale_evidence_label(pg, fit$pathway_evidence)
 
   pg$pathway <- vapply(seq_len(nrow(pg)), function(i)
@@ -907,17 +916,17 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "Whether they also implicate the same biology is a separate question, and ",
     "it is asked separately here. The factors were fitted without the curated ",
     "sets, so agreement on biology cannot have been built into them, and a ",
-    "programme carrying both kinds of evidence is standing on two independent ",
-    "legs rather than one. The null holds every set at its size and every ",
-    "feature in its number of sets, permuting only which feature is which, so ",
-    "the large sets and the frequently annotated features that manufacture ",
-    "enrichment where none exists cannot do so here.</p>",
+    "programme carrying both kinds of evidence has corroboration from a ",
+    "separate channel. The channels are not statistically independent because ",
+    "both use the fitted factors. The null permutes score residuals relative ",
+    "to the unchanged assay and recalculates loadings, preserving feature ",
+    "correlation and annotations.</p>",
     chorale_html_table(derived$pathway,
       "Biological corroboration, by programme",
       paste0("<em>pathway_statistic</em> is the agreement of the members' ",
              "pathway profiles, averaged over every pair inside the programme, ",
              "and <em>pathway_p</em> calibrates it against the ",
-             "annotation-matched null. <em>n_shared_sets</em> is how much ",
+             "score-residual null. <em>n_shared_sets</em> is how much ",
              "vocabulary the modalities have in common: where it is small the ",
              "channel has little to say, and an empty result means the ",
              "question could not be asked rather than that the answer was no. ",
@@ -980,9 +989,11 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
     "spanning three modalities contributes one row per pair, all describing that one programme.</p>",
     chorale_svg_bounds(bounds, integrated),
     chorale_html_table(bounds, "Identified set per coupling",
-      paste0("<em>lower/upper_no_anchor</em> is the Frechet range from the margins alone; ",
-             "<em>lower/upper_anchored</em> conditions on the design; <em>narrowing</em> is what ",
-             "the design buys. Anchoring can never widen the range.")),
+      paste0("<em>lower/upper_no_anchor</em> is the range compatible with the marginal ",
+             "scores alone; <em>lower/upper_anchored</em> also conditions on the design. ",
+             "For example, [0.35, 0.70] allows any value in that positive range, while ",
+             "[-0.95, 0.96] leaves direction undetermined. Width reflects missing pairing; ",
+             "a bootstrap sensitivity envelope reflects resampling variation.")),
 
     "<h2>Controls</h2>",
     "<p class='legend'>Every result above is shown with the check that would have caught it if it ",
@@ -1003,8 +1014,7 @@ details.how p{color:var(--text-secondary);font-size:.88rem;max-width:60rem}
 
     "<h2>Supporting detail</h2>",
     "<p class='legend'>The tables below describe each modality on its own. They support the ",
-    "programmes above rather than standing as results: a factor confined to one modality says ",
-    "nothing about a shared latent state.</p>",
+    "cross-modal correspondences above rather than establishing one by themselves.</p>",
     chorale_html_table(factors, "Every factor recovered, by modality",
       paste0("<em>shared</em> marks factors entering a programme above. <em>n_markers</em> counts ",
              "features clearing the purity threshold and <em>purity_margin</em> reports how ",

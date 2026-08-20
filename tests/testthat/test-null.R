@@ -78,8 +78,8 @@ test_that("the modality shuffle is a sampled null with a p-value", {
   mk <- function(tag) {
     m <- matrix(stats::rnorm(60 * 40), nrow = 60, dimnames = list(ids, NULL))
     d <- data.frame(sample_id = paste0(tag, 1:40),
-                    cohort = "sim", modality = tag, strain = "BXD1",
-                    phenotype = rep(c("Ntg", "5XFAD"), each = 20),
+                    cohort = "synthetic", modality = tag, strain = "group_1",
+                    phenotype = rep(c("control", "case"), each = 20),
                     age_months = 6, sex = rep(c("F", "M"), 20),
                     region = "sim", batch = "b1",
                     stringsAsFactors = FALSE)

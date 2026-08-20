@@ -12,8 +12,8 @@ mapping a lower-cased label to its canonical value.
 }
 \description{
 Cohorts assembled by different groups label the same thing differently. One
-records untreated subjects as \code{WT}, another as \code{control}, a third as
-\code{negative}; one records sex as \code{male}, another as \code{M}. Nothing downstream can
+records controls as \code{control}, another as \code{ctrl}; one records sex as \code{male},
+another as \code{M}. Nothing downstream can
 see that these agree, so a comparison anchored on the design would find no
 level in common and match on nothing.
 }
@@ -22,7 +22,8 @@ The registry holds only vocabulary that is general across biology: the
 phenotype resolves to \code{case} and \code{control}, which is what the estimand is
 about whatever the condition under study; sex resolves to \code{F} and \code{M}; a
 genotype resolves to \code{carrier} and \code{non-carrier}, so a design carrying
-genotype separately from disease status can anchor on both.
+genotype separately from phenotype status can use genotype as secondary
+adjusted evidence.
 
 Names particular to one organism, model or study are deliberately absent. A
 study whose labels the registry does not cover supplies its own entry to
@@ -33,7 +34,7 @@ registry does not recognise is left as it is rather than guessed at.
 names(chorale_label_registry())
 # A study whose labels the registry does not cover extends it.
 registry <- chorale_label_registry()
-registry$phenotype <- c(registry$phenotype, "apoe4" = "case")
-registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
+registry$phenotype <- c(registry$phenotype, "group_a" = "case")
+registry$treatment <- c("intervention" = "treated", "baseline" = "untreated")
 names(registry)
 }

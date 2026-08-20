@@ -112,7 +112,7 @@ test_that("a shared factor carries the same design signature in every modality",
   profile <- function(mi, k) {
     s <- sim$truth$scores[[mi]]$shared[, k]
     d <- sim$col_data[[mi]]
-    c(pheno = mean(s[d$phenotype == "5XFAD"]) - mean(s[d$phenotype == "Ntg"]),
+    c(pheno = mean(s[d$phenotype == "case"]) - mean(s[d$phenotype == "control"]),
       age = mean(s[d$age_months == 14]) - mean(s[d$age_months == 6]))
   }
   # The first shared factor is phenotype-dominant in all three modalities, which

@@ -2,13 +2,10 @@
 #'
 #' Generates synthetic data for `n_modalities` modalities measured on disjoint
 #' sample sets. Each sample's features are a linear mixture of latent factors
-#' plus additive Gaussian measurement noise, and the latent factors are drawn
-#' so that the conditions the identification results rest on hold by
-#' construction: every factor is non-Gaussian, no two factors share a
-#' distribution, and each factor's distribution is non-symmetric (Sturma et al.
-#' 2023). A validation of the estimator needs the data to satisfy the
-#' assumptions it is judged against, which the earlier symmetric,
-#' identically-distributed design did not.
+#' plus additive Gaussian measurement noise. Latent factors are non-Gaussian,
+#' have different shapes and are non-symmetric (Sturma et al. 2023), which
+#' provides a demanding ICA simulation. These choices are not presented as
+#' identification conditions for CHORALE's phenotype correspondence.
 #'
 #' A shared factor is what the estimator should recover as one cross-modality
 #' programme. Its correspondence across modalities is carried by its
@@ -154,8 +151,8 @@ chorale_simulate <- function(n_modalities = 3,
   set.seed(seed)
 
   design <- expand.grid(
-    strain = paste0("BXD", seq_len(n_strains)),
-    phenotype = c("Ntg", "5XFAD"),
+    strain = paste0("group_", seq_len(n_strains)),
+    phenotype = c("control", "case"),
     age_months = c(6, 14),
     sex = c("F", "M"),
     KEEP.OUT.ATTRS = FALSE,
@@ -165,10 +162,9 @@ chorale_simulate <- function(n_modalities = 3,
   terms <- chorale_signature_terms(profiles)
   n_terms <- length(terms)
 
-  # Each shared factor is given a distinct dominant contrast, so their design
-  # responses are uncorrelated and the recovered components remain separable.
-  # The first factor is phenotype-dominant, the factor the case/control anchor
-  # should recover.
+  # Each shared factor has a distinct dominant contrast. The first is
+  # phenotype-responsive; factors driven only by a secondary covariate provide
+  # the negative case that hierarchical matching must leave unsupported.
   if (is.null(signature)) {
     signature <- matrix(0, nrow = n_shared_factors, ncol = n_terms,
                         dimnames = list(NULL, terms))
@@ -253,7 +249,7 @@ chorale_simulate <- function(n_modalities = 3,
       # A nuisance covariate correlated with the phenotype, loading on the
       # shared factors, so a matched programme can be probed for whether it
       # tracks the phenotype or the confounder.
-      z <- ifelse(cells$phenotype %in% c("5XFAD", "case"), 1, -1) * confounder$rho +
+      z <- ifelse(cells$phenotype == "case", 1, -1) * confounder$rho +
         stats::rnorm(n_m) * sqrt(1 - confounder$rho^2)
       shared_scores <- shared_scores + outer(z, rep(confounder$loading, n_shared_factors))
       batch <- ifelse(z > stats::median(z), "batchB", "batchA")

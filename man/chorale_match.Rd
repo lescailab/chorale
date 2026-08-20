@@ -10,7 +10,11 @@ chorale_match(
   strata_keys = NULL,
   n_perm = 200L,
   alpha = 0.05,
-  seed = 1L
+  seed = 1L,
+  phenotype_column = "phenotype",
+  phenotype_reference = "control",
+  profile_covariates = NULL,
+  exchangeability_blocks = NULL
 )
 }
 \arguments{
@@ -29,6 +33,15 @@ carry is harmless.}
 \item{alpha}{Significance threshold.}
 
 \item{seed}{Integer seed.}
+
+\item{phenotype_column}{Mandatory phenotype column.}
+
+\item{phenotype_reference}{Reference level for the phenotype contrast.}
+
+\item{profile_covariates}{Optional secondary shared covariates. \code{NULL}
+discovers all eligible shared covariates.}
+
+\item{exchangeability_blocks}{Optional columns restricting permutations.}
 }
 \value{
 A data frame, one row per cross-modality factor pair implied by the
@@ -37,11 +50,11 @@ joint assignment.
 \description{
 With disjoint samples no animal is shared, so factors cannot be matched by
 correlating scores. What can be compared is what a factor does to the
-design: a factor measuring the same latent state should act on a shared
-covariate the same way in every modality that carries it. The comparison
-currency is the cosine between design-effect profiles, and the null is built
-by permuting the design across samples, so precision grows with cohort size
-and a single shared covariate suffices. Phenotype alone is enough.
+design: compatible factors should have compatible adjusted phenotype
+effects. Covariance-aware quadratic losses define phenotype-compatible
+alternatives; other eligible shared covariates can refine only those
+alternatives. The null uses reduced-model residual permutations, so
+phenotype alone is sufficient and nuisance covariates cannot carry a match.
 }
 \details{
 The assignment is solved once over the whole collection rather than a pair
@@ -62,6 +75,7 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 60,
                         n_shared_factors = 2, n_private_factors = 1,
                         n_strains = 2, n_per_cell = 2, seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 fit$matches
 }

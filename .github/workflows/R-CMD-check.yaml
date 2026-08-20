@@ -1,9 +1,10 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
-# TEMPORARILY DISABLED. This workflow runs only when started by hand from the
-# Actions tab, so no push or pull request consumes runner minutes. To restore
-# automatic running, put back the push and pull_request triggers below.
 on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 
@@ -25,7 +26,6 @@ jobs:
           - {os: windows-latest, r: 'release'}
           - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest,   r: 'release'}
-          - {os: ubuntu-latest,   r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

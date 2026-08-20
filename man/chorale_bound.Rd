@@ -4,12 +4,15 @@
 \alias{chorale_bound}
 \title{Bound the cross-modality coupling}
 \usage{
-chorale_bound(fit, n_grid = 200L)
+chorale_bound(fit, n_grid = 200L, include_ambiguous = FALSE)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object, as returned by \code{\link[=chorale_fit]{chorale_fit()}}.}
 
 \item{n_grid}{Number of quantiles used to represent each marginal.}
+
+\item{include_ambiguous}{Include correspondences that phenotype-led matching
+did not resolve. The default bounds only resolved correspondences.}
 }
 \value{
 An object of class \code{chorale_bound}, wrapping a data frame with one
@@ -39,6 +42,7 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 120,
                         n_strains = 4, n_per_cell = 3, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 chorale_bound(fit)
 }

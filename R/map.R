@@ -25,7 +25,7 @@
 #'   identifiers with no match are omitted; call with `unique(ids)` first and
 #'   compare to the input to build a full per-modality mapping report.
 #' @export
-#' @examples
+#' @examplesIf rlang::is_installed("org.Mm.eg.db")
 #' chorale_map(c("Bdnf", "Trem2", "not_a_real_gene"), from = "SYMBOL")
 #' # A human study maps through the human annotation instead.
 #' # chorale_map(c("BDNF", "TREM2"), from = "SYMBOL", orgdb = "org.Hs.eg.db")

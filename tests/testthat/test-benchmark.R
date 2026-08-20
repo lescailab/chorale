@@ -19,7 +19,9 @@ test_that("the estimator recovers a correspondence it was not shown", {
   # failure whatever the p-values say.
   expect_gt(s$recovered_agreement, s$random_lower_bound)
   expect_gt(s$placement_between_bounds, 0.5)
-  # On clean data the withheld partner should be recovered for most factors.
+  # On clean data the withheld partner should be recovered for most factors
+  # whose phenotype evidence is supported. Phenotype-uninformative factors are
+  # outside the production estimand and are not forced into a match.
   expect_gt(s$fraction_partner_correct, 0.5)
 })
 
@@ -56,7 +58,10 @@ test_that("noise degrades recovery towards the random bound", {
                                n_init = 5, n_random = 50, seed = 1)
   # With no design signal there is nothing for the estimator to match on, so it
   # cannot place as well as it does when the signal is present.
-  skip_if(!is.finite(rw$summary$placement_between_bounds))
-  expect_gte(rc$summary$placement_between_bounds,
-             rw$summary$placement_between_bounds)
+  if (!is.finite(rw$summary$placement_between_bounds)) {
+    expect_equal(rw$summary$n_recovered_pairs, 0L)
+  } else {
+    expect_gte(rc$summary$placement_between_bounds,
+               rw$summary$placement_between_bounds)
+  }
 })

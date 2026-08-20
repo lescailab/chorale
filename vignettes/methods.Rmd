@@ -1,426 +1,140 @@
 ---
-title: "Statistics, mathematics and implementation"
-description: "Every quantity the pipeline computes, the equation behind it, where it is implemented, and the literature it rests on."
+title: "Statistical methods"
+description: "The estimands, models, assignment rule, calibration, and limitations."
 site_order: 6
 site_wide: true
 output:
   rmarkdown::html_vignette:
     math_method: mathml
 vignette: >
-  %\VignetteIndexEntry{Statistics, mathematics and implementation}
+  %\VignetteIndexEntry{Statistical methods}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-## Notation
+## Scope
 
-There are $M$ modalities. Modality $m$ has $n_m$ samples and $p_m$ features, and its assay is
-column-centred and scaled to give $X_m \in \mathbb{R}^{n_m \times p_m}$. No sample index is shared
-between modalities. The design of modality $m$ is $D_m$, a table on the same $n_m$ rows. Modality
-$m$ is decomposed into $k_m$ latent factors.
+CHORALE compares latent factors estimated in modalities measured on different individuals. It does
+not claim to recover a unique biological state or the unobserved joint distribution of modalities.
+Its cross-modal result is a phenotype-led factor correspondence with empirical error control.
 
-## 1. Within-modality decomposition
+## Factor extraction
 
-Each modality is factorised independently,
+For modality (m), the standardised sample-by-feature matrix is approximated as
 
-$$X_m \approx S_m A_m^{\top}, \qquad S_m \in \mathbb{R}^{n_m \times k_m}, \quad A_m \in \mathbb{R}^{p_m \times k_m},$$
+\[
+X_m = S_m A_m^T + E_m .
+\]
 
-by the symmetric FastICA algorithm (Hyvärinen and Oja 2000). Independent component analysis is used
-rather than a variance-maximising decomposition because non-Gaussianity is the identifying
-resource: the identification results for unpaired data require the latent errors to be non-Gaussian
-and pairwise different, and a Gaussian latent block is not identified at all (Comon 1994; Sturma et
-al. 2023).
+FastICA estimates scores (S_m) and loadings (A_m) separately in each modality. Phenotype and
+covariates are not used here. Starts are aligned by maximum absolute score correlation; the medoid
+start, which has the greatest mean agreement with the other aligned starts, is retained.
 
-The objective is not convex, so $R$ initialisations are run and the one maximising mean absolute
-excess kurtosis of the standardised sources is retained,
+## Adjusted design effects
 
-$$J_r = \frac{1}{k_m}\sum_{j=1}^{k_m}\left| \frac{1}{n_m}\sum_{i=1}^{n_m}\left(\frac{s_{ij}-\bar{s}_j}{\sigma_j}\right)^{4} - 3 \right|.$$
+Let (y_{mk}) be the score of factor (k) in modality (m). CHORALE fits
 
-Loadings are obtained by regressing each feature on the retained sources, $A_m^{\top} = (S_m^{\top}S_m)^{-1}S_m^{\top}X_m$.
+\[
+y_{mk}=D_m\beta_{mk}+\varepsilon_{mk},
+\]
 
-*Implementation.* `chorale_ica()` in `R/fit.R`. The spread of $J_r$ across initialisations is
-returned and reported by `chorale_null()`.
+where (D_m) contains an intercept, phenotype contrasts, and all eligible shared secondary
+covariates. The reported phenotype coefficient is therefore adjusted for those covariates.
 
-## 2. Marker features
+Continuous variables enter as standardised slopes. A categorical variable enters as a treatment-
+contrast block using common levels. For secondary covariate (c), its (q_c)-coefficient block is
+scaled by (1/\sqrt{q_c}). Thus every secondary covariate has equal total block weight. Coefficient
+covariance matrices come from the fitted multivariable model.
 
-For factor $j$, write $o_i = |A_{ij}|$ for a feature's own loading and
-$c_i = \max_{l \neq j} |A_{il}|$ for its largest competing loading. Feature $i$ is a marker for $j$
-when
+## Phenotype affinity and orientation
 
-$$o_i > 0 \quad \text{and} \quad c_i \le \rho\, o_i, \qquad \rho = 0.25 .$$
+For factors (k) and (l), phenotype coefficient vectors (b_{mk}) and (b_{nl}), and their
+estimated covariance matrices (V_{mk}) and (V_{nl}), CHORALE compares the two possible ICA
+orientations with covariance-aware quadratic losses:
 
-The purity margin of factor $j$ is the median of $c_i/o_i$ over its best candidates, reported
-whether or not any feature clears the threshold.
+\[
+Q^{\pm}_{kl}=(b_{mk}\mp b_{nl})^T(V_{mk}+V_{nl})^+(b_{mk}\mp b_{nl}),
+\qquad L^{\pm}_{kl}=Q^{\pm}_{kl}/q,
+\]
 
-This operationalises a separability condition of the kind that makes a factorisation identifiable
-up to permutation and scale in non-negative matrix factorisation and topic models, where it is the
-pure-variable or anchor-word assumption (Donoho and Stodden 2003; Arora et al. 2012), and which
-appears in the unpaired setting as a requirement on pure children of the latent block (Sturma et al.
-2023). The threshold form here is a heuristic: it depends on the scale and rotation conventions of
-the recovered components, so the count and the margin are reported as diagnostics rather than
-enforced as an eligibility condition.
+where (+) denotes a stable generalised inverse and (q) is the number of phenotype contrasts. The
+smaller mean loss selects orientation and determines candidate compatibility. Primary phenotype
+evidence is the smaller of the two mean Wald statistics, so a large effect in one modality cannot
+compensate for no effect in another. Compatibility and support are therefore a hierarchy rather
+than multiplied kernel terms: compatibility decides eligibility, then the weaker cross-modal
+signal orders eligible factors. A simultaneous spectral synchronisation uses every pairwise
+affinity block to produce one cycle-consistent assignment.
 
-*Implementation.* `chorale_markers()`.
+## Candidate sets and hierarchical refinement
 
-## 3. Description in curated vocabulary
+Rows are bootstrap-resampled within declared exchangeability blocks. In each replicate, adjusted
+effects and phenotype losses are recomputed while ICA remains fixed. For each alternative,
+CHORALE records its excess loss over the best candidate. An alternative is removed only when the
+lower endpoint of its bootstrap excess-loss interval is above zero.
 
-Let $C \in \mathbb{R}^{p_m \times q}$ hold curated set membership, with fractional entries where an
-identifier maps to several genes. For factor $j$, let $y$ be its loading vector with marker entries
-set to zero, so that the description is fitted to the features that carry no purity. The set weights
-solve a ridge problem,
+When the analytic candidate rule is requested instead, its chi-square cutoff is divided by the
+number of contrasts because the stored loss is a mean, not a sum. The production default uses 999
+bootstrap replicates, placing about 25 draws in each tail of a 95 per cent interval.
 
-$$u_j = \arg\min_{u} \; \lVert y - C u \rVert_2^2 + \lambda \lVert u \rVert_2^2 \;=\; (C^{\top}C + \lambda I)^{-1} C^{\top} y, \qquad \lambda = 1 ,$$
+Secondary affinity compares adjusted effects using their pooled uncertainty, separately for each
+covariate block, and averages the block scores. It is evaluated only among retained phenotype
+candidates. A high secondary affinity outside the candidate set has no route into the final
+assignment. Let (A^*=A/(1+A)) be the bounded transform of primary affinity and (S) the conditional
+secondary affinity. A phenotype candidate receives synchronisation score (1+A^*(1+S)); a
+non-candidate keeps score (A^*). Thus candidate status comes entirely from phenotype, primary
+affinity is never overwritten, and secondary evidence can add only in proportion to existing
+phenotype evidence.
 
-and the projected loadings on the non-marker features are $Cu_j$. This is the prior-informed
-decomposition of PLIER (Mao et al. 2019) reduced to its projection step.
+The resulting state is resolved, ambiguous, phenotype unsupported, or incompatible, as defined in
+the outputs vignette.
 
-The departure from PLIER matters and is deliberate. PLIER solves for the factorisation and the set
-weights in one objective, so its latent variables reconstruct the data. Here the factorisation is
-fitted first, without the sets, and $u_j$ is computed afterwards. The scores are not refitted, so
-$S_m (Cu)^{\top}$ is a different and worse reconstruction than $S_m A_m^{\top}$. The fitted loadings
-are therefore retained and $u_j$ is stored beside them as a description, with both reconstructions
-reported,
+## Phenotype support and family-wise control
 
-$$\mathcal{R}(L) = 1 - \frac{\lVert X_m - S_m L^{\top}\rVert_F^2}{\lVert X_m \rVert_F^2}.$$
+Phenotype support uses a Freedman--Lane null. A reduced model keeps secondary covariates, phenotype
+residuals are permuted within exchangeability blocks, and the full phenotype-led assignment and
+modality-subset search are repeated with fixed ICA factors. Each replicate contributes the maximum
+statistic reached across the search. Therefore
 
-Fitting the sets into the objective would make the description exact by construction, at the cost of
-letting annotation error bias the estimate and of making the pathway channel of Section 8 circular.
-Separating them keeps the annotation out of the estimate and leaves the corroboration meaningful.
+\[
+p = \frac{1 + \#\{T_b^{\max}\ge T_{obs}\}}{B+1}
+\]
 
-*Implementation.* `chorale_constrain()` and `chorale_reconstruction()`.
+controls the family-wise error rate for that search. No subsequent BH correction is applied to the
+same p-values.
 
-## 4. Design profiles
+## Pathway channel
 
-Terms are resolved once for the whole collection, so that an entry means the same thing in every
-modality. A covariate numeric in every design contributes one term; a categorical covariate
-contributes one term per level beyond a reference, using only levels every design realises.
+Pathway evidence is analysed separately. Scores are residualised on the shared design, residual rows
+are permuted, and loadings are recalculated against the unchanged assay matrix. This preserves
+feature correlation and annotation structure. The maximum pathway statistic calibrates the pathway
+search. Because both channels use the fitted factors, pathway and design evidence are not assumed
+independent.
 
-For a categorical term with reference level $l_0$ and level $l$,
+## Coupling bounds
 
-$$P_m[j, (c,l)] = \frac{\bar{s}_j^{(c=l)} - \bar{s}_j^{(c=l_0)}}{\sqrt{\tfrac{1}{2}\left(\mathrm{var}(s_j^{(c=l)}) + \mathrm{var}(s_j^{(c=l_0)})\right)}},$$
-
-a signed standardised mean difference (Cohen 1988). For a continuous covariate the term is the
-signed Spearman correlation between the factor score and the covariate. Every entry is therefore
-signed and on one scale, which is what allows profiles from different modalities to be compared by
-direction.
-
-Two design choices follow from the sample sizes available. First, the profile is estimated from
-samples rather than from stratum means, so its precision grows with cohort size rather than with the
-number of populated strata. Second, and consequently, calibration permutes samples. A stratum-level
-permutation with four populated strata has a smallest attainable p-value of $0.083$, so no
-comparison could reach significance whatever the data.
-
-*Implementation.* `chorale_profile_levels()`, `chorale_design_profile()`,
-`chorale_contrast_effect()` in `R/fit.R` and `R/synchronise.R`.
-
-## 5. Simultaneous multiway assignment
-
-For every ordered pair of modalities the agreement block is the matrix of profile inner products,
-
-$$B_{mm'} = P_m P_{m'}^{\top} \in \mathbb{R}^{k_m \times k_{m'}} .$$
-
-Let $K = \sum_m k_m$ and $\sigma = \max_{m<m'} \lVert B_{mm'} \rVert_{\max}$. The block matrix
-$W \in \mathbb{R}^{K \times K}$ has $W_{mm} = I_{k_m}$ and $W_{mm'} = |B_{mm'}|/\sigma$. Its leading
-eigenvectors give a common embedding,
-
-$$W = V \Lambda V^{\top}, \qquad U = V_{[\,\cdot\,,1:d]} \, \mathrm{diag}\!\left(\sqrt{\max(\lambda_{1:d},0)}\right), \qquad d = \min_m k_m ,$$
-
-whose rows $U_m$ place every factor of every modality in one space of $d$ latent biological functions. One
-modality provides the frame: the one with fewest factors, ties broken by $\lVert U_m \rVert_F^2$.
-Each modality is then rounded back to a partial permutation against that frame by solving a linear
-sum assignment problem,
-
-$$\Pi_m = \arg\max_{\Pi} \; \mathrm{tr}\!\left( \Pi^{\top} \, \bigl| U_m U_a^{\top} \bigr| \right),$$
-
-by the Hungarian algorithm (Kuhn 1955), through `clue::solve_LSAP`. A biological function is the set of
-factors assigned to one position.
-
-This is the spectral relaxation of permutation synchronisation (Pachauri, Kondor and Singh 2013).
-Its property, and the reason for adopting it, is that correspondences recovered this way are
-consistent around every cycle by construction, so a biological function cannot be assembled by chaining
-pairwise decisions through a single mistaken link. Chen, Guibas and Huang (2014) establish for a
-convex relaxation of the same problem that the joint solution recovers the ground-truth assignment
-even when a dominant fraction of the input pairwise maps behave as outliers, an error-correcting
-property no independently solved pairwise procedure possesses. The frame fixes only the labelling of
-biological functions; the evidence placing each factor came from the whole collection, since every pairwise
-block enters $W$ and therefore every eigenvector.
-
-The advantage holds when the pairwise inputs are noisy observations of one consistent underlying
-assignment. Where no consistent assignment exists, for instance where one biological function genuinely splits
-between modalities, the joint solution buys nothing.
-
-*Implementation.* `chorale_synchronise()` in `R/synchronise.R`.
-
-## 6. Evidence for a shared biological function and its calibration
-
-For a biological function with members $(m_1,f_1),\dots,(m_r,f_r)$,
-
-$$T = \binom{r}{2}^{-1} \sum_{i<j} \bigl| \langle P_{m_i}[f_i,\cdot],\, P_{m_j}[f_j,\cdot] \rangle \bigr| .$$
-
-The absolute value is taken because opposition is informative: transcript and protein discordance in
-Alzheimer's brain is enriched in the plaque microenvironment and reflects amyloid-delayed protein
-turnover (Yarbro et al. 2025), so opposed biological functions are matched and their opposition reported.
-
-The null preserves the joint design. In permutation $b$, a single permutation $\pi_m$ of the sample
-order is drawn per modality and applied to all shared design columns together, so the dependence
-among phenotype, age, sex and cohort survives and the null contains only designs that could have
-arisen. Permuting each covariate independently would destroy those dependencies and generate
-implausible combinations. Profiles are recomputed, the synchronisation is solved again, and
-
-$$N_b = \max_{g} \; \max_{\substack{S \subseteq \mathrm{members}(g) \\ |S| \ge 2}} T(S), \qquad \hat{p} = \frac{1 + \#\{b : N_b \ge T\}}{1 + B}.$$
-
-Two properties follow. The maximum over biological functions and modality subsets is the max-statistic
-construction of Westfall and Young (1993), which controls the family-wise error rate across the
-selections the procedure could have made, so the p-value accounts for the selection rather than
-conditioning on it. The $(1+r)/(1+B)$ form is the exact estimator of Phipson and Smyth (2010), which
-never returns zero and is not understated by $1/B$.
-
-Which modalities a biological function spans is itself a selection, so it is made against this same null: the
-widest subset with $\hat{p} < \alpha$, ties broken by $T$. A biological function for which no subset qualifies
-is retained and marked unsupported, and is excluded from the report.
-
-*Implementation.* `chorale_integrate()`, `chorale_programme_statistic()`, `chorale_best_statistic()`.
-
-## 7. Leave-one-modality-out
-
-Each member of a biological function spanning at least three modalities is removed in turn and the remainder
-rescored against the same null, giving $\Delta = T(S \setminus \{i\}) - T(S)$. This operationalises
-the requirement that an integrated result be more than the strongest single contribution: a
-biological function whose evidence is unchanged by removing a modality was not resting on it.
-
-*Implementation.* `chorale_leave_one_out()`.
-
-## 8. The biological channel
-
-Let $C$ be the membership matrix of modality $m$ and $s$ a set with $n_s$ members. The position of
-factor $j$ in the vocabulary is
-
-$$Z[j,s] = \frac{\bar{A}_{\cdot j}^{(s)} - \bar{A}_{\cdot j}}{\mathrm{sd}(A_{\cdot j}) \big/ \sqrt{n_s}},$$
-
-the mean loading of the set's members against the factor's loadings as a whole, scaled by set size.
-This is the statistic of PAGE (Kim and Volsky 2005), which is signed and puts sets of different size
-on one footing.
-
-Agreement between two members of a biological function is the inner product of their positions over the
-vocabulary their modalities share, and its evidence on the biological channel is that agreement averaged
-over its pairs, exactly as in Section 6.
-
-The null is annotation-matched. Feature labels of $C$ are permuted within each modality, which
-leaves every set at its size and every feature in its number of sets while breaking the
-correspondence between a loading and an annotation. Set size and feature frequency are the two
-properties that produce apparent enrichment where none exists, so holding both fixed is what makes
-the calibration informative.
-
-Two conditions attach. This is a competitive null in the sense of Goeman and Bühlmann (2007): it
-treats features as exchangeable, and correlation between features violates that assumption, so the
-channel can be anti-conservative. A rotation-based null in the manner of ROAST (Wu et al. 2010)
-would remove the assumption. Second, the channel is informative only in proportion to the vocabulary
-the modalities share, which is reported as `n_shared_sets`.
-
-The channel is kept separate from the design channel and the two are never combined into one score.
-The factors are fitted without the curated sets, so agreement here is independent of agreement on
-the design; a combined score would forfeit exactly the property that makes the second channel worth
-computing.
-
-*Implementation.* `chorale_pathway_profile()`, `chorale_pathway_evidence()`,
-`chorale_evidence_label()` in `R/pathways.R`.
-
-## 9. Placing a lipidome in the gene vocabulary
-
-Genes and proteins reach curated sets through their identifiers. Lipid species do not. The bridge
-shipped with the package maps a lipid class to the pathway sets the genes occupy, and is derived
-rather than asserted.
-
-A lipid shorthand name is parsed to its class by Goslin, the validated grammar for the several
-dialects in which such names are reported (Kopczynski et al. 2020), with the leading token as
-fallback. A class corresponds to a term in the ChEBI ontology (Hastings et al. 2016); the molecules
-beneath that term are its descendants under `is_a`. Those molecules are looked up in Reactome's
-compound annotation (Milacic et al. 2024), and a pathway is retained only where the gene-side
-collection also carries it as a set within the size window applied to genes, which is what places
-lipids and genes in one vocabulary rather than two.
-
-A class-to-pathway link is kept when the pathway is annotated with at least two distinct compounds
-of the class, or when the class accounts for at least five per cent of the compounds the pathway
-carries. The two criteria are alternatives because a weak link fails in one of two ways. Reactome
-describes some classes by a single representative compound, which is then carried into every pathway
-it appears in, so several distinct compounds rule out a token mention. A large pathway dilutes any
-share, so a share requirement alone would remove a class from the very pathway that acts on it.
-
-BioPAN performs lipid pathway analysis over a lipid-only reaction network (Gaud et al. 2021). The
-purpose here is different: not to analyse the lipidome in its own terms, but to express it in the
-terms the other modalities already use, so that a transcriptome contributing the enzymes of a
-pathway and a lipidome contributing that pathway's substrates land in the same set.
-
-Resolution is at class level. All species of a class carry identical pathway membership, so a
-lipidome of several hundred species contributes of the order of twenty distinct signals.
-
-*Implementation.* `data-raw/metabolite_pathways.R` builds
-`inst/extdata/metabolite_pathways.tsv`; `chorale_metabolite_pathways()`, `chorale_lipid_class()`
-and `chorale_metabolite_matrix()` read it.
-
-## 10. Partial identification of the coupling
-
-With disjoint samples the joint distribution of two factors is not identified. The data fix each
-marginal and say nothing about the coupling. The Fréchet class is the set of joints consistent with
-those marginals, and its extremes for a correlation are attained by the comonotone and
-countermonotone couplings (Hoeffding 1940; Fréchet 1951; Whitt 1976).
-
-**A common target population.** The two cohorts realise the design in different proportions, so both
-marginals are first reweighted to one declared target. With strata $k$ common to both and counts
-$n_{ak}, n_{bk}$,
-
-$$w_k \;\propto\; \tfrac{1}{2}\left( \frac{n_{ak}}{n_a} + \frac{n_{bk}}{n_b} \right), \qquad \sum_k w_k = 1,$$
-
-and each sample in stratum $k$ of modality $a$ carries weight $w_k/n_{ak}$. Reweighting only the
-cross-moment while taking the variances from the observed marginals refers numerator and denominator
-to different populations and can return an interval no correlation satisfies.
-
-**Unconditional bounds.** With $Q_a, Q_b$ the quantile functions of the reweighted marginals on a
-grid $u_g = (g-\tfrac{1}{2})/G$, and moments taken from the same representation,
-
-$$\rho_{\max} = \frac{\frac{1}{G}\sum_g Q_a(u_g)Q_b(u_g) - \mu_a\mu_b}{\sigma_a \sigma_b}, \qquad \rho_{\min} = \frac{\frac{1}{G}\sum_g Q_a(u_g)Q_b(1-u_g) - \mu_a\mu_b}{\sigma_a \sigma_b}.$$
-
-**Conditioning on the design.** By the law of total covariance the covariance splits into a
-between-stratum part and a within-stratum part. Stratum means are observed in both modalities, so
-the between part is identified,
-
-$$\mathrm{Between} = \sum_k w_k (\mu_{ak}-\mu_a)(\mu_{bk}-\mu_b), \qquad \mu_a = \sum_k w_k \mu_{ak},$$
-
-and only the within part is free. Bounding it stratum by stratum on the residual quantile grids
-$q_{ak}, q_{bk}$,
-
-$$\mathrm{W}^{\pm} = \sum_k w_k \, \substack{\max \\ \min} \left\{ \tfrac{1}{G}\sum_g q_{ak}(u_g)q_{bk}(u_g), \; \tfrac{1}{G}\sum_g q_{ak}(u_g)q_{bk}(1-u_g) \right\},$$
-
-with the total variance taken under the same weights,
-
-$$\mathrm{Var}_a = \sum_k w_k (\mu_{ak}-\mu_a)^2 + \sum_k w_k \tfrac{1}{G}\sum_g q_{ak}(u_g)^2 ,$$
-
-gives the identified set
-
-$$\rho \in \left[ \frac{\mathrm{Between} + \mathrm{W}^{-}}{\sqrt{\mathrm{Var}_a \mathrm{Var}_b}}, \; \frac{\mathrm{Between} + \mathrm{W}^{+}}{\sqrt{\mathrm{Var}_a \mathrm{Var}_b}} \right],$$
-
-each endpoint clamped to $[-1,1]$ independently. Cauchy-Schwarz within each stratum and on the
-between-stratum vectors keeps the ratio inside $[-1,1]$, so the clamping is numerical rather than
-corrective. Because only the free part is extremised, conditioning can never widen the interval.
-
-The general problem, identifying a joint relationship from two datasets that share conditioning
-variables but no units, is that of Cross and Manski (2002), whose identification region for a long
-regression given short regressions from separate samples is the same construction in a regression
-setting. The framing throughout is partial identification (Manski 2003): the output is the set of
-values consistent with the data, not a point.
-
-These are plug-in identified sets under the declared target. Sampling error, factor estimation and
-the selection of the biological function are not in them.
-
-*Implementation.* `chorale_bound()`, `chorale_target_weights()`, `chorale_weighted_quantile()`,
-`chorale_frechet_from_quantiles()`, `chorale_anchored_correlation()`, `chorale_clamp_bounds()` in
-`R/bound.R`.
-
-## 11. Relation to the identification results
-
-Sturma et al. (2023) and Timilsina et al. (2024) identify a shared latent block from unpaired data
-by matching the distributions of recovered components, the first with two-sample
-Kolmogorov-Smirnov tests over component distributions, the second with distributional discrepancies
-inside a joint estimator. The estimator described here matches design responses instead.
-
-The reason is the sample sizes the design admits. Distribution matching over recovered components
-requires enough samples for the empirical component distributions to separate; the cohorts available
-for a bulk multi-omics study yield tens of samples per modality and a handful of components.
-Design responses are estimable at that size, and the phenotype contrast is the quantity the estimand
-is about.
-
-The consequences are stated rather than assumed. Two distinct shared biological functions can respond to
-the phenotype in the same way, so agreement of design profiles is evidence of a shared
-population-level process, not of a shared latent variable and not of coupling within an individual.
-The finite-sample guarantees of those papers, including the bound that decays exponentially in the
-number of domains, are statements about a decision rule over matched component distributions and do
-not transfer. Error control here is empirical, established by rerunning the entire procedure under
-the nulls of Sections 6 and 8.
-
-Solving the assignment jointly and scoring the biological function jointly are what a decision rule using all
-domains at once requires, and they are adopted for the reason Section 5 gives, not as a route to
-importing those theorems.
-
-## Conditions of applicability
-
-Every modality must carry a phenotype contrast. The estimand is a case-control shared state, so a
-modality whose deposited metadata does not resolve the contrast cannot contribute one.
-
-Identification consumes modality heterogeneity, so batch-corrected and cross-modality-harmonised
-matrices are inadmissible as inputs. Study and batch are retained as nuisance covariates instead.
-
-The design profile requires at least one covariate shared by the modalities and varying in each.
-The phenotype alone suffices; further shared covariates sharpen the profile.
-
-Agreement of design profiles is evidence about a population-level process. Nothing in the output
-licenses a statement about two molecules in the same individual.
-
-Correlation bounds are plug-in identified sets under a declared target design distribution, not
-confidence intervals.
-
-The biological channel assumes features are exchangeable under its null, which correlation between
-features violates.
-
-The biological channel resolves a lipidome at class level, and no mapping exists for a non-lipid
-metabolome.
-
-## Sources
-
-- Arora S, Ge R, Moitra A. Learning topic models: going beyond SVD. *FOCS* 2012.
-- Argelaguet R, Velten B, Arnol D, et al. Multi-Omics Factor Analysis, a framework for unsupervised
-  integration of multi-omics data sets. *Molecular Systems Biology* 2018;14:e8124.
-- Chen Y, Guibas LJ, Huang Q. Near-optimal joint object matching via convex relaxation. *ICML* 2014.
-  arXiv:1402.1473.
-- Cohen J. *Statistical Power Analysis for the Behavioral Sciences*. 2nd ed. Erlbaum, 1988.
-- Comon P. Independent component analysis, a new concept? *Signal Processing* 1994;36:287-314.
-- Cross PJ, Manski CF. Regressions, short and long. *Econometrica* 2002;70:357-368.
-- Donoho D, Stodden V. When does non-negative matrix factorisation give a correct decomposition
-  into parts? *NeurIPS* 2003.
-- Fréchet M. Sur les tableaux de corrélation dont les marges sont données. *Annales de l'Université
-  de Lyon* 1951;14:53-77.
-- Gaud C, Sousa BC, Nguyen A, et al. BioPAN: a web-based tool to explore mammalian lipidome
-  metabolic pathways on LIPID MAPS. *F1000Research* 2021;10:4.
-- Goeman JJ, Bühlmann P. Analyzing gene expression data in terms of gene sets: methodological
-  issues. *Bioinformatics* 2007;23:980-987.
-- Hastings J, Owen G, Dekker A, et al. ChEBI in 2016: improved services and an expanding collection
-  of metabolites. *Nucleic Acids Research* 2016;44:D1214-D1219.
-- Hoeffding W. Masstabinvariante Korrelationstheorie. *Schriften des Mathematischen Instituts der
-  Universität Berlin* 1940;5:181-233.
-- Hyvärinen A, Oja E. Independent component analysis: algorithms and applications. *Neural Networks*
-  2000;13:411-430.
-- Itai Y, Rappoport N, Shamir R. Integration of gene expression and DNA methylation data across
-  different experiments. *Nucleic Acids Research* 2023;51:7762-7776.
-- Kim SY, Volsky DJ. PAGE: parametric analysis of gene set enrichment. *BMC Bioinformatics*
-  2005;6:144.
-- Kopczynski D, Hoffmann N, Peng B, Ahrends R. Goslin: a grammar of succinct lipid nomenclature.
-  *Analytical Chemistry* 2020;92:10957-10960.
-- Kuhn HW. The Hungarian method for the assignment problem. *Naval Research Logistics Quarterly*
-  1955;2:83-97.
-- Liao K, Du D, Li J, et al. Interpretable integration of unpaired multi-omics for Alzheimer's
-  diagnosis via cross-modal transformer reconstruction. *PLOS Computational Biology*
-  2026;22:e1014074.
-- Abir AR, Dip SA, Zhang L. UnCOT-AD: unpaired cross-omics translation enables multi-omics
-  integration for Alzheimer's disease prediction. *Briefings in Bioinformatics* 2025;26:bbaf438.
-- Manski CF. *Partial Identification of Probability Distributions*. Springer, 2003.
-- Mao W, Zaslavsky E, Hartmann BM, Sealfon SC, Chikina M. Pathway-level information extractor
-  (PLIER) for gene expression data. *Nature Methods* 2019;16:607-610.
-- Milacic M, Beavers D, Conley P, et al. The Reactome Pathway Knowledgebase 2024. *Nucleic Acids
-  Research* 2024;52:D672-D678.
-- Pachauri D, Kondor R, Singh V. Solving the multi-way matching problem by permutation
-  synchronization. *NeurIPS* 2013:1860-1868.
-- Phipson B, Smyth GK. Permutation p-values should never be zero: calculating exact p-values when
-  permutations are randomly drawn. *Statistical Applications in Genetics and Molecular Biology*
-  2010;9:39.
-- Sturma N, Squires C, Drton M, Uhler C. Unpaired multi-domain causal representation learning.
-  *NeurIPS* 2023.
-- Timilsina S, Shrestha S, Fu X. Identifiable shared component analysis of unpaired multimodal
-  mixtures. *NeurIPS* 2024. arXiv:2409.19422.
-- Verhey TB, et al. mosaicMPI: a framework for mosaic integration of heterogeneous datasets through
-  matrix factorization. *Nucleic Acids Research* 2024;52:e53.
-- Westfall PH, Young SS. *Resampling-Based Multiple Testing*. Wiley, 1993.
-- Whitt W. Bivariate distributions with given marginals. *The Annals of Statistics* 1976;4:1280-1289.
-- Wu D, Lim E, Vaillant F, et al. ROAST: rotation gene set tests for complex microarray experiments.
-  *Bioinformatics* 2010;26:2176-2182.
-- Xi Z, et al. Propensity score alignment of unpaired multimodal data. 2024. arXiv:2404.01595.
-- Yarbro JM, et al. Human and mouse proteomics reveals the shared pathways in Alzheimer's disease
-  and delayed protein turnover in the amyloidome. *Nature Communications* 2025;16:1533.
+Without paired individuals, marginal score distributions do not select one correlation. CHORALE
+optimises correlation over couplings compatible with those marginals, optionally within shared
+design strata. The output is an identified range ([L,U]), not a point estimate.
+
+Bootstrap resampling rebuilds containers, refits ICA, aligns re-estimated factors to the original
+factors, and recomputes endpoints. The resulting endpoint range is called a sensitivity envelope
+until simulation establishes confidence coverage.
+
+## Gates and diagnostics
+
+Production gates concern phenotype estimability, common design support and rank, factor stability,
+factor detectability, permutation support, and assignment ambiguity. Distributional shape checks
+and pure-feature statistics are diagnostics. An earlier unique-latent-state argument required
+non-Gaussian components and different cross-modality distributions. CHORALE no longer makes that
+recovery claim. It estimates factors separately, requires them to be stable and detectable, and
+tests phenotype correspondence conditionally on those fitted factors. A cross-modality shape
+difference therefore neither establishes nor blocks the reported correspondence. The diagnostic
+tables say explicitly that they do not gate matching; no discovery threshold is inferred from them.
+
+## Main limitations
+
+- A correspondence is about factors, not unobserved measurements in the same individual.
+- Strong secondary agreement cannot compensate for absent phenotype evidence.
+- Bounds can remain wide even when a factor correspondence is well supported.
+- Pathway interpretation depends on annotation coverage.
+- Sensitivity envelopes do not yet have claimed confidence coverage.

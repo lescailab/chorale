@@ -23,8 +23,8 @@ sets-by-factors matrix giving each factor's composition in set space.
 \description{
 Regresses the loadings of features that are not markers on the curated set
 indicators, in the manner of PLIER, giving each factor a composition in set
-space. Marker loadings are excluded from the regression, since they carry
-the purity the identification argument rests on.
+space. Marker loadings are excluded so the same features are not used both
+to define the loading-purity diagnostic and to fit the set projection.
 }
 \details{
 This is a projection computed after the factors are fitted, not a

@@ -33,15 +33,13 @@ of the best candidates; and \code{pure_feature_condition}, recording which
 factors reached \code{min_markers}.
 }
 \description{
-A pure feature loads on one factor and negligibly on the others, and is what
-gives a factor a definition independent of the rest of the loading vector.
-At least two per factor per modality are required for the shared latent
-structure to be recoverable.
+A pure feature loads strongly on one factor and weakly on the others. This is
+a loading-concentration diagnostic; CHORALE does not use it as proof that a
+latent factor is uniquely recovered.
 }
 \details{
-Purity is decided first, on the loadings alone, so the identification
-argument holds whatever the biology turns out to be. Where more features
-qualify than are needed, the tie is broken on biology: candidates sharing a
+Purity is calculated first, on the loadings alone. Where more features
+qualify than are retained, the tie is broken on biology: candidates sharing a
 curated set with the other candidates for the same factor are preferred. Any
 qualifying set satisfies the condition equally, so choosing the coherent one
 costs nothing and yields markers that can be read.

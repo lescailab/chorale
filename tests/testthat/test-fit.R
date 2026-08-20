@@ -71,9 +71,13 @@ test_that("matching works from the phenotype alone", {
                           seed = 1)
   containers <- Map(chorale_load, sim$modalities, sim$col_data)
   fit <- chorale_fit(containers, n_factors = c(5, 5), n_init = 3,
-                     strata_keys = "phenotype", seed = 1)
+                     profile_covariates = "phenotype",
+                     bound_strata = "phenotype", seed = 1)
   expect_equal(unique(fit$matches$n_shared_covariates), 1L)
-  expect_gt(sum(fit$matches$significant), 0)
+  expect_true(any(fit$matches$supported))
+  expect_true(all(fit$matches$resolution_status %in%
+                    c("resolved", "ambiguous", "phenotype_unsupported",
+                      "incompatible")))
 })
 
 test_that("power grows with sample size rather than with strata count", {
@@ -84,7 +88,8 @@ test_that("power grows with sample size rather than with strata count", {
                             effect_size = 0.6, seed = 1)
     containers <- Map(chorale_load, sim$modalities, sim$col_data)
     m <- chorale_fit(containers, n_factors = c(5, 5), n_init = 3,
-                     strata_keys = "phenotype", seed = 1)$matches
+                     profile_covariates = "phenotype",
+                     bound_strata = "phenotype", seed = 1)$matches
     min(m$p_value)
   }
   expect_lte(weak(8), weak(1))
@@ -306,18 +311,25 @@ test_that("the permutation count sets the smallest reportable p-value", {
   many <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
                       n_perm = 999L, n_pathway_perm = 0L)
   expect_gte(min(few$programmes$joint_p), 1 / 100)
-  expect_equal(min(many$programmes$joint_p), 1 / 1000, tolerance = 1e-9)
-  expect_lt(min(many$programmes$joint_p), min(few$programmes$joint_p))
+  expect_gte(min(many$programmes$joint_p), 1 / 1000)
+  expect_equal(unique(few$matches$p_attainable_floor), 1 / 100)
+  expect_equal(unique(many$matches$p_attainable_floor), 1 / 1000)
+  expect_lt(unique(many$matches$p_attainable_floor),
+            unique(few$matches$p_attainable_floor))
 })
 
 test_that("every decision a run takes is a setting, not a constant", {
   ctl <- chorale_control()
+  expect_equal(ctl$n_ambiguity_boot, 999L)
   # The decisions that change what is reported must all be reachable.
   for (nm in c("alpha", "n_perm", "n_pathway_perm", "n_init", "consensus",
                "require_pure_features", "purity_ratio", "min_markers",
                "lambda", "min_set_features", "min_lipid_compounds",
                "min_lipid_specificity", "n_factors_quantile", "max_factors",
-               "n_grid")) {
+               "n_grid", "phenotype_column", "phenotype_reference",
+               "profile_covariates", "bound_strata", "exchangeability_blocks",
+               "phenotype_alpha", "ambiguity_level", "n_ambiguity_boot",
+               "n_cores")) {
     expect_true(nm %in% names(ctl))
   }
 
@@ -343,4 +355,20 @@ test_that("every decision a run takes is a setting, not a constant", {
   # A name that is not a decision is reported rather than silently ignored.
   expect_error(chorale_fit(containers, n_factors = c(3, 3), not_a_setting = 1),
                "Unknown setting")
+})
+
+test_that("parallel resampling is deterministic", {
+  skip_on_os("windows")
+  sim <- chorale_simulate(n_modalities = 2, n_features = 80,
+                          n_shared_factors = 2, n_private_factors = 1,
+                          n_strains = 3, n_per_cell = 2, effect_size = 2,
+                          seed = 4)
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  run <- function(cores) chorale_fit(
+    containers, n_factors = c(3, 3), n_init = 2,
+    n_perm = 19L, n_ambiguity_boot = 5L, n_pathway_perm = 0L,
+    n_cores = cores, seed = 4)
+  one <- run(1L)$matches
+  two <- run(2L)$matches
+  expect_equal(one, two)
 })

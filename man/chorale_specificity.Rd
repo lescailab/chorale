@@ -2,7 +2,7 @@
 % Please edit documentation in R/evidence.R
 \name{chorale_specificity}
 \alias{chorale_specificity}
-\title{Whether a programme is specific to the disease phenotype}
+\title{Compare phenotype-led evidence with nuisance-led evidence}
 \usage{
 chorale_specificity(
   fit,
@@ -29,10 +29,10 @@ strongest joint evidence the pipeline reaches with that covariate in the
 phenotype's place, beside the observed value under the true phenotype.
 }
 \description{
-A programme that answers to any strong contrast is not a statement about the
-disease. Each nuisance covariate is put in the phenotype's place and the
+A programme that answers to any strong contrast is not phenotype-specific.
+Each nuisance covariate is put in the phenotype's place and the
 whole procedure rerun, so a programme can be compared against what the same
-pipeline recovers when a covariate that is not the disease drives the
+pipeline recovers when another covariate drives the
 matching. A programme whose evidence under the phenotype is no stronger than
 under a nuisance anchor is reporting cohort structure.
 }
@@ -42,6 +42,7 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 120,
                         n_strains = 4, n_per_cell = 3, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 chorale_specificity(fit, containers, covariates = "sex", n_init = 2)
 }

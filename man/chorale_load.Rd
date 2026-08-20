@@ -40,8 +40,8 @@ without consequence where they do not, so none is required.
 \details{
 Labels are put in one vocabulary as the data are read, through
 \code{\link[=chorale_label_registry]{chorale_label_registry()}}, because cohorts assembled by different groups
-record the same thing differently and nothing downstream can see that \code{WT}
-and \code{Ntg} and \code{control} agree.
+record the same thing differently and nothing downstream can see that
+\code{control} and \code{ctrl} agree.
 
 This is the common container every downstream chorale function expects, one
 call per modality. \code{\link[=chorale_check_design]{chorale_check_design()}} reports what a collection of

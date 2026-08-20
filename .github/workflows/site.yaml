@@ -3,10 +3,11 @@
 # The narrative pages and the function reference are both generated from the
 # package by site/sync.R, from vignettes/*.Rmd and man/*.Rd, so what the site
 # shows and what the package ships cannot diverge.
-# TEMPORARILY DISABLED. This workflow runs only when started by hand from the
-# Actions tab, so no push or pull request consumes runner minutes. To restore
-# automatic running, put back the push and pull_request triggers below.
 on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 
@@ -46,7 +47,8 @@ jobs:
         run: npm run build
         working-directory: site
 
-      - name: Deploy to GitHub pages 🚀
+      - name: Deploy to GitHub pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
         with:
           clean: true

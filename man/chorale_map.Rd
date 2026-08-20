@@ -38,7 +38,9 @@ curated sets through their class rather than through gene identifiers, and
 are handled by \code{\link[=chorale_metabolite_matrix]{chorale_metabolite_matrix()}}.
 }
 \examples{
+\dontshow{if (rlang::is_installed("org.Mm.eg.db")) withAutoprint(\{ # examplesIf}
 chorale_map(c("Bdnf", "Trem2", "not_a_real_gene"), from = "SYMBOL")
 # A human study maps through the human annotation instead.
 # chorale_map(c("BDNF", "TREM2"), from = "SYMBOL", orgdb = "org.Hs.eg.db")
+\dontshow{\}) # examplesIf}
 }

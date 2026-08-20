@@ -2,43 +2,34 @@
 % Please edit documentation in R/evidence.R
 \name{chorale_fdr}
 \alias{chorale_fdr}
-\title{False-discovery control across the levels of the search}
+\title{Selection-adjusted evidence across the levels of the search}
 \usage{
 chorale_fdr(fit, alpha = 0.05, associations = NULL)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object.}
 
-\item{alpha}{The false-discovery rate to control at.}
+\item{alpha}{Family-wise adjusted significance threshold.}
 
-\item{associations}{A precomputed table of factor-covariate associations, as
-\code{chorale_report()} builds internally. It costs a permutation test per
-factor and covariate, so a caller that already holds it passes it rather
-than paying for it again.}
+\item{associations}{Retained for backward compatibility; adjusted factor
+coefficients are descriptive and are not added to this inferential table.}
 }
 \value{
 A data frame with one row per tested object, carrying \code{level}
 (\code{factor}, \code{programme} or \code{pathway}), the object's identifier, its
-\code{p_value}, the \code{q_value} within its level, and whether it is \code{significant}
+\code{p_value}, the compatibility alias \code{q_value}, and whether it is \code{significant}
 at \code{alpha}.
 }
 \description{
-A run tests many things at once: every factor against the design, every
-programme against its joint null, and every programme again on curated
-biology. Reporting the raw p-values of the survivors would control nothing,
-since the survivors were selected. The permutation nulls already account for
-the selection \emph{within} a level, by keeping the best value the procedure could
-reach; what remains is the multiplicity \emph{across} the objects reported at each
-level, which this controls.
+A run tests programmes against their phenotype null and, separately,
+programmes against the pathway null. The max-statistic permutation nulls account for the full
+search by retaining the best value the procedure could reach. Applying a
+second Benjamini--Hochberg correction to those adjusted p-values would count
+the same search twice.
 }
 \details{
-Levels are corrected separately rather than pooled, because they answer
-different questions on different objects and pooling them would penalise a
-programme for the number of factors that happened to be fitted. Within a
-level the Benjamini-Hochberg procedure gives the false discovery rate
-(Benjamini and Hochberg 1995), which is the appropriate target when the aim
-is to rank candidates for follow-up rather than to protect a single
-confirmatory claim.
+The historical function name is retained for compatibility. \code{q_value}
+contains the selection-adjusted p-value unchanged.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 120,
@@ -46,6 +37,7 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 120,
                         n_strains = 4, n_per_cell = 3, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 chorale_fdr(fit)
 }

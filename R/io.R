@@ -1,8 +1,8 @@
 #' The vocabulary the design covariates are read in
 #'
 #' Cohorts assembled by different groups label the same thing differently. One
-#' records untreated subjects as `WT`, another as `control`, a third as
-#' `negative`; one records sex as `male`, another as `M`. Nothing downstream can
+#' records controls as `control`, another as `ctrl`; one records sex as `male`,
+#' another as `M`. Nothing downstream can
 #' see that these agree, so a comparison anchored on the design would find no
 #' level in common and match on nothing.
 #'
@@ -10,7 +10,8 @@
 #' phenotype resolves to `case` and `control`, which is what the estimand is
 #' about whatever the condition under study; sex resolves to `F` and `M`; a
 #' genotype resolves to `carrier` and `non-carrier`, so a design carrying
-#' genotype separately from disease status can anchor on both.
+#' genotype separately from phenotype status can use genotype as secondary
+#' adjusted evidence.
 #'
 #' Names particular to one organism, model or study are deliberately absent. A
 #' study whose labels the registry does not cover supplies its own entry to
@@ -24,39 +25,23 @@
 #' names(chorale_label_registry())
 #' # A study whose labels the registry does not cover extends it.
 #' registry <- chorale_label_registry()
-#' registry$phenotype <- c(registry$phenotype, "apoe4" = "case")
-#' registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
+#' registry$phenotype <- c(registry$phenotype, "group_a" = "case")
+#' registry$treatment <- c("intervention" = "treated", "baseline" = "untreated")
 #' names(registry)
 chorale_label_registry <- function() {
   list(
     phenotype = c(
-      "case" = "case", "cases" = "case", "affected" = "case",
-      "diseased" = "case", "positive" = "case", "pos" = "case",
-      "treated" = "case", "mutant" = "case", "mut" = "case",
-      "transgenic" = "case", "tg" = "case", "1" = "case", "true" = "case",
+      "case" = "case", "cases" = "case",
       "control" = "control", "controls" = "control", "ctrl" = "control",
-      "unaffected" = "control", "healthy" = "control", "normal" = "control",
-      "negative" = "control", "neg" = "control",
-      "untreated" = "control", "vehicle" = "control", "sham" = "control",
-      "wildtype" = "control", "wild-type" = "control", "wild type" = "control",
-      "wt" = "control", "non-transgenic" = "control",
-      "nontransgenic" = "control", "ntg" = "control",
-      "reference" = "control", "ref" = "control", "0" = "control",
-      "false" = "control"
+      "control group" = "control"
     ),
     sex = c(
       "f" = "F", "female" = "F", "females" = "F", "woman" = "F", "women" = "F",
       "m" = "M", "male" = "M", "males" = "M", "man" = "M", "men" = "M"
     ),
     genotype = c(
-      "carrier" = "carrier", "het" = "carrier", "heterozygous" = "carrier",
-      "hom" = "carrier", "homozygous" = "carrier", "mutant" = "carrier",
-      "mut" = "carrier", "variant" = "carrier", "alt" = "carrier",
-      "transgenic" = "carrier", "tg" = "carrier",
-      "non-carrier" = "non-carrier", "noncarrier" = "non-carrier",
-      "wildtype" = "non-carrier", "wild-type" = "non-carrier",
-      "wt" = "non-carrier", "reference" = "non-carrier",
-      "ref" = "non-carrier", "ntg" = "non-carrier"
+      "carrier" = "carrier",
+      "non-carrier" = "non-carrier", "noncarrier" = "non-carrier"
     )
   )
 }
@@ -129,8 +114,8 @@ chorale_required_col_data <- function() {
 #'
 #' Labels are put in one vocabulary as the data are read, through
 #' [chorale_label_registry()], because cohorts assembled by different groups
-#' record the same thing differently and nothing downstream can see that `WT`
-#' and `Ntg` and `control` agree.
+#' record the same thing differently and nothing downstream can see that
+#' `control` and `ctrl` agree.
 #'
 #' This is the common container every downstream chorale function expects, one
 #' call per modality. [chorale_check_design()] reports what a collection of
@@ -193,11 +178,11 @@ chorale_load <- function(assay, col_data, assay_name = "counts",
 
 #' Read a committed test fixture
 #'
-#' Reads one of the fixture matrices under `tests/testthat/fixtures/`,
+#' Reads one of the synthetic fixture matrices shipped with the package,
 #' returning a feature-by-sample numeric matrix with its identifiers
-#' restored. The fixtures are derived from the validated production layers by
-#' `data-raw/fixtures.R`, so they carry real identifiers, real missingness and
-#' real distributions at a size continuous integration can run.
+#' restored. The fixtures are generated deterministically by
+#' `data-raw/fixtures.R`; they contain generic identifiers and controlled
+#' missingness at a size continuous integration can run.
 #'
 #' @param layer Character scalar, one of `"RNA"`, `"PROT"` or `"METAB"`.
 #' @param path Directory holding the fixtures. Defaults to the installed
@@ -219,13 +204,14 @@ chorale_fixture <- function(layer = c("RNA", "PROT", "METAB"), path = NULL) {
     }
   }
 
-  matrix_file <- file.path(path, paste0(layer, "_matrix.parquet"))
+  matrix_file <- file.path(path, paste0(layer, "_matrix.tsv"))
   design_file <- file.path(path, paste0(layer, "_design.tsv"))
   if (!file.exists(matrix_file)) {
     rlang::abort(paste0("Fixture not found: ", matrix_file))
   }
 
-  tbl <- nanoparquet::read_parquet(matrix_file)
+  tbl <- utils::read.delim(matrix_file, check.names = FALSE,
+                           stringsAsFactors = FALSE)
   feature_id <- tbl[["feature_id"]]
   tbl[["feature_id"]] <- NULL
   assay <- as.matrix(tbl)

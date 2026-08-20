@@ -4,7 +4,13 @@
 \alias{chorale_validate}
 \title{Run the estimator across a grid of simulated regimes}
 \usage{
-chorale_validate(grid, n_rep = 3L, profile = NULL, seed = 1L)
+chorale_validate(
+  grid,
+  n_rep = 3L,
+  profile = NULL,
+  n_ambiguity_boot = 999L,
+  seed = 1L
+)
 }
 \arguments{
 \item{grid}{A data frame of regimes. Recognised columns are \code{label},
@@ -26,6 +32,10 @@ profile, so \code{n_strains}, \code{n_per_cell} and \code{imbalance} no longer d
 it, and the difference from the same grid without a profile is what the
 observation model costs.}
 
+\item{n_ambiguity_boot}{Ambiguity-bootstrap replicates passed to each fitted
+simulation. The production default is 999; small validation grids may use
+fewer for speed.}
+
 \item{seed}{Integer seed; replicate \code{r} of regime \code{i} uses \code{seed + 100 * i + r}.}
 }
 \value{
@@ -34,12 +44,12 @@ observation model costs.}
 \description{
 The validation matrix. Each row of \code{grid} is a regime the estimator is run
 on, and the recovery, false-match rate and, where relevant, interval
-coverage are measured against the planted truth. A regime that satisfies the
-identification conditions should recover its shared programmes; one that
-violates them, or that plants distinct programmes sharing a phenotype
-response, is where the estimator's limits are read.
+coverage are measured against the planted truth. Regimes vary factor
+stability, detectability, phenotype information and design overlap; cases
+that plant distinct programmes with the same phenotype response show where
+the estimator must remain ambiguous.
 }
 \examples{
 grid <- data.frame(label = c("clean", "null"), effect_size = c(3, 0))
-chorale_validate(grid, n_rep = 1)
+chorale_validate(grid, n_rep = 1, n_ambiguity_boot = 19)
 }

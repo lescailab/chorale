@@ -18,11 +18,11 @@ A list with \code{assay}, a feature-by-sample numeric matrix, and
 \code{col_data}, the matching per-sample design table.
 }
 \description{
-Reads one of the fixture matrices under \verb{tests/testthat/fixtures/},
+Reads one of the synthetic fixture matrices shipped with the package,
 returning a feature-by-sample numeric matrix with its identifiers
-restored. The fixtures are derived from the validated production layers by
-\code{data-raw/fixtures.R}, so they carry real identifiers, real missingness and
-real distributions at a size continuous integration can run.
+restored. The fixtures are generated deterministically by
+\code{data-raw/fixtures.R}; they contain generic identifiers and controlled
+missingness at a size continuous integration can run.
 }
 \examples{
 \dontshow{if (dir.exists(system.file("fixtures", package = "chorale"))) withAutoprint(\{ # examplesIf}

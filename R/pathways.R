@@ -169,10 +169,9 @@ chorale_metabolite_matrix <- function(feature_ids, sets,
 #' members depart from the factor's loadings as a whole, signed, and scaled by
 #' the set's size so that a large set and a small one are on one footing.
 #'
-#' The two are independent lines of evidence. The factors are fitted without
-#' reference to the sets, so a profile computed here cannot have been produced
-#' by the annotation, and agreement between modalities on this profile is not a
-#' restatement of their agreement on the design.
+#' This is a separate evidence channel, but it is not statistically independent
+#' of design evidence because both channels use the fitted factors. The factors
+#' are fitted without the sets, so annotation is not built into extraction.
 #'
 #' @param loadings A features-by-factors numeric matrix.
 #' @param prior A feature-by-set matrix from [chorale_geneset_matrix()] or
@@ -222,18 +221,17 @@ chorale_pathway_profile <- function(loadings, prior) {
 #' agreement of two factors is the inner product of their profiles, and a
 #' programme's evidence is that agreement averaged over every pair inside it.
 #'
-#' The null is annotation-matched. Feature labels are permuted within each
-#' modality's prior, which leaves every set at its original size and every
-#' feature in its original number of sets while breaking the relation between
-#' the loadings and the annotation. Set size and feature frequency are the two
-#' properties that make an enrichment appear where none exists, so holding both
-#' fixed is what makes the calibration mean something. As in the design
-#' channel, the null keeps the best value any programme could have reached.
+#' The null preserves the assay and its feature correlation. Factor scores are
+#' residualised on the shared design, their residual rows are permuted, and
+#' loadings are recomputed by matrix regression against the unchanged assay.
+#' This breaks factor-to-feature association without pretending that correlated
+#' features are exchangeable labels. The null keeps the best value any
+#' programme could have reached.
 #'
 #' @param fit A `chorale_fit` object.
 #' @param programmes Output of [chorale_programmes()]; taken from `fit` if
 #'   absent.
-#' @param n_perm Number of annotation-matched permutations.
+#' @param n_perm Number of score-residual permutations.
 #' @param alpha Significance threshold.
 #' @param seed Integer seed.
 #'
@@ -255,7 +253,7 @@ chorale_pathway_profile <- function(loadings, prior) {
 #' sets <- list(set_a = span(1, 40), set_b = span(30, 80),
 #'              set_c = span(60, 120))
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-#'                    gene_sets = sets)
+#'                    gene_sets = sets, n_ambiguity_boot = 19)
 #' chorale_pathway_evidence(fit, n_perm = 20)
 chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
                                      alpha = 0.05, seed = 1L) {
@@ -271,10 +269,12 @@ chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
   usable <- vapply(priors, function(p) !is.null(p) && ncol(p) > 0, logical(1))
   if (sum(usable) < 2) return(empty)
 
-  profile_of <- function(prior_by_mod) {
+  observed_loadings <- lapply(fit$modalities, function(m) fit$fits[[m]]$loadings)
+  names(observed_loadings) <- fit$modalities
+  profile_of <- function(loadings_by_mod, prior_by_mod = priors) {
     out <- lapply(fit$modalities, function(m) {
       if (!usable[[m]]) return(NULL)
-      chorale_pathway_profile(fit$fits[[m]]$loadings, prior_by_mod[[m]])
+      chorale_pathway_profile(loadings_by_mod[[m]], prior_by_mod[[m]])
     })
     names(out) <- fit$modalities
     out
@@ -300,23 +300,42 @@ chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
     mean(vals)
   }
 
-  observed_prof <- profile_of(priors)
+  observed_prof <- profile_of(observed_loadings)
   groups <- split(programmes, programmes$programme)
 
   set.seed(seed)
   null <- numeric(n_perm)
   for (b in seq_len(n_perm)) {
-    permuted <- lapply(fit$modalities, function(m) {
-      p <- priors[[m]]
-      if (is.null(p)) return(NULL)
-      # Permuting the feature labels leaves every set at its size and every
-      # feature in its number of sets, and breaks only the correspondence
-      # between a loading and an annotation.
-      rownames(p) <- rownames(p)[sample(nrow(p))]
-      p
+    null_loadings <- lapply(fit$modalities, function(m) {
+      if (!usable[[m]]) return(observed_loadings[[m]])
+      s <- fit$fits[[m]]$scores
+      x <- fit$fits[[m]]$analysis_matrix
+      d <- fit$designs[[m]]
+      d <- d[match(rownames(s), d$sample_id), , drop = FALSE]
+      design_x <- if (!is.null(fit$signature)) {
+        chorale_signature_matrix(d, fit$signature)$x
+      } else {
+        matrix(1, NROW(s), 1L)
+      }
+      ok <- stats::complete.cases(design_x) & stats::complete.cases(s)
+      s_null <- s
+      if (sum(ok) > ncol(design_x)) {
+        reduced <- stats::lm.fit(design_x[ok, , drop = FALSE],
+                                 s[ok, , drop = FALSE])
+        perm <- sample(seq_len(sum(ok)))
+        s_null[ok, ] <- reduced$fitted.values +
+          reduced$residuals[perm, , drop = FALSE]
+      } else {
+        s_null <- s[sample(nrow(s)), , drop = FALSE]
+      }
+      coef <- stats::lm.fit(cbind(1, s_null), x)$coefficients
+      out <- t(coef[-1L, , drop = FALSE])
+      rownames(out) <- colnames(x)
+      colnames(out) <- colnames(s)
+      out
     })
-    names(permuted) <- fit$modalities
-    pp <- profile_of(permuted)
+    names(null_loadings) <- fit$modalities
+    pp <- profile_of(null_loadings)
     vals <- vapply(groups, function(d) {
       v <- agreement(pp, d)
       if (is.finite(v)) v else 0
@@ -375,7 +394,7 @@ chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
 #' sets <- list(set_a = span(1, 40), set_b = span(30, 80),
 #'              set_c = span(60, 120))
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-#'                    gene_sets = sets)
+#'                    gene_sets = sets, n_ambiguity_boot = 19)
 #' pg <- chorale_programmes(fit)
 #' chorale_evidence_label(pg, chorale_pathway_evidence(fit, pg, n_perm = 20))
 chorale_evidence_label <- function(programmes, pathway) {
