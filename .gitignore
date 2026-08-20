@@ -14,3 +14,4 @@ site/shot*.mjs
 site/src/pages/*.md
 site/src/pages/reference/
 .claude
+inst/python/__pycache__/
