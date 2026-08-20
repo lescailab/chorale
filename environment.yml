@@ -1,0 +1,24 @@
+name: chorale_development
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.5
+  - r-devtools
+  - r-clue
+  - r-covr
+  - r-fastica
+  - r-knitr
+  - r-lifecycle
+  - r-msigdbr
+  - r-rcmdcheck
+  - r-rlang
+  - r-rmarkdown
+  - r-testthat
+  - r-withr
+  - bioconductor-annotationdbi
+  - bioconductor-multiassayexperiment
+  - bioconductor-s4vectors
+  - bioconductor-summarizedexperiment
+  - nodejs=22
+  - pandoc

@@ -5,4 +5,5 @@
 ^site$
 ^shot\.mjs$
 ^tools$
+^benchmarks$
 ^\.claude$
