@@ -5,19 +5,14 @@ The documentation published at <https://lescailab.github.io/chorale>, built with
 
 ## Where the content comes from
 
-Nothing on the site is written on the site. Two steps carry it from the sources:
+Nothing on the generated narrative and reference pages is written on the site.
 
 | Step | Source | Becomes | Run by |
 |---|---|---|---|
-| `tools/manual_to_vignettes.R` | `knowledge/MANUAL.md` | `vignettes/{why,how-it-works,outputs,methods}.Rmd` | a person, when the manual changes |
 | `site/sync.R` | `vignettes/*.Rmd`, `man/*.Rd` | the site pages and the function reference | before every build |
 
-The manual is the source of record for the four narrative vignettes, and it holds the full account
-that a methods section is written from. It sits outside the repository, so the vignettes it produces
-are committed and continuous integration builds from those.
-
-`vignettes/tutorial.Rmd` is written by hand and is never generated. It teaches the workflow rather
-than describing the method, and has no counterpart in the manual.
+The repository vignettes are the canonical narrative sources. No build step reads files outside the
+repository.
 
 Files under `site/src/pages/` are generated and are not committed, so editing one has no effect
 beyond the next build. The navigation is read from those pages rather than from a generated list,
@@ -26,7 +21,6 @@ so `npm run build` needs `site/sync.R` to have run but nothing else.
 ## Building
 
 ```bash
-Rscript tools/manual_to_vignettes.R   # only after editing the manual
 Rscript site/sync.R                   # from the package root, needs R
 cd site
 npm install                           # once
@@ -42,7 +36,5 @@ result.
 Mathematics is rendered at build time by KaTeX on the site, and to inline MathML by pandoc in the
 vignettes, so neither runs a script in the reader's browser for it.
 
-Adding a narrative page means adding a part to the manual and a mapping in
-`tools/manual_to_vignettes.R`. Adding a page with no counterpart in the manual, as the tutorial has
-none, means adding a vignette by hand. `site_order` in a vignette's YAML sets where it appears in
+Adding a narrative page means adding a vignette. `site_order` in its YAML sets where it appears in
 the navigation, and `site_wide: true` widens the measure for a page carrying tables or equations.

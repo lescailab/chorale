@@ -1,134 +1,109 @@
 ---
-title: "The outputs and how to read them"
-description: "Every table the pipeline writes, what each column means, and how to interpret it."
+title: "Outputs and how to read them"
+description: "A plain-language guide to every result and its limits."
 site_order: 5
 site_wide: true
 output:
   rmarkdown::html_vignette:
     math_method: mathml
 vignette: >
-  %\VignetteIndexEntry{The outputs and how to read them}
+  %\VignetteIndexEntry{Outputs and how to read them}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
-`chorale_report()` writes the tables below and an HTML report that leads with them. The HTML is the
-document to read first; the tables are the same content for downstream use.
+`chorale_report()` writes an HTML report and machine-readable tables. Read the HTML first. It
+uses the same values as the tables and explains which controls were run.
 
-## programmes.tsv, the primary result
+## The four resolution states
 
-One row per modality that carries a shared biological function, so one seen in three modalities
-occupies three rows. The column grouping those rows is named `programme`, which is the term the
-tables and the function names use for the object.
+Every proposed correspondence has one status.
+
+| Status | Meaning |
+|---|---|
+| `resolved` | Phenotype effects agree reproducibly, and no remaining candidate fits the evidence equally well. |
+| `ambiguous` | Phenotype supports more than one candidate and the other shared covariates do not separate them reliably. |
+| `phenotype_unsupported` | The phenotype signal is not reproducible. Agreement on age, sex, batch, or another covariate cannot change this status. |
+| `incompatible` | The selected factors require phenotype effects that do not fit the same cross-modal relationship. |
+
+Phenotype is mandatory and leads matching. Other covariates only refine matches that phenotype
+already supports.
+
+Four common patterns are:
+
+1. **Phenotype and secondary covariates agree.** The match is `resolved`; secondary evidence
+   confirms it.
+2. **Two candidates fit phenotype equally well.** A shared covariate can select one, but only among
+   those phenotype-compatible candidates.
+3. **Age or batch agrees but phenotype does not.** The result stays `phenotype_unsupported`.
+4. **Phenotype and secondary evidence disagree.** The conflict is reported; secondary evidence
+   cannot overturn phenotype compatibility.
+
+## `programmes.tsv`: the primary result
+
+Rows with the same `programme` are factors assigned together across modalities.
 
 | Column | Meaning |
 |---|---|
-| `programme` | Identifier of the group. Rows sharing it are one biological function seen in different modalities. |
-| `n_modalities`, `modalities` | How far the biological function reaches, and which layers carry it. |
-| `programme_pathway` | The curated set that best describes the members' loadings. |
-| `modality`, `factor` | Which latent axis of which modality this row is. |
-| `markers` | Features loading on this axis and almost nothing else. |
-| `phenotype_effect`, `phenotype_p` | The case-control effect within this modality, in pooled standard deviations, and its permutation p-value. |
-| `joint_statistic`, `joint_p` | The biological function judged as one object, and its p-value against the full-procedure null. |
-| `pathway_statistic`, `pathway_p`, `n_shared_sets` | The biological channel: agreement in curated vocabulary, its p-value against the annotation-matched null, and how much vocabulary the modalities share. |
-| `evidence` | Which channels support the biological function. |
+| `modality`, `factor` | The modality-specific factor. |
+| `joint_statistic`, `joint_p` | Strength and family-wise calibrated p-value of phenotype support. |
+| `resolution_status` | One of the four states above. |
+| `secondary_evidence` | Whether secondary covariates confirmed, selected, conflicted, or were uninformative. |
+| `supported` | Whether phenotype evidence passed the configured threshold. |
 
-**How to read it.** Start with `evidence`. A biological function labelled *design and pathway* is supported by
-two independent lines: the modalities respond to the disease the same way, and they implicate the
-same biology, and the second was not built into the first. A biological function labelled *design only* agrees
-on the experiment but not in curated vocabulary, which happens when the biology is genuinely
-different, when the vocabulary is too coarse, or when `n_shared_sets` is small enough that the
-question could not really be asked. Read `n_shared_sets` before concluding the biology disagreed.
+`joint_p` already accounts for searching across factors and modality subsets by using the maximum
+statistic in each permutation. It is not followed by a second BH correction.
 
-Then read `phenotype_effect` across the rows of one biological function. Signs that agree mean the modalities
-move together. Signs that oppose are kept and reported rather than discarded: transcript and protein
-discordance in Alzheimer's brain is enriched in the plaque microenvironment and reflects
-amyloid-delayed protein turnover (Yarbro et al. 2025), so opposition is a finding rather than a
-failure of matching.
+## `matches.tsv`: why two factors were paired
 
-**One check before believing a small `joint_p`.** A biological function can agree strongly across modalities
-while `phenotype_p` is large in every one of them. The modalities are then agreeing on something
-other than the disease, most often batch or age, and the biological function describes how the cohorts were
-assembled rather than what the disease did. Read the `phenotype_p` column across the rows of a
-biological function before reading its `joint_p`.
+This table contains adjusted phenotype effects, the phenotype contrast, factor orientation,
+candidate set, phenotype margin, secondary contributions, and final status. A negative orientation
+means the signs were aligned before comparison; ICA signs are arbitrary.
 
-## leave_one_out.tsv, what each modality contributed
+The bootstrap phenotype margin describes assignment stability. If its interval reaches zero, an
+alternative cannot be ruled out as an equally good phenotype match. The secondary margin is used
+only among retained candidates.
 
-One row per biological function and dropped modality, for biological functions spanning three or more. `delta` is the
-change in the joint statistic when that modality is removed.
+## `bounds.tsv`: compatible correlations, not a chosen correlation
 
-**How to read it.** A large negative `delta` means the removed modality was carrying the evidence
-and the rest do not stand without it. A `delta` near zero or positive means the biological function rested on
-the modalities that remain, and the removed one was accompanying rather than contributing. A
-biological function is a result of integration only when no single modality can be removed without cost.
+The cohorts do not contain paired individuals, so they do not identify one cross-modal correlation.
+The bounds list all correlations compatible with the observed marginal distributions and the stated
+design conditions.
 
-## pathway_evidence.tsv, the biological channel
+- `[0.35, 0.70]` means the separate cohorts are compatible with any correlation in that range.
+  CHORALE cannot choose one point, but every compatible value is positive.
+- `[-0.95, 0.96]` permits a strong negative, absent, or strong positive relationship. The
+  relationship is therefore undetermined.
 
-One row per biological function. `pathway_statistic` is the agreement of the members' positions in curated
-vocabulary; `pathway_p` calibrates it against a null that permutes which feature is which while
-holding every set at its size and every feature in its number of sets.
+The **bound width** measures uncertainty caused by missing pairing. The **bootstrap sensitivity
+envelope** measures how much endpoints change under resampling. The envelope is not called a
+confidence interval because its coverage has not yet been established by simulation.
 
-**How to read it.** An empty table, or a row with small `n_shared_sets`, means the question could not
-be asked, not that the answer was no. This is the expected state when one modality is a lipidome
-whose classes reach few of the sets the genes occupy.
+Bounds use `resolved` correspondences by default. Set `include_ambiguous = TRUE` to inspect
+ambiguous candidates; they remain labelled and separate.
 
-## bounds.tsv, what the data cannot determine
+## Pathway evidence: a separate channel
 
-One row per pair of members of a shared biological function, since a correlation concerns two
-quantities. One spanning three modalities contributes three rows, all describing the same object.
+Pathway agreement can corroborate a design result, but it is not statistically independent of it:
+both are derived from the same fitted factors. Its null permutes score residuals relative to the
+unchanged assay and recalculates loadings, preserving feature correlation and annotations.
 
-| Column | Meaning |
-|---|---|
-| `lower_no_anchor`, `upper_no_anchor`, `width_no_anchor` | The range of correlations consistent with the two marginals alone. |
-| `lower_anchored`, `upper_anchored`, `width_anchored` | The range once the design is taken into account. |
-| `narrowing` | What conditioning on the design bought. |
-| `n_strata_used` | Design strata both modalities populate. Zero means there was nothing to condition on. |
+An empty pathway table means the channel was unavailable or not run. It does not count as support
+or disagreement.
 
-**How to read it.** These are not confidence intervals and not estimates. They are the set of values
-the data cannot rule out. A width near two means the data say nothing about the coupling; a narrow
-interval away from zero means the design has pinned the relationship. The number to report is the
-interval, never a point inside it.
+## Controls and diagnostics
 
-## controls.tsv, the checks the result had to survive
+- Controls cover phenotype estimability, design overlap and rank, factor stability, detectability,
+  permutation support, and assignment ambiguity.
+- Non-Gaussianity, cross-modality distribution differences, and pure-feature summaries are
+  diagnostics. They describe the fit but do not establish a correspondence by themselves.
 
-One row per control. The phenotype permutation refits the entire pipeline after shuffling the
-case-control label within stratum, and its value is the p-value of the strongest biological function's joint
-evidence. The modality shuffle reassigns samples across modalities many times and gives the
-p-value of the observed evidence against that sampled null; it is defined only where the modalities
-share a feature space. Factor stability is the mean agreement of the recovered factors across
-restarts, matched one to one, so a low value means the recovery is a draw rather than an estimate;
-the objective spread it replaces could not distinguish a stable objective from rotated factors. The
-curated projection rows give the variance the curated sets explain against the variance the fitted
-loadings explain.
+A control that was skipped or could not be computed is named explicitly. Reports remain available
+so failed or missing controls can be inspected, but unsupported results are never described with
+phenotype-specific language.
 
-**How to read it.** A control that cannot be computed is declared, not passed. A large gap between
-the two curated projection numbers means the vocabulary describes the axes loosely, so
-`programme_pathway` should be read as a label rather than a definition.
+## Per-modality detail
 
-## factors.tsv and markers.tsv, the per-modality detail
-
-`factors.tsv` carries every axis recovered, whether or not it entered a biological function. `shared` marks
-those in a supported biological function. `n_markers` counts features clearing the purity threshold and
-`purity_margin` reports how cleanly the best ones separate, so an axis with weak markers is visible
-as such. `status` records why an axis is unresolved; an axis that cannot be named is reported rather
-than dropped, since that is a finding about the curated sets.
-
-`markers.tsv` lists the features themselves, with `clears_purity_threshold` distinguishing a marker
-that meets the condition from the nearest available feature where none does.
-
-## The remaining tables
-
-`associations.tsv` gives each axis against each design covariate within modality, with false
-discovery rate control across all rows. `concordance.tsv` gives the rank correlation of two
-modalities' stratum profiles and counts strata where they disagree in sign.
-`loadings_<modality>.tsv` and `scores_<modality>.tsv` give the fitted matrices. `factors.gmt` gives
-the marker definitions in a form pathway tools read. `chorale_mae.rds` carries the fit as a
-`MultiAssayExperiment`.
-
-## Reading a negative result
-
-A run in which no biological function survives its null reports that, and writes the tables empty. This
-is an outcome, not an error. The assignment step always returns a correspondence between factors,
-because it is an assignment; what it does not do is establish that the correspondence means
-anything. Where the null is not beaten, the per-modality tables remain informative and the
-cross-modality claim does not exist.
+`factors.tsv`, `markers.tsv`, `associations.tsv`, loadings, and scores describe fitted factors
+inside each modality. They remain useful when no cross-modal match is supported. `factors.gmt`
+contains marker sets, and `chorale_mae.rds` stores the complete result.

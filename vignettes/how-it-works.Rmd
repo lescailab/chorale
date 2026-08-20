@@ -1,6 +1,6 @@
 ---
 title: "How the estimator works"
-description: "The six stages of the pipeline in plain terms."
+description: "Phenotype leads matching; other shared covariates refine it."
 site_order: 2
 site_wide: false
 output:
@@ -12,107 +12,60 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-The pipeline runs in six stages. Each is described here in plain terms, with the equations left to
-the mathematics section.
+## 1. Fit each modality separately
 
-## 1. Recovering candidate functions inside each modality
+CHORALE transforms each assay on an appropriate measurement scale and runs independent component
+analysis (ICA) without phenotype or covariates. Covariate weighting therefore cannot change factor
+extraction. Several ICA starts are aligned, and CHORALE keeps the stable run closest to the other
+runs (the medoid). Stability is reported.
 
-Each modality is first put on the scale its measurement model implies. Sequencing counts have
-variance that grows with the mean, so a highly expressed gene would otherwise dominate an axis for
-no biological reason; label-free intensities span orders of magnitude and are read on the log scale.
-The transform is chosen from the matrix and recorded. Batch and study are not removed, because the
-differences between modalities are what identification consumes.
+## 2. Estimate adjusted effects
 
-Each modality is then analysed on its own, using only its own samples. Independent component
-analysis separates the measured features into a small number of latent axes, each a direction along
-which many features move together. An axis is a candidate biological function: a set of
-transcripts, or proteins, or lipids that rise and fall as a unit across the samples in that cohort.
-How many axes a cohort supports is read from the data by parallel analysis, since a count set too
-high manufactures axes that are noise.
+For every factor, one multivariable model includes phenotype and every eligible covariate shared by
+all modalities. This gives the phenotype effect after adjustment for the other included variables.
 
-The method is run from several random starting points. Independent component analysis is not
-convex, so one run is a draw rather than an estimate, and what is kept is the consensus across
-runs: their axes are matched to one another, aligned in sign, and averaged, so a reported axis is
-one the runs agree on. How well they agreed is reported alongside.
+Continuous covariates are standardised. Binary covariates contribute one contrast. A categorical
+covariate with several levels contributes a block of contrasts. Each secondary block has equal total
+weight, so a variable does not become influential merely because it has many levels. Standard errors
+and coefficient covariance matrices are retained, so imprecise effects provide less evidence.
 
-## 2. Naming what an axis describes
+Phenotype must be present in every modality, must have compatible levels, and must include the
+declared reference level (`control` by default). Covariates that are absent, incompatible, too
+incomplete, or not jointly estimable are reported with a reason.
 
-Two things make an axis readable. **Marker features** load on one axis and negligibly on the
-others; they give the axis a definition that does not depend on the rest of the loading vector.
-**Curated sets** describe the axis in the vocabulary of known biology, by regressing its loadings on
-pathway membership.
+## 3. Let phenotype define the candidates
 
-Markers are chosen on the loadings alone, before any curated set is consulted, so the identification
-argument holds whatever the biology turns out to be. Where more features qualify than are needed,
-the tie is broken towards features that share a curated set, which costs nothing and yields markers
-that can be read.
+The primary affinity compares adjusted phenotype effects only. A simultaneous spectral assignment
+uses all modality pairs at once, producing a cycle-consistent proposal.
 
-The curated description is stored beside the fitted loadings, not in place of them. It is computed
-after the axes are fitted and the axis scores are not refitted to it, so it does not reproduce the
-data. The variance the fitted loadings explain and the variance the curated description explains
-are both reported, so a vocabulary too coarse for the data is visible.
+Bootstrap resampling repeats the phenotype comparison. An alternative is removed only when its
+phenotype loss is reproducibly worse than the best loss. Alternatives that cannot be separated on
+phenotype remain in the candidate set.
 
-## 3. Asking what each biological function does to the experiment
+## 4. Let secondary covariates refine, never rescue
 
-No individual appears in two modalities, so biological functions cannot be matched by correlating scores. What
-the cohorts share is the experimental design: each has cases and controls, and usually ages and
-sexes as well.
+Every other eligible shared covariate is compared only inside the phenotype candidate set. These
+covariates can confirm the phenotype assignment or choose among phenotype-equivalent candidates.
+They cannot promote a candidate excluded by phenotype and cannot turn absent phenotype support into
+a resolved result.
 
-Of every axis one question is asked, and it can be answered without leaving its own modality: *how
-much higher is this axis in cases than in controls?* The answer is one number. Age, sex and any
-other covariate the cohorts share add further numbers of the same kind. Together they form the
-axis's **design profile**.
+There is deliberately no numerical parameter such as “60% phenotype”. Priority comes from the
+sequence of decisions, not an arbitrary weighted average.
 
-This is the sense in which the design **anchors** the comparison. It is the common reference frame
-that lets an axis in one modality be set beside an axis in another, doing the job that matched
-individuals would do if they existed.
+## 5. Calibrate the search
 
-## 4. Solving the correspondence across all modalities at once
+A joint phenotype permutation null keeps ICA fixed and repeats matching and modality-subset
+selection. Each permutation records the largest statistic reached anywhere in the search. Reported
+p-values therefore use max-statistic family-wise error control across searched factors and subsets.
 
-Two axes in two modalities are candidates for the same biological function when their design profiles point
-the same way. Every such agreement, for every pair of modalities, enters one matrix. The leading
-directions of that matrix place every axis in a common space, and each modality is then matched
-back against a single frame.
+Pathway analysis is separate evidence. It uses score-residual permutations relative to the fixed
+assay, then recalculates loadings by matrix regression. This preserves feature correlation and
+feature annotations. Design and pathway evidence are related because both use fitted factors; they
+are not described as independent.
 
-Correspondences recovered this way agree around every cycle: if the transcriptome axis matches a
-proteome axis, and that proteome axis matches a lipidome axis, then the transcriptome axis matches
-that lipidome axis and no other. Every pairwise comparison contributes to every position, so
-consistent evidence reinforces across the collection and inconsistent evidence cancels.
+## 6. State what the unpaired design cannot identify
 
-A **shared biological function** is the resulting group: at most one axis per modality, all placed
-at the same position. It is a coordinated response the modalities have in common, which need not
-correspond to a curated pathway. In the output tables and in the function names the object is
-called a programme.
-
-## 5. Judging the biological function, and asking what carries it
-
-A biological function is judged as one object. Its statistic is the agreement of its members' design
-profiles, averaged over every pair inside it. Its null is obtained by shuffling the design among
-samples and running the entire procedure again, assignment included, keeping the best value any
-biological function and any set of modalities could have reached by chance. The p-value therefore accounts
-for the freedom the procedure had, rather than conditioning on the biological function it happened to choose.
-How many modalities a biological function spans is decided against that same null: the widest set whose joint
-evidence survives.
-
-Two further questions are then asked of every surviving biological function.
-
-**Did it need all its modalities?** Each is removed in turn and the biological function rescored without it. A
-biological function whose evidence is unchanged was resting on the modalities that remain; one that collapses
-was carrying something only the combination could see.
-
-**Does the biology agree as well as the design?** Each axis has a position in the curated
-vocabulary, given by which pathways its strongly loading features belong to. Those positions are
-compared, against a null that permutes which feature is which while holding every set at its size
-and every feature in its number of sets. Because the axes were fitted without the curated sets,
-agreement here is independent corroboration rather than a restatement.
-
-## 6. Bounding what the data cannot determine
-
-Knowing that two biological functions behave alike across the design still does not say how they move
-together within one individual, and no amount of data of this kind will, because each individual
-was measured once.
-
-What the data do support is a range. Averages within each design group are observable in every
-modality, so the part of the relationship that runs between groups is fixed by the design; only the
-variation inside a group is free. Bounding the free part gives an interval of correlations the data
-cannot exclude. Reporting it both with and without the design shows what the design bought.
+Matching factors does not reconstruct measurements that would have been observed in the same
+individual. CHORALE reports bounds on compatible cross-modal correlations, not a point estimate.
+Resampling refits each resampled container, aligns re-estimated factors, and reports a sensitivity
+envelope around the bound endpoints.

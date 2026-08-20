@@ -104,7 +104,7 @@ they cannot be subset or reordered out of alignment, and a study whose data alre
 
 `chorale_load()` also maps blank strings and placeholder values to missing. A covariate holding
 `""` beside one real level would otherwise present as a two-level contrast and produce matches that
-compare missing metadata against disease.
+compare missing metadata against phenotype.
 
 ## Step 3. Give every modality one vocabulary
 
@@ -282,9 +282,10 @@ not identified. What the data support is a range. Averages within each design gr
 in every modality, so the part of the relationship running between groups is fixed and only the
 variation inside a group is free.
 
-The median width falls from 1.952 to 1.437. That is what conditioning on the design bought. These
-are not confidence intervals and not estimates: they are the values the data cannot rule out, and
-the interval is what should be reported, never a point inside it.
+The median width falls from 1.952 to 1.437. That is what conditioning on the design bought. For a
+specific pair, `[0.35, 0.70]` would mean every compatible correlation is positive, but the data
+cannot select one point. `[-0.95, 0.96]` would leave the sign and strength undetermined. Bound width
+comes from missing pairing; a bootstrap sensitivity envelope describes resampling variation.
 
 ## Step 9. Run the controls
 
@@ -302,8 +303,9 @@ ctl
 #>     METAB        0.033
 ```
 
-The phenotype permutation refits the whole pipeline after shuffling case and control labels within
-stratum. The modality shuffle needs a shared feature space, which a transcriptome and a lipidome do
+The phenotype permutation keeps the ICA decomposition fixed and repeats phenotype-led assignment
+and subset selection after residual permutation. The modality shuffle needs a shared feature space,
+which a transcriptome and a lipidome do
 not have, so it is declared inapplicable rather than quietly passed. Initialisation stability is the
 spread of the fit objective across restarts.
 
@@ -339,9 +341,9 @@ unique(final[, c("programme", "modalities", "joint_p", "pathway_p",
 
 | Label | Meaning | How much weight it carries |
 |---|---|---|
-| `design and pathway` | The modalities respond to the disease the same way **and** implicate the same biology | Two independent lines. The strongest result the pipeline produces. |
-| `design only` | They agree on the experiment but not in curated vocabulary | Real, but check `n_shared_sets` before deciding the biology disagreed |
-| `pathway only` | They implicate the same biology without a shared design response | Treat as a hypothesis; the design channel did not support it |
+| `design and pathway` | Adjusted phenotype effects agree and pathways corroborate them | Two related evidence channels; both use the fitted factors. |
+| `design only` | Phenotype is supported but the pathway channel is not | Check pathway coverage before interpreting disagreement. |
+| `pathway only` | Pathways agree without phenotype support | A hypothesis only; it cannot become a resolved phenotype match. |
 | `neither` | Neither channel survived | Not reported |
 
 ## Using your own data
@@ -376,7 +378,7 @@ uses. Keep study and batch as nuisance covariates in the design instead.
 |---|---|---|
 | Error naming two modalities that "do not share a phenotype contrast" | A design lacks `phenotype`, or it takes one value after blanks are mapped to missing | Resolve the phenotype for that modality, or drop it |
 | Error that "the modalities share no design term" | Cohorts record a covariate under labels the vocabulary does not cover, so they share no level | Run `chorale_check_design()`, then extend `chorale_label_registry()` and pass it to `chorale_load()` |
-| Matches that contrast missing metadata against disease | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
+| Matches that contrast missing metadata against phenotype | A covariate holds `""` beside one real level | Check the deposited per-sample design, never the study description |
 | `n_shared_sets` is zero | Modalities reach no common curated set; a lipidome was not declared with `feature_space` | Declare it, and check `colSums(fit$fits$M$prior > 0)` |
 | No biological function supported | The evidence did not beat the null | A real outcome. Report it, and read the per-modality tables |
 | Very few factors recovered | Too few samples in that modality | More samples, not more features; reducing feature count does not help |

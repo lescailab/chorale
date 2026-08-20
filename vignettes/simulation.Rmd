@@ -30,18 +30,17 @@ not measurement physics but the six properties of a prepared matrix the estimato
 2. the mean-variance relation across features;
 3. missingness as a function of abundance;
 4. the feature-feature correlation structure, summarised by its eigenspectrum;
-5. the non-Gaussianity the identification argument rests on;
+5. non-Gaussianity relevant to ICA separation;
 6. the design margins, including unpopulated cells and covariates recorded in only one cohort.
 
-A generator that reproduces these six reproduces everything the estimator can respond to. This is
-what lets the package borrow realism from data rather than assert it through a distributional
-choice, and it is why no count model or mass-spectrometry error model appears anywhere below.
+A generator that reproduces these properties provides a useful observation-model stress test. It
+does not prove that all relevant properties of a real assay were captured.
 
 ## Three tiers, and what each establishes
 
 | Tier | What is simulated | What it establishes |
 |---|---|---|
-| Parametric | Non-Gaussian, pairwise-different, non-symmetric sources; Gaussian loadings with planted pure features | The estimator is correct when its own assumptions hold |
+| Parametric | Non-Gaussian sources; Gaussian loadings with planted pure features; known adjusted design responses | Recovery, ambiguity, and false matches when the planted model is known |
 | Borrowed marginals | The same latent structure, read through the marginals, missingness, correlation and design cells of real layers | How recovery changes when the matrix has the shape of the data the method is applied to |
 | Planted pathways | Shared programmes that are curated pathways, in the features that belong to them | Whether the biological channel recovers biology it was not shown |
 
@@ -50,8 +49,7 @@ profile.
 
 ## Tier one: the parametric simulator
 
-`chorale_simulate()` plants latent sources that satisfy the identification conditions by
-construction. Every source is non-Gaussian, no two share a distribution, and each is non-symmetric.
+`chorale_simulate()` plants latent sources and adjusted design responses by construction.
 A shared factor carries a **design signature**, one weight per design contrast, which is the same in
 every modality; its remaining variation is drawn independently per modality, because the samples are
 disjoint. Matching modalities on their design response is therefore what the truth rewards.
@@ -76,7 +74,8 @@ chorale_score_recovery(fit, sim)
 `chorale_score_recovery()` reduces the fit to the quantities a validation cares about: how many
 programmes were supported, how many of them correspond to one planted shared factor, the accuracy of
 the assignments, and the share of planted shared factors recovered as a programme spanning at least
-two modalities.
+two modalities. Under hierarchical matching, a planted factor driven only by a secondary covariate
+is expected to remain phenotype unsupported and is a negative control, not a missed discovery.
 
 `chorale_validate()` runs a grid of regimes and averages those metrics over replicates. Setting
 `effect_size = 0` detaches the shared factors from the design and gives the complete null;
@@ -144,15 +143,9 @@ properties, which is what a claim of realism is bounded to.
 chorale_profile_agreement(chorale_data_profile(sim$modalities[[1]]), profile_rna)
 ```
 
-<div class="note">
-<span class="lab">The factor count is not a detail</span>
-<p>A matrix carrying the correlation structure of real data supports more components than were
-planted. On the reference layers, fixing the count at the number planted recovers 0.30 of the
-planted programmes where taking it from the detectability gate recovers 0.70. Under the parametric
-observation model both settings recover all of them, so that tier cannot see this. Pass
-<code>n_factors = "auto"</code>, or an <code>n_factors</code> column in a
-<code>chorale_validate()</code> grid.</p>
-</div>
+The factor count is part of the validation. Compare a prespecified count with `n_factors = "auto"`
+and report both; do not assume that the planted count is detectable after a realistic observation
+model is applied.
 
 ## Tier three: planting curated pathways
 
@@ -226,27 +219,27 @@ answer.
 - **Channel specificity** (`channel`): whether the pathway channel reaches significance for planted
   programmes and stays quiet elsewhere.
 
-## What the reference runs found
+## What a generic reference run found
 
-Three pathways planted at the production depths of a transcriptome, a proteome and a lipidome.
-Glycerophospholipid metabolism and fatty acid metabolism reached all three layers; pathways in
-cancer reached the first two and not the lipidome, which makes its lipidome entry a control.
+Three synthetic programmes were planted at the production-shaped depths of three generic
+modalities. Programmes alpha and beta reached all three layers; programme gamma reached the first
+two and not modality C, which makes its modality C entry a negative control.
 
-| Programme | RNA | PROT | METAB |
+| Programme | Modality A | Modality B | Modality C |
 |---|---|---|---|
-| Glycerophospholipid metabolism | 0.53 | 0.84 | 0.55 |
-| Fatty acid metabolism | 0.29 | 0.93 | 0.69 |
-| Pathways in cancer | 0.80 | 0.94 | 0.26, not planted |
+| Programme alpha | 0.53 | 0.84 | 0.55 |
+| Programme beta | 0.29 | 0.93 | 0.69 |
+| Programme gamma | 0.80 | 0.94 | 0.26, not planted |
 
-Recovery tracks how many members of a pathway a modality carries. The proteome carried between 33
-and 162 and recovered all three at 0.84 to 0.94. The transcriptome was reduced to its 2,000 most
-variable genes upstream, carried between 5 and 42, and recovered them from 0.29 to 0.80. The
-lipidome reaches a pathway through its classes, at 0.55 and 0.69, and the pathway never planted
+Recovery tracks how many members of a programme a modality carries. Modality B carried between 33
+and 162 and recovered all three at 0.84 to 0.94. Modality A was reduced to its 2,000 most variable
+features upstream, carried between 5 and 42, and recovered them from 0.29 to 0.80. Modality C
+reaches a programme through its feature classes, at 0.55 and 0.69, and the programme never planted
 there sits at 0.26.
 
 Under a genuine null the joint p-value is conservative rather than uniform: across thirty null
-datasets drawn from real profiles, twenty-eight exceeded 0.5 and the false positive rate at the
-nominal five per cent was 0.033.
+synthetic datasets, twenty-eight exceeded 0.5 and the false positive rate at the nominal five per
+cent was 0.033.
 
 ## Conditions of applicability
 

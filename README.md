@@ -12,78 +12,47 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 coverage](https://codecov.io/gh/lescailab/chorale/graph/badge.svg)](https://app.codecov.io/gh/lescailab/chorale)
 <!-- badges: end -->
 
-chorale estimates a shared latent biological state across omics
-modalities measured on **disjoint sets of animals**, where no subject
-contributes to more than one modality, and expresses that state in
-biological terms.
+CHORALE matches factors across omics modalities measured on different
+individuals. It does not invent sample pairs and does not claim to
+reconstruct a unique hidden biological state.
 
-The design takes its starting point from work showing that, in unpaired
-multi-domain linear latent models, a shared latent block can be
-identified from marginal distributions alone where the modality-specific
-components are non-exchangeable and non-Gaussian (Sturma et al., NeurIPS
-2023; Timilsina, Shrestha & Fu, NeurIPS 2024). Identification fails
-where those modality-specific structures are made statistically alike,
-so modality heterogeneity is treated as the identifying resource and
-cross-modality harmonisation is excluded.
+The production rule is hierarchical:
 
-What the package implements is not those papers’ estimator. They match
-recovered component distributions; chorale compares how factors respond
-to the experimental design, and corroborates the result on a curated
-pathway vocabulary. Its error control is therefore empirical,
-established by rerunning the whole procedure under a null, and is not
-inherited from those theorems.
+1.  ICA extracts factors separately in each modality, without phenotype
+    or covariate weights.
+2.  A multivariable model estimates each factor’s adjusted phenotype
+    effect.
+3.  Phenotype defines which cross-modal matches are eligible.
+4.  Every other eligible shared covariate can refine those candidates,
+    with equal weight per covariate block.
+5.  Secondary agreement can never rescue absent or incompatible
+    phenotype evidence.
 
-Three properties hold throughout.
+This gives phenotype genuine priority without an arbitrary numerical
+weight.
 
-**One assignment, not many.** The correspondence between modalities is
-solved once over the whole collection rather than a pair at a time, so a
-programme cannot be assembled by chaining pairwise decisions through a
-single mistaken link.
+## What a result says
 
-**Two channels that can disagree.** Factors are compared on what they do
-to the design and, separately, on which curated pathways they implicate.
-The factors are fitted without ever seeing those pathways, so agreement
-on biology corroborates the design result instead of restating it. A
-lipidome joins that comparison through its classes, in the same
-vocabulary the genes use.
+Each match is classified as `resolved`, `ambiguous`,
+`phenotype_unsupported`, or `incompatible`. The output includes adjusted
+effects, uncertainty, factor orientation, candidate sets, phenotype and
+secondary margins, and reasons why covariates were excluded.
 
-**Every result carries the check that would have caught it.**
-Permutation calibration, annotation-matched nulls, modality shuffle, and
-stability across random initialisations run alongside the estimate, and
-no output is reportable without them.
+Because the cohorts are unpaired, CHORALE reports a range of compatible
+cross-modal correlations. For example, `[0.35, 0.70]` says every
+compatible value is positive but the data cannot select one point.
+`[-0.95, 0.96]` says the relationship remains undetermined. Bootstrap
+output is called a sensitivity envelope until confidence coverage is
+established.
 
 ## Status
 
-Under development. The estimator, the identified sets, the controls and
-the report generator all run end to end on simulated and on retrieved
-data. What remains open is validation rather than implementation: the
-calibration of the whole selection pipeline, the destroy-the-pairing
-benchmark against data whose cross-modality truth is known, and
-replication in an independent cohort. Until those are in place the
-outputs say whether the approach is workable on a given pair of cohorts,
-not what the biology is.
-
-| Function                        | Status      |
-|---------------------------------|-------------|
-| `chorale_load()`                | Implemented |
-| `chorale_map()`                 | Implemented |
-| `chorale_simulate()`            | Implemented |
-| `chorale_python_setup()`        | Implemented |
-| `chorale_fit()`                 | Implemented |
-| `chorale_programmes()`          | Implemented |
-| `chorale_leave_one_out()`       | Implemented |
-| `chorale_pathway_evidence()`    | Implemented |
-| `chorale_metabolite_pathways()` | Implemented |
-| `chorale_bound()`               | Implemented |
-| `chorale_null()`                | Implemented |
-| `chorale_report()`              | Implemented |
-
-## Documentation
-
-Full documentation, including a tutorial that runs end to end on
-simulated data, is published at <https://lescailab.github.io/chorale>.
-The [methods section](https://lescailab.github.io/chorale/methods) gives
-every equation, where it is implemented, and the literature it rests on.
+This branch is a production candidate for external review, not a stable
+or CRAN release. Validation includes planted-signal simulations,
+complete-null calibration, destroyed-pairing recovery, deterministic
+tests, package checks, and site builds. Remaining limitations are
+reported in the [methods
+documentation](https://lescailab.github.io/chorale/methods).
 
 ## Installation
 
@@ -92,76 +61,84 @@ every equation, where it is implemented, and the literature it rests on.
 devtools::install_github("lescailab/chorale")
 ```
 
-Bioconductor dependencies resolve through `BiocManager`. Comparator
-methods listed in `Suggests` are optional: their absence degrades a
-comparison rather than breaking the package.
+For a reproducible development environment:
 
-## Example
+``` bash
+conda env create -f environment.yml
+conda activate chorale_development
+```
 
-Generate disjoint cohorts over a shared feature space with known ground
-truth, then load one modality into the common container:
+The repository-owned environment uses R 4.5 and Node 22 and lists direct
+dependencies without machine-specific build hashes.
+
+## Minimal example
 
 ``` r
 library(chorale)
 
 sim <- chorale_simulate(
   n_modalities = 3,
-  n_features = 200,
-  n_shared_factors = 4,
-  n_strains = 6,
+  n_features = 120,
+  n_shared_factors = 2,
+  n_private_factors = 1,
+  n_strains = 4,
+  n_per_cell = 3,
   seed = 1
 )
 
-# No animal appears in more than one modality.
-length(intersect(sim$col_data[[1]]$sample_id, sim$col_data[[2]]$sample_id))
-#> [1] 0
-
-se <- chorale_load(sim$modalities[[1]], sim$col_data[[1]])
-se
-#> class: SummarizedExperiment 
-#> dim: 200 144 
-#> metadata(0):
-#> assays(1): counts
-#> rownames(200): modality1_feature00001 modality1_feature00002 ...
-#>   modality1_feature00199 modality1_feature00200
-#> rowData names(0):
-#> colnames(144): modality1_sample0001 modality1_sample0002 ...
-#>   modality1_sample0143 modality1_sample0144
-#> colData names(9): sample_id cohort ... region batch
+containers <- Map(chorale_load, sim$modalities, sim$col_data)
+fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3)
+chorale_programmes(fit, significant_only = FALSE)
+#>   programme n_modalities                         modalities   modality   factor
+#> 6        P3            3 modality_1, modality_2, modality_3 modality_1 factor_2
+#> 7        P3            3 modality_1, modality_2, modality_3 modality_2 factor_3
+#> 8        P3            3 modality_1, modality_2, modality_3 modality_3 factor_2
+#> 4        P2            2             modality_1, modality_2 modality_1 factor_1
+#> 5        P2            2             modality_1, modality_2 modality_2 factor_2
+#> 1        P1            3 modality_1, modality_2, modality_3 modality_1 factor_3
+#> 2        P1            3 modality_1, modality_2, modality_3 modality_2 factor_1
+#> 3        P1            3 modality_1, modality_2, modality_3 modality_3 factor_3
+#>   joint_statistic     joint_p supported     resolution_status
+#> 6         10.1191 0.004975124      TRUE             ambiguous
+#> 7         10.1191 0.004975124      TRUE             ambiguous
+#> 8         10.1191 0.004975124      TRUE             ambiguous
+#> 4          6.9126 0.004975124      TRUE             ambiguous
+#> 5          6.9126 0.004975124      TRUE             ambiguous
+#> 1          1.2910 0.736318408     FALSE phenotype_unsupported
+#> 2          1.2910 0.736318408     FALSE phenotype_unsupported
+#> 3          1.2910 0.736318408     FALSE phenotype_unsupported
+#>                               secondary_evidence phenotype_column
+#> 6 selected among phenotype-compatible candidates        phenotype
+#> 7 selected among phenotype-compatible candidates        phenotype
+#> 8 selected among phenotype-compatible candidates        phenotype
+#> 4 selected among phenotype-compatible candidates        phenotype
+#> 5 selected among phenotype-compatible candidates        phenotype
+#> 1 selected among phenotype-compatible candidates        phenotype
+#> 2 selected among phenotype-compatible candidates        phenotype
+#> 3 selected among phenotype-compatible candidates        phenotype
+#>   phenotype_reference pure_features all_pure
+#> 6             control          TRUE     TRUE
+#> 7             control          TRUE     TRUE
+#> 8             control          TRUE     TRUE
+#> 4             control          TRUE     TRUE
+#> 5             control          TRUE     TRUE
+#> 1             control          TRUE     TRUE
+#> 2             control          TRUE     TRUE
+#> 3             control          TRUE     TRUE
 ```
 
-Harmonise feature identifiers to mouse Entrez, keeping one-to-many
-mappings with fractional weight rather than resolving them arbitrarily:
+Use `chorale_control()` to set the phenotype column, reference level,
+exchangeability blocks, support threshold, and ambiguity bootstrap.
+There is no phenotype-weight parameter.
 
-``` r
-chorale_map(c("Bdnf", "Trem2", "App"), from = "SYMBOL")
-#> 
-#> 'select()' returned 1:1 mapping between keys and columns
-#>      id ENTREZID weight
-#> 1  Bdnf    12064      1
-#> 2 Trem2    83433      1
-#> 3   App    11820      1
-```
+## Documentation
 
-## Scope
+The repository vignettes are the canonical source for the [documentation
+site](https://lescailab.github.io/chorale):
 
-The estimand is the conditional law of the latent state given the design
-covariates, together with the modality-specific measurement operators.
-Individual-level cross-modality inference is undefined, because each
-animal is measured in exactly one modality. The joint distribution
-across modalities is not identified nonparametrically, so
-partial-identification bounds on the cross-modality coupling are
-reported alongside any point estimate.
-
-## References
-
-- Sturma N, Squires C, Drton M, Uhler C. Unpaired Multi-Domain Causal
-  Representation Learning. *NeurIPS* 2023.
-- Timilsina S, Shrestha S, Fu X. Identifiable Shared Component Analysis
-  of Unpaired Multimodal Mixtures. *NeurIPS* 2024. arXiv:2409.19422.
-- Mao W, Zaslavsky E, Hartmann BM, Sealfon SC, Chikina M. Pathway-level
-  information extractor (PLIER) for gene expression data. *Nat Methods*
-  16:607-610, 2019.
-- Taroni JN, Grayson PC, Hu Q et al. MultiPLIER: a transfer learning
-  framework for transcriptomics reveals systemic features of rare
-  disease. *Cell Systems* 8(5):380-394, 2019.
+- [How the estimator
+  works](https://lescailab.github.io/chorale/how-it-works)
+- [Outputs and
+  interpretation](https://lescailab.github.io/chorale/outputs)
+- [Statistical methods](https://lescailab.github.io/chorale/methods)
+- [Tutorial](https://lescailab.github.io/chorale/tutorial)

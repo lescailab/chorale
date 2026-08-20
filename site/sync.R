@@ -108,7 +108,10 @@ known <- vapply(topics, function(t) t$name, character(1))
 
 for (t in topics) {
   tmp <- tempfile(fileext = ".html")
-  tools::Rd2HTML(t$rd, out = tmp, package = "chorale")
+  # Supplying a package name makes Rd2HTML look for an installed copy solely
+  # to print its version. The site is generated from this source tree, so an
+  # installed copy is neither needed nor desirable in a clean CI checkout.
+  tools::Rd2HTML(t$rd, out = tmp, package = "")
   x <- readLines(tmp, warn = FALSE)
   i <- grep("<h2", x)[1]
   j <- grep("</main>", x)[1]
