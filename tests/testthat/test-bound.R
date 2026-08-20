@@ -1,4 +1,4 @@
-make_fit <- function(effect_size = 3, seed = 1) {
+make_fit <- function(effect_size = 3, seed = 4) {
   sim <- chorale_simulate(n_modalities = 2, n_features = 120,
                           n_shared_factors = 2, n_private_factors = 1,
                           n_strains = 5, n_per_cell = 3,
@@ -8,11 +8,12 @@ make_fit <- function(effect_size = 3, seed = 1) {
        fit = chorale_fit(containers, n_factors = c(3, 3), n_init = 2, seed = seed))
 }
 
-test_that("bounds are returned for every matched pair", {
+test_that("bounds default to resolved matched pairs", {
   f <- make_fit()
   b <- chorale_bound(f$fit)
   expect_s3_class(b, "chorale_bound")
-  expect_equal(nrow(b$bounds), nrow(f$fit$matches))
+  expected <- sum(f$fit$matches$resolution_status == "resolved")
+  expect_equal(nrow(b$bounds), expected)
   expect_output(print(b), "chorale_bound")
 })
 
@@ -47,7 +48,8 @@ test_that("the unconditional bound is near the full range", {
 test_that("a fit with no matches yields an empty bound table", {
   f <- make_fit(effect_size = 0, seed = 7)
   b <- chorale_bound(f$fit)
-  expect_equal(nrow(b$bounds), nrow(f$fit$matches))
+  expect_equal(nrow(b$bounds),
+               sum(f$fit$matches$resolution_status == "resolved"))
   expect_s3_class(b, "chorale_bound")
 })
 

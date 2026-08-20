@@ -1,25 +1,25 @@
-sample_id	cohort	modality	strain	phenotype	age_months	sex	region	batch	study	age_bin
-anon_sample_0038	cohort_a	RNA	87	5XFAD	15.23333333	female	hippocampus	148	REDACTED_ACCESSION	14mo
-anon_sample_0037	cohort_a	RNA	77	WT	16.93333333	female	hippocampus	147	REDACTED_ACCESSION	14mo
-anon_sample_0039	cohort_a	RNA	B6	WT	6.566666667	female	hippocampus	148	REDACTED_ACCESSION	6mo
-anon_sample_0040	cohort_a	RNA	61	WT	6.266666667	male	hippocampus	147	REDACTED_ACCESSION	6mo
-anon_sample_0042	cohort_a	RNA	D2	WT	17.43333333	male	hippocampus	148	REDACTED_ACCESSION	14mo
-anon_sample_0043	cohort_a	RNA	65	WT	15.16666667	female	hippocampus	148	REDACTED_ACCESSION	14mo
-anon_sample_0041	cohort_a	RNA	60	WT	6.6	female	hippocampus	147	REDACTED_ACCESSION	6mo
-anon_sample_0044	cohort_a	RNA	D2	5XFAD	14.13333333	female	hippocampus	148	REDACTED_ACCESSION	14mo
-anon_sample_0045	cohort_a	RNA	D2	5XFAD	17.26666667	male	hippocampus	148	REDACTED_ACCESSION	14mo
-anon_sample_0046	cohort_a	RNA	D2	5XFAD	6	male	hippocampus	148	REDACTED_ACCESSION	6mo
-anon_sample_0047	cohort_a	RNA	65	WT	6.366666667	male	hippocampus	148	REDACTED_ACCESSION	6mo
-anon_sample_0049	cohort_a	RNA	61	WT	14.4	female	hippocampus	147	REDACTED_ACCESSION	14mo
-anon_sample_0055	cohort_a	RNA	D2	WT	6	male	hippocampus	147	REDACTED_ACCESSION	6mo
-anon_sample_0056	cohort_a	RNA	100	5XFAD	6.233333333	male	hippocampus	147	REDACTED_ACCESSION	6mo
-anon_sample_0057	cohort_a	RNA	77	WT	15.23333333	male	hippocampus	147	REDACTED_ACCESSION	14mo
-anon_sample_0058	cohort_a	RNA	100	WT	14.6	male	hippocampus	147	REDACTED_ACCESSION	14mo
-anon_sample_0059	cohort_a	RNA	66	WT	6.033333333	female	hippocampus	147	REDACTED_ACCESSION	6mo
-anon_sample_0060	cohort_a	RNA	62	5XFAD	6.233333333	female	hippocampus	148	REDACTED_ACCESSION	6mo
-anon_sample_0048	cohort_a	RNA	66	5XFAD	14.4	male	hippocampus	166	REDACTED_ACCESSION	14mo
-anon_sample_0050	cohort_a	RNA	2	5XFAD	6.233333333	female	hippocampus	167	REDACTED_ACCESSION	6mo
-anon_sample_0051	cohort_a	RNA	69	5XFAD	16.86666667	male	hippocampus	167	REDACTED_ACCESSION	14mo
-anon_sample_0052	cohort_a	RNA	51	5XFAD	15.76666667	female	hippocampus	167	REDACTED_ACCESSION	14mo
-anon_sample_0053	cohort_a	RNA	34	5XFAD	6.133333333	female	hippocampus	167	REDACTED_ACCESSION	6mo
-anon_sample_0054	cohort_a	RNA	D2	5XFAD	5.766666667	male	hippocampus	167	REDACTED_ACCESSION	6mo
+sample_id	modality	phenotype	sex	age	batch
+rna_sample_001	RNA	control	F	1	batch_2
+rna_sample_002	RNA	case	F	1	batch_1
+rna_sample_003	RNA	control	M	1	batch_2
+rna_sample_004	RNA	case	M	1	batch_1
+rna_sample_005	RNA	control	F	2	batch_2
+rna_sample_006	RNA	case	F	2	batch_1
+rna_sample_007	RNA	control	M	2	batch_2
+rna_sample_008	RNA	case	M	2	batch_1
+rna_sample_009	RNA	control	F	3	batch_2
+rna_sample_010	RNA	case	F	3	batch_1
+rna_sample_011	RNA	control	M	3	batch_2
+rna_sample_012	RNA	case	M	3	batch_1
+rna_sample_013	RNA	control	F	1	batch_2
+rna_sample_014	RNA	case	F	1	batch_1
+rna_sample_015	RNA	control	M	1	batch_2
+rna_sample_016	RNA	case	M	1	batch_1
+rna_sample_017	RNA	control	F	2	batch_2
+rna_sample_018	RNA	case	F	2	batch_1
+rna_sample_019	RNA	control	M	2	batch_2
+rna_sample_020	RNA	case	M	2	batch_1
+rna_sample_021	RNA	control	F	3	batch_2
+rna_sample_022	RNA	case	F	3	batch_1
+rna_sample_023	RNA	control	M	3	batch_2
+rna_sample_024	RNA	case	M	3	batch_1

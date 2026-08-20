@@ -23,7 +23,8 @@ when \code{refit} is set.}
 
 \item{n_boot}{Number of resamples.}
 
-\item{level}{Coverage of the reported region.}
+\item{level}{Central proportion of bootstrap endpoints retained in the
+sensitivity envelope. This is not asserted to be confidence coverage.}
 
 \item{n_grid}{Quantiles representing each marginal.}
 
@@ -36,7 +37,7 @@ the uncertainty of the factorisation as well as of the marginals.}
 }
 \value{
 A data frame with one row per matched factor pair, carrying the
-plug-in endpoints and the resampled region around them.
+plug-in endpoints and the bootstrap sensitivity envelope around them.
 }
 \description{
 The interval \code{\link[=chorale_bound]{chorale_bound()}} reports is a plug-in estimate: it is the set
@@ -48,7 +49,7 @@ interval and very different confidence in it.
 \details{
 Samples are resampled within design stratum, so the design distribution the
 bounds are conditioned on is preserved, and the interval is recomputed on
-each resample. The reported region runs from the lower percentile of the
+each resample. The reported sensitivity envelope runs from the lower percentile of the
 lower endpoints to the upper percentile of the upper endpoints, which is the
 outer envelope of the identified sets the data support rather than an
 interval for a point.

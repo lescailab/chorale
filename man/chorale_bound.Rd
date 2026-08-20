@@ -4,12 +4,15 @@
 \alias{chorale_bound}
 \title{Bound the cross-modality coupling}
 \usage{
-chorale_bound(fit, n_grid = 200L)
+chorale_bound(fit, n_grid = 200L, include_ambiguous = FALSE)
 }
 \arguments{
 \item{fit}{A \code{chorale_fit} object, as returned by \code{\link[=chorale_fit]{chorale_fit()}}.}
 
 \item{n_grid}{Number of quantiles used to represent each marginal.}
+
+\item{include_ambiguous}{Include correspondences that phenotype-led matching
+did not resolve. The default bounds only resolved correspondences.}
 }
 \value{
 An object of class \code{chorale_bound}, wrapping a data frame with one

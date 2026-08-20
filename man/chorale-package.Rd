@@ -4,9 +4,9 @@
 \name{chorale-package}
 \alias{chorale}
 \alias{chorale-package}
-\title{chorale: Shared Latent State Estimation Across Disjoint Multi-Omics Modalities}
+\title{chorale: Phenotype-Led Factor Matching Across Disjoint Omics Modalities}
 \description{
-Estimates a shared latent biological state across molecular modalities measured on disjoint sample sets, using identification results for unpaired multi-domain linear latent models. Solves the correspondence between modalities jointly rather than pairwise, and corroborates it on a curated pathway vocabulary shared by every modality, lipidomes included. Provides the negative controls that would catch an artefact, including permutation calibration, annotation-matched nulls and initialisation stability diagnostics, and reports partial-identification bounds on the cross-modality coupling.
+Finds phenotype-led, design-concordant factor groupings across molecular modalities measured on disjoint sample sets. Components are extracted independently within each modality and matched jointly so the resulting correspondences are cycle consistent. Shared covariates refine phenotype-compatible alternatives but cannot replace missing phenotype evidence. Reports ambiguity, pathway corroboration, negative controls and partial-identification bounds instead of selecting an unidentified cross-modality coupling.
 }
 \seealso{
 Useful links:

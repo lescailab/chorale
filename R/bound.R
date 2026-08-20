@@ -16,6 +16,8 @@
 #'
 #' @param fit A `chorale_fit` object, as returned by [chorale_fit()].
 #' @param n_grid Number of quantiles used to represent each marginal.
+#' @param include_ambiguous Include correspondences that phenotype-led matching
+#'   did not resolve. The default bounds only resolved correspondences.
 #'
 #' @returns An object of class `chorale_bound`, wrapping a data frame with one
 #'   row per matched factor pair: the Frechet bounds on their correlation
@@ -30,24 +32,29 @@
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
 #' chorale_bound(fit)
-chorale_bound <- function(fit, n_grid = 200L) {
+chorale_bound <- function(fit, n_grid = 200L, include_ambiguous = FALSE) {
   if (!inherits(fit, "chorale_fit")) {
     rlang::abort("`fit` must be a chorale_fit object.")
   }
-  if (nrow(fit$matches) == 0) {
+  matches <- fit$matches
+  if (!include_ambiguous && "resolution_status" %in% names(matches)) {
+    matches <- matches[matches$resolution_status == "resolved", , drop = FALSE]
+  }
+  if (nrow(matches) == 0) {
     return(structure(list(bounds = data.frame()), class = "chorale_bound"))
   }
 
   rows <- list()
-  for (i in seq_len(nrow(fit$matches))) {
-    r <- fit$matches[i, ]
+  strata <- fit$bound_strata %||% fit$strata_keys
+  for (i in seq_len(nrow(matches))) {
+    r <- matches[i, ]
     va <- fit$fits[[r$modality_a]]$scores[, r$factor_a]
     vb <- fit$fits[[r$modality_b]]$scores[, r$factor_b] * r$sign
 
     da <- fit$designs[[r$modality_a]]
     db <- fit$designs[[r$modality_b]]
-    ka <- chorale_stratum_key(names(va), da, fit$strata_keys)
-    kb <- chorale_stratum_key(names(vb), db, fit$strata_keys)
+    ka <- chorale_stratum_key(names(va), da, strata)
+    kb <- chorale_stratum_key(names(vb), db, strata)
     common <- sort(intersect(unique(stats::na.omit(ka)),
                              unique(stats::na.omit(kb))))
     weights <- if (length(common) >= 2) {
@@ -81,6 +88,11 @@ chorale_bound <- function(fit, n_grid = 200L) {
     rows[[i]] <- data.frame(
       modality_a = r$modality_a, modality_b = r$modality_b,
       factor_a = r$factor_a, factor_b = r$factor_b,
+      resolution_status = if ("resolution_status" %in% names(r)) {
+        r$resolution_status
+      } else {
+        "legacy"
+      },
       lower_no_anchor = unconditional$lower,
       upper_no_anchor = unconditional$upper,
       width_no_anchor = unconditional$upper - unconditional$lower,
@@ -309,7 +321,7 @@ print.chorale_bound <- function(x, ...) {
 #'
 #' Samples are resampled within design stratum, so the design distribution the
 #' bounds are conditioned on is preserved, and the interval is recomputed on
-#' each resample. The reported region runs from the lower percentile of the
+#' each resample. The reported sensitivity envelope runs from the lower percentile of the
 #' lower endpoints to the upper percentile of the upper endpoints, which is the
 #' outer envelope of the identified sets the data support rather than an
 #' interval for a point.
@@ -323,7 +335,8 @@ print.chorale_bound <- function(x, ...) {
 #' @param containers The modality containers the fit was built from. Required
 #'   when `refit` is set.
 #' @param n_boot Number of resamples.
-#' @param level Coverage of the reported region.
+#' @param level Central proportion of bootstrap endpoints retained in the
+#'   sensitivity envelope. This is not asserted to be confidence coverage.
 #' @param n_grid Quantiles representing each marginal.
 #' @param refit Refit the estimator on every resample, so the region carries
 #'   the uncertainty of the factorisation as well as of the marginals.
@@ -331,7 +344,7 @@ print.chorale_bound <- function(x, ...) {
 #' @param seed Integer seed.
 #'
 #' @returns A data frame with one row per matched factor pair, carrying the
-#'   plug-in endpoints and the resampled region around them.
+#'   plug-in endpoints and the bootstrap sensitivity envelope around them.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 120,
@@ -362,12 +375,18 @@ chorale_bound_uncertainty <- function(fit, containers = NULL, n_boot = 200L,
   # conditioning the bounds rest on is not itself resampled away.
   strata_of <- function(m) {
     s <- fit$fits[[m]]$scores
-    chorale_stratum_key(rownames(s), fit$designs[[m]], fit$strata_keys)
+    chorale_stratum_key(rownames(s), fit$designs[[m]],
+                        fit$bound_strata %||% fit$strata_keys)
   }
 
   set.seed(seed)
   for (b in seq_len(n_boot)) {
     boot <- fit
+    resampled_containers <- if (refit) {
+      stats::setNames(vector("list", length(fit$modalities)), fit$modalities)
+    } else {
+      NULL
+    }
     ok <- TRUE
     for (m in fit$modalities) {
       s <- fit$fits[[m]]$scores
@@ -389,13 +408,38 @@ chorale_bound_uncertainty <- function(fit, containers = NULL, n_boot = 200L,
       rownames(resampled) <- d$sample_id <- new_id
       boot$fits[[m]]$scores <- resampled
       boot$designs[[m]] <- d
+      if (refit) {
+        se <- containers[[m]]
+        at <- match(rownames(s)[idx], colnames(se))
+        if (anyNA(at)) {
+          ok <- FALSE
+          break
+        }
+        se <- se[, at, drop = FALSE]
+        colnames(se) <- new_id
+        cd <- as.data.frame(SummarizedExperiment::colData(se))
+        cd$sample_id <- new_id
+        SummarizedExperiment::colData(se) <- S4Vectors::DataFrame(cd)
+        resampled_containers[[m]] <- se
+      }
     }
     if (!ok) next
     if (refit) {
-      rf <- try(chorale_fit(containers, n_factors = fit$n_factors,
-                            n_init = n_init, strata_keys = fit$strata_keys,
+      rf <- try(chorale_fit(resampled_containers, n_factors = fit$n_factors,
+                            n_init = n_init,
+                            profile_covariates = fit$profile_covariates,
+                            bound_strata = fit$bound_strata,
+                            phenotype_column = fit$phenotype_column,
+                            phenotype_reference = fit$phenotype_reference,
+                            n_perm = 19L, n_ambiguity_boot = 0L,
                             n_pathway_perm = 0L, seed = seed + b), silent = TRUE)
       if (inherits(rf, "try-error")) next
+      rf <- chorale_align_refit_factors(rf, fit)
+      # Bounds quantify the uncertainty of the correspondence selected in the
+      # original fit. Re-running selection inside each bootstrap would mix
+      # assignment uncertainty into endpoint sensitivity and often change the
+      # target. After alignment, reuse the original labelled correspondence.
+      rf$matches <- fit$matches
       boot <- rf
     }
     bb <- try(chorale_bound(boot, n_grid = n_grid)$bounds, silent = TRUE)
@@ -419,7 +463,35 @@ chorale_bound_uncertainty <- function(fit, containers = NULL, n_boot = 200L,
     region_upper = round(pmin(1, region_upper), 4),
     region_width = round(pmin(1, region_upper) - pmax(-1, region_lower), 4),
     n_resamples = as.integer(n_used),
-    coverage = level,
+    sensitivity_level = level,
     stringsAsFactors = FALSE
   )
+}
+
+#' Align refitted factor names to the original loading directions
+#' @keywords internal
+#' @noRd
+chorale_align_refit_factors <- function(refit, original) {
+  for (m in intersect(refit$modalities, original$modalities)) {
+    a <- original$fits[[m]]$loadings
+    b <- refit$fits[[m]]$loadings
+    shared <- intersect(rownames(a), rownames(b))
+    if (length(shared) < 3L || ncol(a) != ncol(b)) next
+    agreement <- abs(suppressWarnings(stats::cor(a[shared, , drop = FALSE],
+                                                  b[shared, , drop = FALSE])))
+    agreement[!is.finite(agreement)] <- 0
+    assignment <- as.integer(clue::solve_LSAP(agreement, maximum = TRUE))
+    old <- colnames(b)
+    new <- colnames(a)[match(seq_len(ncol(b)), assignment)]
+    new[is.na(new)] <- old[is.na(new)]
+    colnames(refit$fits[[m]]$scores) <- new
+    colnames(refit$fits[[m]]$loadings) <- new
+    if (nrow(refit$matches)) {
+      at_a <- refit$matches$modality_a == m
+      at_b <- refit$matches$modality_b == m
+      refit$matches$factor_a[at_a] <- new[match(refit$matches$factor_a[at_a], old)]
+      refit$matches$factor_b[at_b] <- new[match(refit$matches$factor_b[at_b], old)]
+    }
+  }
+  refit
 }

@@ -91,9 +91,11 @@ chorale_destroy_pairing <- function(paired_a, paired_b, design,
   )
   paired_bound <- mean(truth$agreement, na.rm = TRUE)
 
-  # What the estimator recovered, knowing nothing of the pairing.
+  # What the phenotype-led estimator supported, knowing nothing of the pairing.
   m <- fit$matches
   recovered <- if (is.data.frame(m) && nrow(m) > 0) {
+    eligible <- m$supported & m$resolution_status %in% c("resolved", "ambiguous")
+    m <- m[eligible, , drop = FALSE]
     data.frame(factor_a = m$factor_a, factor_b = m$factor_b,
                significant = m$significant, stringsAsFactors = FALSE)
   } else {

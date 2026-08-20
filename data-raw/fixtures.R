@@ -1,81 +1,62 @@
-## Derive the committed test fixtures from <project root>/test_data/.
+## Generate privacy-safe, reproducible package fixtures.
 ##
-## The fixtures are the smallest subset of the validated production layers
-## that exercises every code path: three modalities on disjoint samples, a
-## populated anchoring stratum in each layer that resolves covariates, real
-## identifiers, and the real missingness pattern of the proteome.
-##
-## Run from the package root after `analysis/build_test_data.py` has written
-## <project root>/test_data/. The output is committed, so continuous
-## integration never reads outside the repository.
-##
+## Run from the package root:
 ##   Rscript data-raw/fixtures.R
 
-test_data_dir <- normalizePath(file.path("..", "test_data"), mustWork = TRUE)
-fixture_dir <- file.path("tests", "testthat", "fixtures")
-dir.create(fixture_dir, recursive = TRUE, showWarnings = FALSE)
+set.seed(1042)
 
-set.seed(1)
+layers <- c("RNA", "PROT", "METAB")
+destinations <- c(file.path("tests", "testthat", "fixtures"),
+                  file.path("inst", "fixtures"))
+invisible(lapply(destinations, dir.create, recursive = TRUE,
+                 showWarnings = FALSE))
 
-n_features <- c(RNA = 150L, PROT = 150L, METAB = 150L)
-n_per_stratum <- 3L
-stratum_keys <- c("phenotype", "age_bin", "sex")
+for (layer_index in seq_along(layers)) {
+  layer <- layers[layer_index]
+  cells <- expand.grid(
+    phenotype = c("control", "case"),
+    sex = c("F", "M"),
+    age = c(1, 2, 3),
+    replicate = seq_len(2),
+    KEEP.OUT.ATTRS = FALSE,
+    stringsAsFactors = FALSE)
+  n <- nrow(cells)
+  sample_id <- sprintf("%s_sample_%03d", tolower(layer), seq_len(n))
+  design <- data.frame(
+    sample_id = sample_id,
+    modality = layer,
+    phenotype = cells$phenotype,
+    sex = cells$sex,
+    age = cells$age,
+    batch = paste0("batch_", 1L + (seq_len(n) %% 2L)),
+    stringsAsFactors = FALSE)
 
-for (layer in c("RNA", "PROT", "METAB")) {
-  mat <- nanoparquet::read_parquet(
-    file.path(test_data_dir, paste0(layer, "_matrix.parquet"))
-  )
-  design <- utils::read.delim(
-    file.path(test_data_dir, paste0(layer, "_design.tsv")),
-    stringsAsFactors = FALSE
-  )
-
-  feature_id <- as.character(mat[["feature_id"]])
-  mat[["feature_id"]] <- NULL
-
-  # Sample selection: up to n_per_stratum per anchoring stratum, so every
-  # stratum retained is still able to support stratified permutation. Layers
-  # whose covariates do not resolve contribute a plain random subset and
-  # participate in marginal matching only.
-  resolvable <- stats::complete.cases(design[, stratum_keys, drop = FALSE])
-  if (any(resolvable)) {
-    d <- design[resolvable, , drop = FALSE]
-    key <- interaction(d[, stratum_keys], drop = TRUE)
-    picked <- unlist(lapply(split(seq_len(nrow(d)), key), function(idx) {
-      utils::head(sample(idx), n_per_stratum)
-    }), use.names = FALSE)
-    keep_ids <- d$sample_id[sort(picked)]
-  } else {
-    keep_ids <- sort(sample(design$sample_id, min(24L, nrow(design))))
+  phenotype <- ifelse(design$phenotype == "case", 1, -1)
+  sex <- ifelse(design$sex == "M", 1, -1)
+  age <- as.numeric(scale(design$age))
+  scores <- cbind(
+    phenotype + stats::rnorm(n, sd = 0.25),
+    0.7 * phenotype + 0.8 * age + stats::rnorm(n, sd = 0.3),
+    sex + stats::rnorm(n, sd = 0.35))
+  loadings <- matrix(stats::rt(90 * 3, df = 5), nrow = 90)
+  assay <- loadings %*% t(scores) + matrix(stats::rnorm(90 * n, sd = 0.7), 90)
+  if (layer == "PROT") {
+    assay[sample(length(assay), floor(0.03 * length(assay)))] <- NA
   }
+  rownames(assay) <- sprintf("%s_feature_%04d", tolower(layer),
+                             seq_len(nrow(assay)))
+  colnames(assay) <- sample_id
 
-  keep_ids <- intersect(keep_ids, colnames(mat))
-  sub <- mat[, keep_ids, drop = FALSE]
-
-  # Feature selection: most variable by median absolute deviation, computed
-  # on the retained samples so the fixture is internally consistent.
-  m <- as.matrix(sub)
-  mad_stat <- apply(m, 1, function(r) stats::median(abs(r - stats::median(r, na.rm = TRUE)), na.rm = TRUE))
-  ord <- order(mad_stat, decreasing = TRUE)
-  take <- utils::head(ord, min(n_features[[layer]], nrow(m)))
-  m <- m[sort(take), , drop = FALSE]
-  keep_feature <- feature_id[sort(take)]
-
-  out <- as.data.frame(m, check.names = FALSE)
-  out <- cbind(feature_id = keep_feature, out)
-
-  nanoparquet::write_parquet(
-    out, file.path(fixture_dir, paste0(layer, "_matrix.parquet"))
-  )
-  utils::write.table(
-    design[design$sample_id %in% keep_ids, , drop = FALSE],
-    file.path(fixture_dir, paste0(layer, "_design.tsv")),
-    sep = "\t", row.names = FALSE, quote = FALSE
-  )
-
-  message(sprintf(
-    "%-6s %4d features x %3d samples", layer, nrow(m), ncol(m)
-  ))
+  stored <- data.frame(feature_id = rownames(assay), assay,
+                       check.names = FALSE)
+  for (destination in destinations) {
+    utils::write.table(
+      stored, file.path(destination, paste0(layer, "_matrix.tsv")),
+      sep = "\t", row.names = FALSE, quote = FALSE, na = "NA")
+    utils::write.table(
+      design, file.path(destination, paste0(layer, "_design.tsv")),
+      sep = "\t", row.names = FALSE, quote = FALSE)
+  }
 }
 
-message("fixtures written to ", fixture_dir)
+message("Synthetic fixtures written to tests/testthat/fixtures and inst/fixtures")

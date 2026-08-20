@@ -4,7 +4,13 @@
 \alias{chorale_geneset_matrix}
 \title{Represent gene sets as a feature-by-set indicator matrix}
 \usage{
-chorale_geneset_matrix(feature_ids, sets, weights = NULL, min_features = 5L)
+chorale_geneset_matrix(
+  feature_ids,
+  sets,
+  weights = NULL,
+  mapping = NULL,
+  min_features = 5L
+)
 }
 \arguments{
 \item{feature_ids}{Character vector of Entrez identifiers, one per feature,
@@ -14,6 +20,10 @@ in the row order of the modality's assay.}
 
 \item{weights}{Optional numeric vector, one per feature, giving the
 fractional weight from \code{\link[=chorale_map]{chorale_map()}}. Defaults to 1 for every feature.}
+
+\item{mapping}{Optional data frame from \code{\link[=chorale_map]{chorale_map()}}. When supplied,
+\code{feature_ids} are the original assay identifiers and every mapped target is
+aggregated with its fractional weight. This preserves one-to-many maps.}
 
 \item{min_features}{Drop sets matching fewer than this many features of the
 modality, since a set that barely intersects the measured features cannot

@@ -40,21 +40,20 @@ An object of class \code{chorale_gates}: a list of one data frame per
 condition, plus \code{n_factors}, the component count each modality supports.
 }
 \description{
-The estimator recovers a shared state from modalities measured on different
-animals, and it can only do so where four conditions hold. This function
-evaluates them on a collection before it is fitted, so a collection that
-cannot support the estimand is refused rather than fitted and read.
+This function reports whether phenotype and shared-design effects can be
+estimated, whether the design overlaps and has full rank, how many factors
+are detectable, and how stable ICA is. Distributional summaries are retained
+as diagnostics rather than treated as proof of cross-modal recovery.
 }
 \details{
 \describe{
-\item{non-Gaussianity}{Are a modality's recovered components further from
+\item{non-Gaussianity diagnostic}{Are a modality's recovered components further from
 normal than components recovered the same way from data Gaussian by
 construction? Independent component analysis maximises non-Gaussianity,
 so the question is only meaningful against that calibration.}
-\item{modality difference}{Do the component distributions of two
-modalities differ from one another? Identification rests on the
-modalities not being copies of one another in distribution, so agreement
-here is a failure.}
+\item{modality-difference diagnostic}{How different are the component
+distributions across modalities? This is descriptive and does not gate
+matching.}
 \item{detectability}{How many components stand above what the same matrix
 produces with its covariance destroyed, and above the spiked-covariance
 threshold implied by its shape?}
@@ -64,11 +63,9 @@ for matched individuals: no animal appears in two modalities, so the
 comparison is anchored on the strata the modalities have in common.}
 }
 
-The two distributional conditions are evaluated in Python, which supplies
-the Anderson-Darling and Kolmogorov-Smirnov machinery, but the components
-they are evaluated on are recovered by this package's own estimator, passed
-across as a callback. The estimator deciding whether the conditions hold is
-therefore the estimator that will consume them.
+Distributional diagnostics are evaluated in R on components recovered by
+the same estimator used by \code{\link[=chorale_fit]{chorale_fit()}}. They provide context about ICA
+behaviour; they are not treated as recovery guarantees for matching.
 }
 \examples{
 \dontrun{

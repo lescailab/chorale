@@ -1,19 +1,18 @@
 #' Whether a collection meets the conditions the method rests on
 #'
-#' The estimator recovers a shared state from modalities measured on different
-#' animals, and it can only do so where four conditions hold. This function
-#' evaluates them on a collection before it is fitted, so a collection that
-#' cannot support the estimand is refused rather than fitted and read.
+#' This function reports whether phenotype and shared-design effects can be
+#' estimated, whether the design overlaps and has full rank, how many factors
+#' are detectable, and how stable ICA is. Distributional summaries are retained
+#' as diagnostics rather than treated as proof of cross-modal recovery.
 #'
 #' \describe{
-#'   \item{non-Gaussianity}{Are a modality's recovered components further from
+#'   \item{non-Gaussianity diagnostic}{Are a modality's recovered components further from
 #'     normal than components recovered the same way from data Gaussian by
 #'     construction? Independent component analysis maximises non-Gaussianity,
 #'     so the question is only meaningful against that calibration.}
-#'   \item{modality difference}{Do the component distributions of two
-#'     modalities differ from one another? Identification rests on the
-#'     modalities not being copies of one another in distribution, so agreement
-#'     here is a failure.}
+#'   \item{modality-difference diagnostic}{How different are the component
+#'     distributions across modalities? This is descriptive and does not gate
+#'     matching.}
 #'   \item{detectability}{How many components stand above what the same matrix
 #'     produces with its covariance destroyed, and above the spiked-covariance
 #'     threshold implied by its shape?}
@@ -23,11 +22,9 @@
 #'     comparison is anchored on the strata the modalities have in common.}
 #' }
 #'
-#' The two distributional conditions are evaluated in Python, which supplies
-#' the Anderson-Darling and Kolmogorov-Smirnov machinery, but the components
-#' they are evaluated on are recovered by this package's own estimator, passed
-#' across as a callback. The estimator deciding whether the conditions hold is
-#' therefore the estimator that will consume them.
+#' Distributional diagnostics are evaluated in R on components recovered by
+#' the same estimator used by [chorale_fit()]. They provide context about ICA
+#' behaviour; they are not treated as recovery guarantees for matching.
 #'
 #' @param containers A named list of `SummarizedExperiment` objects, as
 #'   [chorale_load()] returns, or of feature-by-sample matrices.
@@ -94,33 +91,143 @@ chorale_gates <- function(containers, designs = NULL,
   }
 
   ica_fn <- chorale_gate_ica(n_init = control$n_init, consensus = control$consensus)
-  py <- chorale_gates_python()
-
   ng <- lapply(names(xs), function(m) {
-    py$gate_nongaussianity(xs[[m]], as.integer(n_factors[[m]]), m, ica_fn,
-                           seed = as.integer(seed),
-                           n_surrogate = as.integer(n_surrogate),
-                           alpha = control$alpha)
+    chorale_gate_nongaussianity(
+      xs[[m]], as.integer(n_factors[[m]]), m, ica_fn,
+      seed = as.integer(seed), n_surrogate = as.integer(n_surrogate),
+      alpha = control$alpha)
   })
   names(ng) <- names(xs)
 
-  sources <- lapply(names(xs), function(m) {
-    ica_fn(xs[[m]], as.integer(n_factors[[m]]), as.integer(seed))
+  gate_fits <- lapply(names(xs), function(m) {
+    chorale_ica(xs[[m]], as.integer(n_factors[[m]]),
+                n_init = control$n_init, seed = as.integer(seed),
+                consensus = control$consensus)
   })
+  names(gate_fits) <- names(xs)
+  sources <- lapply(gate_fits, function(x) unname(as.matrix(x$scores)))
   names(sources) <- names(xs)
-  difference <- py$gate_modality_difference(sources, alpha = control$alpha)
+  difference <- chorale_gate_modality_difference(sources, alpha = control$alpha)
+
+  design_estimability <- chorale_gate_design(designs, control)
+  factor_stability <- do.call(rbind, lapply(names(gate_fits), function(m) {
+    s <- gate_fits[[m]]$stability
+    data.frame(
+      modality = m,
+      selected_initialisation = gate_fits[[m]]$selected_init,
+      mean_subspace_agreement = mean(s$subspace, na.rm = TRUE),
+      minimum_subspace_agreement = min(s$subspace, na.rm = TRUE),
+      n_failed = sum(!is.finite(s$objective)),
+      stringsAsFactors = FALSE)
+  }))
 
   out <- list(
-    non_gaussianity = chorale_records_to_df(lapply(ng, function(r) r[[1]])),
-    non_gaussianity_components = chorale_records_to_df(
-      unlist(lapply(ng, function(r) r[[2]]), recursive = FALSE)),
-    modality_difference = chorale_records_to_df(difference),
+    non_gaussianity = do.call(rbind, lapply(ng, `[[`, 1L)),
+    non_gaussianity_components = do.call(rbind, lapply(ng, `[[`, 2L)),
+    modality_difference = difference,
+    design_estimability = design_estimability,
+    factor_stability = factor_stability,
     detectability = detect,
     anchor_richness = chorale_gate_anchors(designs),
     n_factors = n_factors
   )
   class(out) <- "chorale_gates"
   out
+}
+
+#' Phenotype estimability and joint design rank
+#' @keywords internal
+#' @noRd
+chorale_gate_design <- function(designs, control = chorale_control()) {
+  designs <- lapply(designs, as.data.frame)
+  spec <- try(chorale_resolve_signature(
+    designs, phenotype_column = control$phenotype_column,
+    phenotype_reference = control$phenotype_reference,
+    profile_covariates = control$profile_covariates), silent = TRUE)
+  if (inherits(spec, "try-error")) {
+    return(data.frame(modality = names(designs), phenotype_estimable = FALSE,
+                      full_rank = FALSE, n_complete = NA_integer_,
+                      reason = as.character(spec), stringsAsFactors = FALSE))
+  }
+  do.call(rbind, lapply(names(designs), function(m) {
+    x <- chorale_signature_matrix(designs[[m]], spec)$x
+    ok <- stats::complete.cases(x)
+    data.frame(
+      modality = m,
+      phenotype_estimable = spec$phenotype %in% spec$covariates,
+      full_rank = sum(ok) > ncol(x) && qr(x[ok, , drop = FALSE])$rank == ncol(x),
+      n_complete = sum(ok), reason = "", stringsAsFactors = FALSE)
+  }))
+}
+
+#' Anderson--Darling statistic against a fitted normal distribution
+#' @keywords internal
+#' @noRd
+chorale_ad_normal <- function(x) {
+  x <- sort(as.numeric(x[is.finite(x)]))
+  n <- length(x)
+  if (n < 5L || stats::sd(x) == 0) return(NA_real_)
+  z <- (x - mean(x)) / stats::sd(x)
+  p <- pmin(1 - 1e-12, pmax(1e-12, stats::pnorm(z)))
+  i <- seq_len(n)
+  -n - mean((2 * i - 1) * (log(p) + log(1 - rev(p))))
+}
+
+#' R-native non-Gaussianity diagnostic calibrated by Gaussian surrogates
+#' @keywords internal
+#' @noRd
+chorale_gate_nongaussianity <- function(x, k, modality, estimator,
+                                        seed = 1L, n_surrogate = 100L,
+                                        alpha = 0.05) {
+  observed <- estimator(x, k, seed)
+  obs <- apply(observed, 2, chorale_ad_normal)
+  set.seed(seed)
+  surrogate <- numeric(n_surrogate)
+  for (b in seq_len(n_surrogate)) {
+    # Preserve location, scale and matrix dimensions while removing
+    # non-Gaussian marginal structure.
+    gx <- matrix(stats::rnorm(length(x)), nrow = nrow(x), ncol = ncol(x))
+    gs <- estimator(scale(gx), k, seed + b)
+    surrogate[b] <- stats::median(apply(gs, 2, chorale_ad_normal), na.rm = TRUE)
+  }
+  value <- stats::median(obs, na.rm = TRUE)
+  p <- (1 + sum(surrogate >= value)) / (1 + n_surrogate)
+  summary <- data.frame(
+    modality = modality, median_A2_observed = value,
+    median_A2_surrogate = stats::median(surrogate, na.rm = TRUE),
+    p_value = p, verdict = if (p < alpha) "pass" else "fail",
+    role = "diagnostic", stringsAsFactors = FALSE)
+  detail <- data.frame(modality = modality, component = seq_along(obs),
+                       A2 = obs, stringsAsFactors = FALSE)
+  list(summary, detail)
+}
+
+#' R-native cross-modality distribution diagnostic
+#' @keywords internal
+#' @noRd
+chorale_gate_modality_difference <- function(sources, alpha = 0.05) {
+  mods <- names(sources)
+  rows <- list()
+  for (i in seq_along(mods)) for (j in seq_along(mods)) {
+    if (j <= i) next
+    a <- as.numeric(scale(sources[[i]]))
+    b <- as.numeric(scale(sources[[j]]))
+    ks <- suppressWarnings(stats::ks.test(a, b, exact = FALSE))
+    component_p <- numeric()
+    for (ca in seq_len(ncol(sources[[i]]))) {
+      for (cb in seq_len(ncol(sources[[j]]))) {
+        component_p <- c(component_p, suppressWarnings(stats::ks.test(
+          sources[[i]][, ca], sources[[j]][, cb], exact = FALSE)$p.value))
+      }
+    }
+    rows[[length(rows) + 1L]] <- data.frame(
+      pair = paste(mods[i], mods[j], sep = " vs "),
+      pooled_KS_D = unname(ks$statistic), pooled_KS_p = ks$p.value,
+      pct_pairs_indistinguishable = mean(component_p >= alpha) * 100,
+      verdict = if (ks$p.value < alpha) "different" else "similar",
+      role = "diagnostic", stringsAsFactors = FALSE)
+  }
+  if (length(rows)) do.call(rbind, rows) else data.frame()
 }
 
 
@@ -229,8 +336,7 @@ chorale_gate_anchors <- function(designs) {
 
 #' Turn the gate module's records into a data frame
 #'
-#' The Python side returns lists of named scalars rather than a data frame, so
-#' every value arrives as something R can compare. A record missing a field is
+#' Gate implementations return named R records. A record missing a field is
 #' filled rather than dropped, so one modality cannot silently shorten a table.
 #' @keywords internal
 #' @noRd
@@ -255,32 +361,23 @@ chorale_records_to_df <- function(records) {
 }
 
 
-#' Load the gate module into the bound Python session
-#' @keywords internal
-#' @noRd
-chorale_gates_python <- function() {
-  rlang::check_installed("reticulate")
-  path <- system.file("python", package = "chorale")
-  if (!nzchar(path)) {
-    rlang::abort("Could not locate inst/python in the installed package.")
-  }
-  reticulate::import_from_path("gates", path = path, delay_load = FALSE)
-}
-
-
 #' @export
 print.chorale_gates <- function(x, ...) {
   cat("<chorale_gates>\n")
-  cat("\nnon-Gaussianity\n")
+  cat("\nnon-Gaussianity diagnostic\n")
   print(x$non_gaussianity[, c("modality", "median_A2_observed",
                               "median_A2_surrogate", "p_value", "verdict")],
         row.names = FALSE)
-  cat("\nmodality difference\n")
+  cat("\nmodality-distribution diagnostic\n")
   print(x$modality_difference[, c("pair", "pooled_KS_D", "pooled_KS_p",
                                   "pct_pairs_indistinguishable", "verdict")],
         row.names = FALSE)
   cat("\ndetectability\n")
   print(x$detectability, row.names = FALSE)
+  cat("\nphenotype estimability and design rank\n")
+  print(x$design_estimability, row.names = FALSE)
+  cat("\nfactor stability\n")
+  print(x$factor_stability, row.names = FALSE)
   cat("\nanchor richness\n")
   print(utils::head(x$anchor_richness, 12), row.names = FALSE)
   invisible(x)
