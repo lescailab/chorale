@@ -88,9 +88,14 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
       }
       SummarizedExperiment::colData(permuted[[m]]) <- S4Vectors::DataFrame(d)
     }
-    refit <- chorale_fit(permuted, n_factors = fit$n_factors,
-                         n_init = n_init, strata_keys = fit$strata_keys,
-                         seed = seed + i)
+    refit <- chorale_fit(
+      permuted, n_factors = fit$n_factors, n_init = n_init,
+      profile_covariates = fit$profile_covariates %||% fit$strata_keys,
+      bound_strata = fit$bound_strata %||% fit$strata_keys,
+      phenotype_column = fit$phenotype_column %||% "phenotype",
+      phenotype_reference = fit$phenotype_reference %||% "control",
+      seed = seed + i
+    )
     phenotype_null[i] <- chorale_best_joint(refit)
   }
 
@@ -180,9 +185,14 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed,
     })
     names(shuffled) <- names(containers)
     refit <- try(
-      chorale_fit(shuffled, n_factors = fit$n_factors, n_init = n_init,
-                  strata_keys = fit$strata_keys, n_pathway_perm = 0L,
-                  seed = seed + b),
+      chorale_fit(
+        shuffled, n_factors = fit$n_factors, n_init = n_init,
+        profile_covariates = fit$profile_covariates %||% fit$strata_keys,
+        bound_strata = fit$bound_strata %||% fit$strata_keys,
+        phenotype_column = fit$phenotype_column %||% "phenotype",
+        phenotype_reference = fit$phenotype_reference %||% "control",
+        n_pathway_perm = 0L, seed = seed + b
+      ),
       silent = TRUE
     )
     if (!inherits(refit, "try-error")) null[b] <- chorale_best_joint(refit)

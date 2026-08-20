@@ -13,18 +13,15 @@ test_that("false discovery is controlled within each level of the search", {
   f <- sim_fit3()
   q <- chorale_fdr(f$fit)
   skip_if(nrow(q) == 0)
-  expect_true(all(c("level", "object", "p_value", "q_value", "significant")
+  expect_true(all(c("level", "object", "p_value", "q_value", "significant",
+                    "error_control")
                   %in% colnames(q)))
   expect_true(all(q$level %in% c("factor", "programme", "pathway")))
-  # A q-value is never below its p-value, and both are probabilities.
-  expect_true(all(q$q_value >= q$p_value - 1e-9))
+  # Search calibration already controls the family-wise error rate, so no
+  # second correction is applied under a different multiplicity model.
+  expect_equal(q$q_value, q$p_value)
   expect_true(all(q$q_value <= 1 & q$q_value >= 0))
-  # Levels are corrected separately, so a level's q-values depend only on that
-  # level's p-values.
-  for (lv in unique(q$level)) {
-    i <- q$level == lv
-    expect_equal(q$q_value[i], stats::p.adjust(q$p_value[i], method = "BH"))
-  }
+  expect_true(all(q$error_control == "max-statistic family-wise"))
 })
 
 test_that("added value compares a programme with its best single modality", {

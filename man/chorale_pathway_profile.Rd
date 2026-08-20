@@ -22,10 +22,9 @@ members depart from the factor's loadings as a whole, signed, and scaled by
 the set's size so that a large set and a small one are on one footing.
 }
 \details{
-The two are independent lines of evidence. The factors are fitted without
-reference to the sets, so a profile computed here cannot have been produced
-by the annotation, and agreement between modalities on this profile is not a
-restatement of their agreement on the design.
+This is a separate evidence channel, but it is not statistically independent
+of design evidence because both channels use the fitted factors. The factors
+are fitted without the sets, so annotation is not built into extraction.
 }
 \examples{
 set.seed(1)

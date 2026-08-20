@@ -90,12 +90,22 @@ test_that("the pathway channel fires on agreement and not on disagreement", {
       l <- matrix(stats::rnorm(180), nrow = 60,
                   dimnames = list(ids, paste0("factor_", 1:3)))
       l[shift_set, "factor_1"] <- l[shift_set, "factor_1"] + 4
-      list(loadings = l, prior = prior)
+      s <- matrix(stats::rnorm(120), nrow = 40,
+                  dimnames = list(paste0("sample_", 1:40),
+                                  paste0("factor_", 1:3)))
+      x <- cbind(1, s) %*% rbind(rep(0, 60), t(l))
+      colnames(x) <- ids
+      list(loadings = l, prior = prior, scores = s, analysis_matrix = x)
     }
+    designs <- list(
+      a = data.frame(sample_id = paste0("sample_", 1:40)),
+      b = data.frame(sample_id = paste0("sample_", 1:40))
+    )
     fit <- structure(
       list(
         modalities = c("a", "b"),
         fits = list(a = mk(1:20), b = mk(if (same) 1:20 else 21:40)),
+        designs = designs,
         programmes = data.frame(
           programme = c("P1", "P1"), modality = c("a", "b"),
           factor = c("factor_1", "factor_1"), n_modalities = 2L,

@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{chorale_design_profile}
 \alias{chorale_design_profile}
-\title{Standardised effect of each design term on each factor}
+\title{Adjusted standardised effect of each design term on each factor}
 \usage{
 chorale_design_profile(scores, design, covariates, levels = NULL)
 }
@@ -22,15 +22,12 @@ when profiles from several modalities must line up; it is derived from
 A factors-by-terms numeric matrix.
 }
 \description{
-The profile is what a factor does to the design: one standardised effect per
-design term, comparable across modalities measured on different animals. A
-binary or categorical covariate contributes one signed standardised mean
-difference per level beyond a reference; a continuous one contributes a
-signed rank correlation. Every entry is therefore signed and on the same
-scale, which is what allows profiles from different modalities to be
-compared by direction. Profiles are estimated from samples, so their
-precision improves with sample size rather than with the number of design
-strata.
+The profile is estimated from one multivariable model per factor. A binary or
+categorical covariate contributes adjusted contrasts beyond a declared
+reference; a continuous covariate contributes an adjusted slope per standard
+deviation. Factor scores are standardised before this function is called, so
+the coefficients share a factor-score scale. Standard errors, covariance and
+estimability are retained as attributes for uncertainty-aware matching.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)

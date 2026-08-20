@@ -2,7 +2,7 @@
 % Please edit documentation in R/fit.R
 \name{chorale_fit}
 \alias{chorale_fit}
-\title{Estimate the shared latent state across modalities}
+\title{Match phenotype-responsive factors across modalities}
 \usage{
 chorale_fit(
   containers,
@@ -12,6 +12,8 @@ chorale_fit(
   feature_space = NULL,
   transform = "auto",
   strata_keys = NULL,
+  profile_covariates = NULL,
+  bound_strata = NULL,
   assay_name = NULL,
   control = chorale_control(),
   seed = 1L,
@@ -48,7 +50,14 @@ See \code{\link[=chorale_transform]{chorale_transform()}}. Defaults to \code{"au
 from each matrix.}
 
 \item{strata_keys}{Design columns defining an anchoring stratum. \code{NULL}, the
-default, uses every covariate the designs share.}
+default, uses every covariate the designs share. Deprecated: use
+\code{profile_covariates} for matching and \code{bound_strata} for bounds.}
+
+\item{profile_covariates}{Optional covariates allowed to refine the mandatory
+phenotype-led match. \code{NULL} discovers every eligible shared covariate.}
+
+\item{bound_strata}{Covariates defining strata for coupling bounds. \code{NULL}
+uses the eligible shared covariates.}
 
 \item{assay_name}{Assay to take from each container.}
 
@@ -80,7 +89,7 @@ pair at a time, so the correspondences agree around every cycle. Each
 resulting programme is scored as one object against a null that reruns the
 complete procedure on permuted designs. Where curated sets are supplied the
 programmes are corroborated a second time on biology, against an
-annotation-matched null, and the two channels are reported separately.
+score-residual null, and the two channels are reported separately.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 60,
