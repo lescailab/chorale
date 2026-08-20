@@ -49,15 +49,20 @@ covariance matrices come from the fitted multivariable model.
 ## Phenotype affinity and orientation
 
 For factors (k) and (l), phenotype coefficient vectors (b_{mk}) and (b_{nl}), and their
-estimated variances (v_{mk}) and (v_{nl}), CHORALE compares the two possible ICA orientations:
+estimated covariance matrices (V_{mk}) and (V_{nl}), CHORALE compares the two possible ICA
+orientations with covariance-aware quadratic losses:
 
 \[
-L^+_{kl}=\operatorname{mean}\frac{(b_{mk}-b_{nl})^2}{v_{mk}+v_{nl}},\qquad
-L^-_{kl}=\operatorname{mean}\frac{(b_{mk}+b_{nl})^2}{v_{mk}+v_{nl}}.
+Q^{\pm}_{kl}=(b_{mk}\mp b_{nl})^T(V_{mk}+V_{nl})^+(b_{mk}\mp b_{nl}),
+\qquad L^{\pm}_{kl}=Q^{\pm}_{kl}/q,
 \]
 
-The smaller loss selects orientation. Affinity combines this compatibility loss with the phenotype
-signal-to-noise present in both factors. A simultaneous spectral synchronisation uses every pairwise
+where (+) denotes a stable generalised inverse and (q) is the number of phenotype contrasts. The
+smaller mean loss selects orientation and determines candidate compatibility. Primary phenotype
+evidence is the smaller of the two mean Wald statistics, so a large effect in one modality cannot
+compensate for no effect in another. Compatibility and support are therefore a hierarchy rather
+than multiplied kernel terms: compatibility decides eligibility, then the weaker cross-modal
+signal orders eligible factors. A simultaneous spectral synchronisation uses every pairwise
 affinity block to produce one cycle-consistent assignment.
 
 ## Candidate sets and hierarchical refinement
@@ -67,10 +72,18 @@ effects and phenotype losses are recomputed while ICA remains fixed. For each al
 CHORALE records its excess loss over the best candidate. An alternative is removed only when the
 lower endpoint of its bootstrap excess-loss interval is above zero.
 
+When the analytic candidate rule is requested instead, its chi-square cutoff is divided by the
+number of contrasts because the stored loss is a mean, not a sum. The production default uses 999
+bootstrap replicates, placing about 25 draws in each tail of a 95 per cent interval.
+
 Secondary affinity compares adjusted effects using their pooled uncertainty, separately for each
 covariate block, and averages the block scores. It is evaluated only among retained phenotype
 candidates. A high secondary affinity outside the candidate set has no route into the final
-assignment.
+assignment. Let (A^*=A/(1+A)) be the bounded transform of primary affinity and (S) the conditional
+secondary affinity. A phenotype candidate receives synchronisation score (1+A^*(1+S)); a
+non-candidate keeps score (A^*). Thus candidate status comes entirely from phenotype, primary
+affinity is never overwritten, and secondary evidence can add only in proportion to existing
+phenotype evidence.
 
 The resulting state is resolved, ambiguous, phenotype unsupported, or incompatible, as defined in
 the outputs vignette.
@@ -111,8 +124,12 @@ until simulation establishes confidence coverage.
 
 Production gates concern phenotype estimability, common design support and rank, factor stability,
 factor detectability, permutation support, and assignment ambiguity. Distributional shape checks
-and pure-feature statistics are diagnostics. No theoretical recovery claim or discovery threshold
-is inferred from those diagnostics.
+and pure-feature statistics are diagnostics. An earlier unique-latent-state argument required
+non-Gaussian components and different cross-modality distributions. CHORALE no longer makes that
+recovery claim. It estimates factors separately, requires them to be stable and detectable, and
+tests phenotype correspondence conditionally on those fitted factors. A cross-modality shape
+difference therefore neither establishes nor blocks the reported correspondence. The diagnostic
+tables say explicitly that they do not gate matching; no discovery threshold is inferred from them.
 
 ## Main limitations
 

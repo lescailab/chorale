@@ -25,7 +25,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_fdr(fit)
 chorale_fdr <- function(fit, alpha = 0.05, associations = NULL) {
   if (!inherits(fit, "chorale_fit")) {
@@ -101,7 +102,8 @@ chorale_fdr <- function(fit, alpha = 0.05, associations = NULL) {
 #'                         n_strains = 4, n_per_cell = 4, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_added_value(fit)
 chorale_added_value <- function(fit, programmes = NULL, associations = NULL) {
   if (!inherits(fit, "chorale_fit")) {
@@ -185,7 +187,8 @@ chorale_added_value <- function(fit, programmes = NULL, associations = NULL) {
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_specificity(fit, containers, covariates = "sex", n_init = 2)
 chorale_specificity <- function(fit, containers, covariates = c("sex", "batch"),
                                 n_init = 5L, seed = 1L) {

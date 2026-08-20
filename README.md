@@ -87,44 +87,49 @@ sim <- chorale_simulate(
 )
 
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3)
+fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3,
+                   n_ambiguity_boot = 19) # short documentation run
 chorale_programmes(fit, significant_only = FALSE)
 #>   programme n_modalities                         modalities   modality   factor
-#> 6        P3            3 modality_1, modality_2, modality_3 modality_1 factor_2
-#> 7        P3            3 modality_1, modality_2, modality_3 modality_2 factor_3
-#> 8        P3            3 modality_1, modality_2, modality_3 modality_3 factor_2
-#> 4        P2            2             modality_1, modality_2 modality_1 factor_1
-#> 5        P2            2             modality_1, modality_2 modality_2 factor_2
-#> 1        P1            3 modality_1, modality_2, modality_3 modality_1 factor_3
+#> 4        P2            3 modality_1, modality_2, modality_3 modality_1 factor_2
+#> 5        P2            3 modality_1, modality_2, modality_3 modality_2 factor_2
+#> 6        P2            3 modality_1, modality_2, modality_3 modality_3 factor_2
+#> 1        P1            3 modality_1, modality_2, modality_3 modality_1 factor_1
 #> 2        P1            3 modality_1, modality_2, modality_3 modality_2 factor_1
 #> 3        P1            3 modality_1, modality_2, modality_3 modality_3 factor_3
+#> 7        P3            3 modality_1, modality_2, modality_3 modality_1 factor_3
+#> 8        P3            3 modality_1, modality_2, modality_3 modality_2 factor_3
+#> 9        P3            3 modality_1, modality_2, modality_3 modality_3 factor_1
 #>   joint_statistic     joint_p supported     resolution_status
-#> 6         10.1191 0.004975124      TRUE             ambiguous
-#> 7         10.1191 0.004975124      TRUE             ambiguous
-#> 8         10.1191 0.004975124      TRUE             ambiguous
-#> 4          6.9126 0.004975124      TRUE             ambiguous
-#> 5          6.9126 0.004975124      TRUE             ambiguous
-#> 1          1.2910 0.736318408     FALSE phenotype_unsupported
-#> 2          1.2910 0.736318408     FALSE phenotype_unsupported
-#> 3          1.2910 0.736318408     FALSE phenotype_unsupported
+#> 4         15.5145 0.004975124      TRUE             ambiguous
+#> 5         15.5145 0.004975124      TRUE             ambiguous
+#> 6         15.5145 0.004975124      TRUE             ambiguous
+#> 1          1.8293 0.398009950     FALSE phenotype_unsupported
+#> 2          1.8293 0.398009950     FALSE phenotype_unsupported
+#> 3          1.8293 0.398009950     FALSE phenotype_unsupported
+#> 7          0.0659 1.000000000     FALSE phenotype_unsupported
+#> 8          0.0659 1.000000000     FALSE phenotype_unsupported
+#> 9          0.0659 1.000000000     FALSE phenotype_unsupported
 #>                               secondary_evidence phenotype_column
-#> 6 selected among phenotype-compatible candidates        phenotype
-#> 7 selected among phenotype-compatible candidates        phenotype
-#> 8 selected among phenotype-compatible candidates        phenotype
 #> 4 selected among phenotype-compatible candidates        phenotype
 #> 5 selected among phenotype-compatible candidates        phenotype
+#> 6 selected among phenotype-compatible candidates        phenotype
 #> 1 selected among phenotype-compatible candidates        phenotype
 #> 2 selected among phenotype-compatible candidates        phenotype
 #> 3 selected among phenotype-compatible candidates        phenotype
+#> 7                                     conflicted        phenotype
+#> 8                                     conflicted        phenotype
+#> 9                                     conflicted        phenotype
 #>   phenotype_reference pure_features all_pure
-#> 6             control          TRUE     TRUE
-#> 7             control          TRUE     TRUE
-#> 8             control          TRUE     TRUE
 #> 4             control          TRUE     TRUE
 #> 5             control          TRUE     TRUE
+#> 6             control          TRUE     TRUE
 #> 1             control          TRUE     TRUE
 #> 2             control          TRUE     TRUE
 #> 3             control          TRUE     TRUE
+#> 7             control          TRUE     TRUE
+#> 8             control          TRUE     TRUE
+#> 9             control          TRUE     TRUE
 ```
 
 Use `chorale_control()` to set the phenotype column, reference level,

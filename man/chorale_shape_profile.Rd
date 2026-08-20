@@ -15,11 +15,9 @@ chorale_shape_profile(scores, probs = c(0.05, 0.25, 0.75, 0.95))
 A factors-by-descriptors numeric matrix.
 }
 \description{
-Where two modalities share no covariate, the only thing they hold in common
-is the shape of the latent error distributions, which is what the
-identification results match on. Independent components are standardised, so
-location and scale carry nothing; skewness, tail weight and the quantile
-profile do.
+Describes skewness, tail weight and selected quantiles of each standardised
+factor. This is a diagnostic only: current matching requires phenotype and
+does not use distributional shape to identify or pair factors.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)

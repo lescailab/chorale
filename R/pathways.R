@@ -253,7 +253,7 @@ chorale_pathway_profile <- function(loadings, prior) {
 #' sets <- list(set_a = span(1, 40), set_b = span(30, 80),
 #'              set_c = span(60, 120))
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-#'                    gene_sets = sets)
+#'                    gene_sets = sets, n_ambiguity_boot = 19)
 #' chorale_pathway_evidence(fit, n_perm = 20)
 chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
                                      alpha = 0.05, seed = 1L) {
@@ -394,7 +394,7 @@ chorale_pathway_evidence <- function(fit, programmes = NULL, n_perm = 200L,
 #' sets <- list(set_a = span(1, 40), set_b = span(30, 80),
 #'              set_c = span(60, 120))
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-#'                    gene_sets = sets)
+#'                    gene_sets = sets, n_ambiguity_boot = 19)
 #' pg <- chorale_programmes(fit)
 #' chorale_evidence_label(pg, chorale_pathway_evidence(fit, pg, n_perm = 20))
 chorale_evidence_label <- function(programmes, pathway) {

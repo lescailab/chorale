@@ -36,6 +36,7 @@ sim <- chorale_simulate(n_modalities = 3, n_features = 150,
                         n_strains = 4, n_per_cell = 4, effect_size = 3,
                         seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3)
+fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3,
+                   n_ambiguity_boot = 19)
 chorale_score_recovery(fit, sim)
 }

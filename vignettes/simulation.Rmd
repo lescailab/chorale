@@ -67,7 +67,8 @@ sim <- chorale_simulate(
 )
 
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = 3, n_init = 5)
+fit <- chorale_fit(containers, n_factors = 3, n_init = 5,
+                   n_ambiguity_boot = 19) # short vignette run
 chorale_score_recovery(fit, sim)
 ```
 
@@ -88,7 +89,7 @@ grid <- data.frame(
   effect_size   = c(3, 1, 0, 3),
   same_response = c(FALSE, FALSE, FALSE, TRUE)
 )
-chorale_validate(grid, n_rep = 5)
+chorale_validate(grid, n_rep = 5, n_ambiguity_boot = 19)
 ```
 
 ## Tier two: giving the simulation the shape of real data
@@ -202,7 +203,7 @@ Fit the planted data with the **scoring** collection, then score it.
 containers <- Map(chorale_load, planted$sim$modalities, planted$sim$col_data)
 fit <- chorale_fit(containers, n_factors = 10, gene_sets = score_sets,
                    feature_map = feature_map, feature_space = c(METAB = "lipid"),
-                   n_init = 10)
+                   n_init = 10, n_ambiguity_boot = 19)
 
 scored <- chorale_score_planting(fit, planted, score_sets, overlap = 0.1)
 scored$per_modality

@@ -64,8 +64,11 @@ comparison is anchored on the strata the modalities have in common.}
 }
 
 Distributional diagnostics are evaluated in R on components recovered by
-the same estimator used by \code{\link[=chorale_fit]{chorale_fit()}}. They provide context about ICA
-behaviour; they are not treated as recovery guarantees for matching.
+the same estimator used by \code{\link[=chorale_fit]{chorale_fit()}}. The current estimator does not
+claim unique latent-state recovery: its permutation inference is conditional
+on stable, detectable fitted factors. Consequently cross-modality shape is
+not an identification condition for the reported phenotype correspondence,
+and non-Gaussianity is shown as an ICA diagnostic rather than a theorem gate.
 }
 \examples{
 \dontrun{

@@ -82,7 +82,8 @@ sim <- chorale_simulate(
 )
 
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3)
+fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3,
+                   n_ambiguity_boot = 19) # short documentation run
 chorale_programmes(fit, significant_only = FALSE)
 ```
 

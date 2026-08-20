@@ -38,8 +38,9 @@ test_that("modality distribution comparison is a diagnostic", {
   s <- scale(matrix(stats::rt(80 * 3, df = 3), nrow = 80))
   d <- chorale_gate_modality_difference(list(a = s, b = s))
   expect_equal(nrow(d), 1L)
-  expect_identical(d$role, "diagnostic")
-  expect_identical(d$verdict, "similar")
+  expect_identical(d$role, "diagnostic; does not gate matching")
+  expect_identical(d$verdict, "distribution difference not detected")
+  expect_false(d$gates_matching)
 })
 
 test_that("component estimator is deterministic", {

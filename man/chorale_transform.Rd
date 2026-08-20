@@ -32,9 +32,9 @@ that are non-negative and heavily right-skewed are intensities and take the
 log; anything already on a symmetric scale is left alone. The choice is
 returned so it appears in the record rather than happening silently.
 
-Batch and study are not removed here. They enter as covariates, since
-identification consumes the differences between modalities that a correction
-would erase.
+Batch and study are not removed here. When shared and estimable, they enter
+as adjusted secondary covariates; removing them first would erase information
+the fitted multivariable model is meant to separate from phenotype.
 }
 \examples{
 counts <- matrix(rpois(200, lambda = 50), nrow = 20)

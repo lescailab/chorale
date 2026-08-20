@@ -86,7 +86,8 @@ Where the matrix is not what its distribution suggests, say it explicitly, one v
 
 ```r
 fit <- chorale_fit(containers, n_factors = "auto",
-                   transform = c(RNA = "vst", PROT = "log", METAB = "none"))
+                   transform = c(RNA = "vst", PROT = "log", METAB = "none"),
+                   n_ambiguity_boot = 19) # short vignette run
 ```
 
 ## What every modality must carry

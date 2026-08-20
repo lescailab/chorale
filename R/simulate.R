@@ -2,13 +2,10 @@
 #'
 #' Generates synthetic data for `n_modalities` modalities measured on disjoint
 #' sample sets. Each sample's features are a linear mixture of latent factors
-#' plus additive Gaussian measurement noise, and the latent factors are drawn
-#' so that the conditions the identification results rest on hold by
-#' construction: every factor is non-Gaussian, no two factors share a
-#' distribution, and each factor's distribution is non-symmetric (Sturma et al.
-#' 2023). A validation of the estimator needs the data to satisfy the
-#' assumptions it is judged against, which the earlier symmetric,
-#' identically-distributed design did not.
+#' plus additive Gaussian measurement noise. Latent factors are non-Gaussian,
+#' have different shapes and are non-symmetric (Sturma et al. 2023), which
+#' provides a demanding ICA simulation. These choices are not presented as
+#' identification conditions for CHORALE's phenotype correspondence.
 #'
 #' A shared factor is what the estimator should recover as one cross-modality
 #' programme. Its correspondence across modalities is carried by its

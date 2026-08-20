@@ -24,7 +24,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' out <- chorale_report(fit, chorale_bound(fit), NULL,
 #'                       path = withr::local_tempdir())
 #' basename(out)

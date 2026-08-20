@@ -96,7 +96,10 @@ or disagreement.
 - Controls cover phenotype estimability, design overlap and rank, factor stability, detectability,
   permutation support, and assignment ambiguity.
 - Non-Gaussianity, cross-modality distribution differences, and pure-feature summaries are
-  diagnostics. They describe the fit but do not establish a correspondence by themselves.
+  diagnostics. Their tables explicitly say `gates_matching = FALSE`: they describe the fitted
+  factors but neither establish nor refuse a phenotype correspondence. The reported inference is
+  conditional on factors that passed stability and detectability checks; it is not a claim of
+  unique latent-state recovery.
 
 A control that was skipped or could not be computed is named explicitly. Reports remain available
 so failed or missing controls can be inspected, but unsupported results are never described with

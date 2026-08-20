@@ -320,6 +320,7 @@ test_that("the permutation count sets the smallest reportable p-value", {
 
 test_that("every decision a run takes is a setting, not a constant", {
   ctl <- chorale_control()
+  expect_equal(ctl$n_ambiguity_boot, 999L)
   # The decisions that change what is reported must all be reachable.
   for (nm in c("alpha", "n_perm", "n_pathway_perm", "n_init", "consensus",
                "require_pure_features", "purity_ratio", "min_markers",

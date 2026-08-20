@@ -23,8 +23,11 @@
 #' }
 #'
 #' Distributional diagnostics are evaluated in R on components recovered by
-#' the same estimator used by [chorale_fit()]. They provide context about ICA
-#' behaviour; they are not treated as recovery guarantees for matching.
+#' the same estimator used by [chorale_fit()]. The current estimator does not
+#' claim unique latent-state recovery: its permutation inference is conditional
+#' on stable, detectable fitted factors. Consequently cross-modality shape is
+#' not an identification condition for the reported phenotype correspondence,
+#' and non-Gaussianity is shown as an ICA diagnostic rather than a theorem gate.
 #'
 #' @param containers A named list of `SummarizedExperiment` objects, as
 #'   [chorale_load()] returns, or of feature-by-sample matrices.
@@ -195,8 +198,11 @@ chorale_gate_nongaussianity <- function(x, k, modality, estimator,
   summary <- data.frame(
     modality = modality, median_A2_observed = value,
     median_A2_surrogate = stats::median(surrogate, na.rm = TRUE),
-    p_value = p, verdict = if (p < alpha) "pass" else "fail",
-    role = "diagnostic", stringsAsFactors = FALSE)
+    p_value = p,
+    verdict = if (p < alpha) "non-Gaussian pattern detected" else
+      "non-Gaussian pattern not detected",
+    role = "diagnostic; does not gate matching", gates_matching = FALSE,
+    stringsAsFactors = FALSE)
   detail <- data.frame(modality = modality, component = seq_along(obs),
                        A2 = obs, stringsAsFactors = FALSE)
   list(summary, detail)
@@ -224,8 +230,10 @@ chorale_gate_modality_difference <- function(sources, alpha = 0.05) {
       pair = paste(mods[i], mods[j], sep = " vs "),
       pooled_KS_D = unname(ks$statistic), pooled_KS_p = ks$p.value,
       pct_pairs_indistinguishable = mean(component_p >= alpha) * 100,
-      verdict = if (ks$p.value < alpha) "different" else "similar",
-      role = "diagnostic", stringsAsFactors = FALSE)
+      verdict = if (ks$p.value < alpha) "distribution difference detected" else
+        "distribution difference not detected",
+      role = "diagnostic; does not gate matching", gates_matching = FALSE,
+      stringsAsFactors = FALSE)
   }
   if (length(rows)) do.call(rbind, rows) else data.frame()
 }

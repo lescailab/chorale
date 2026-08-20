@@ -156,14 +156,12 @@ chorale_excess_kurtosis <- function(v) {
 
 #' Select pure features anchoring each factor
 #'
-#' A pure feature loads on one factor and negligibly on the others, and is what
-#' gives a factor a definition independent of the rest of the loading vector.
-#' At least two per factor per modality are required for the shared latent
-#' structure to be recoverable.
+#' A pure feature loads strongly on one factor and weakly on the others. This is
+#' a loading-concentration diagnostic; CHORALE does not use it as proof that a
+#' latent factor is uniquely recovered.
 #'
-#' Purity is decided first, on the loadings alone, so the identification
-#' argument holds whatever the biology turns out to be. Where more features
-#' qualify than are needed, the tie is broken on biology: candidates sharing a
+#' Purity is calculated first, on the loadings alone. Where more features
+#' qualify than are retained, the tie is broken on biology: candidates sharing a
 #' curated set with the other candidates for the same factor are preferred. Any
 #' qualifying set satisfies the condition equally, so choosing the coherent one
 #' costs nothing and yields markers that can be read.
@@ -262,8 +260,8 @@ chorale_markers <- function(loadings, purity_ratio = 0.25, min_markers = 2L,
 #'
 #' Regresses the loadings of features that are not markers on the curated set
 #' indicators, in the manner of PLIER, giving each factor a composition in set
-#' space. Marker loadings are excluded from the regression, since they carry
-#' the purity the identification argument rests on.
+#' space. Marker loadings are excluded so the same features are not used both
+#' to define the loading-purity diagnostic and to fit the set projection.
 #'
 #' This is a projection computed after the factors are fitted, not a
 #' constrained factorisation. The `loadings` element it returns is the
@@ -421,11 +419,9 @@ chorale_design_profile <- function(scores, design, covariates, levels = NULL) {
 
 #' Distributional shape of each factor
 #'
-#' Where two modalities share no covariate, the only thing they hold in common
-#' is the shape of the latent error distributions, which is what the
-#' identification results match on. Independent components are standardised, so
-#' location and scale carry nothing; skewness, tail weight and the quantile
-#' profile do.
+#' Describes skewness, tail weight and selected quantiles of each standardised
+#' factor. This is a diagnostic only: current matching requires phenotype and
+#' does not use distributional shape to identify or pair factors.
 #'
 #' @param scores A samples-by-factors matrix.
 #' @param probs Quantiles describing the shape.
@@ -451,11 +447,11 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
 #'
 #' With disjoint samples no animal is shared, so factors cannot be matched by
 #' correlating scores. What can be compared is what a factor does to the
-#' design: compatible factors should have compatible adjusted effects on shared
-#' covariate the same way in every modality that carries it. The comparison
-#' currency is the cosine between design-effect profiles, and the null is built
-#' by permuting the design across samples, so precision grows with cohort size
-#' and a single shared covariate suffices. Phenotype alone is enough.
+#' design: compatible factors should have compatible adjusted phenotype
+#' effects. Covariance-aware quadratic losses define phenotype-compatible
+#' alternatives; other eligible shared covariates can refine only those
+#' alternatives. The null uses reduced-model residual permutations, so
+#' phenotype alone is sufficient and nuisance covariates cannot carry a match.
 #'
 #' The assignment is solved once over the whole collection rather than a pair
 #' at a time, by permutation synchronisation, so the correspondences agree around
@@ -494,7 +490,8 @@ chorale_shape_profile <- function(scores, probs = c(0.05, 0.25, 0.75, 0.95)) {
 #'                         n_shared_factors = 2, n_private_factors = 1,
 #'                         n_strains = 2, n_per_cell = 2, seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' fit$matches
 chorale_match <- function(fits, designs,
                           strata_keys = NULL,
@@ -577,9 +574,14 @@ chorale_integrate <- function(fits, designs,
   profiles <- profile_of(observed_scores)
   blocks <- chorale_hierarchical_blocks(profiles, spec, ambiguity_level)
   phenotype_terms <- blocks$phenotype_terms
+  task_seeds <- chorale_resampling_seeds(
+    seed, c(n_ambiguity_boot, n_perm, n_perm))
+  ambiguity_seeds <- task_seeds[[1L]]
+  secondary_seeds <- task_seeds[[2L]]
+  phenotype_seeds <- task_seeds[[3L]]
   if (n_ambiguity_boot > 0L) {
     boot_blocks <- chorale_deterministic_lapply(seq_len(n_ambiguity_boot), function(b) {
-      set.seed(seed + 100000L + b)
+      set.seed(ambiguity_seeds[b])
       boot_profiles <- lapply(modalities, function(m) {
         at <- chorale_bootstrap_rows(aligned[[m]], exchangeability_blocks)
         d <- aligned[[m]][at, , drop = FALSE]
@@ -597,7 +599,7 @@ chorale_integrate <- function(fits, designs,
   secondary_null <- numeric(n_perm)
   if (length(spec$secondary)) {
     secondary_null <- unlist(chorale_deterministic_lapply(seq_len(n_perm), function(b) {
-      set.seed(seed + 200000L + b)
+      set.seed(secondary_seeds[b])
       max(vapply(spec$secondary, function(cv) {
         conditional_scores <- lapply(modalities, function(m) {
           chorale_covariate_null_scores(
@@ -622,7 +624,7 @@ chorale_integrate <- function(fits, designs,
   # decomposition is deliberately fixed: this calibrates the supervised
   # matching/search step without paying for irrelevant unsupervised refits.
   null_draws <- chorale_deterministic_lapply(seq_len(n_perm), function(b) {
-    set.seed(seed + b)
+    set.seed(phenotype_seeds[b])
     null_scores <- lapply(modalities, function(m) {
       chorale_phenotype_null_scores(
         observed_scores[[m]], aligned[[m]], spec,
@@ -682,9 +684,8 @@ chorale_integrate <- function(fits, designs,
     p_joint <- ps[best]
 
     label <- paste0("P", length(prog_rows) + 1L)
-    # Whether each member factor carries the pure features the identification
-    # argument requires, so a programme resting on factors that do not can be
-    # gated out rather than reported as though it were identified.
+    # Loading purity is retained as a diagnostic and optional user-requested
+    # filter. It is not evidence of unique latent-state recovery.
     pure <- vapply(seq_len(nrow(keep)), function(r) {
       cond <- fits[[keep$modality[r]]]$pure_feature_condition
       isTRUE(unname(cond[keep$factor[r]]))
@@ -719,17 +720,9 @@ chorale_integrate <- function(fits, designs,
           ta <- which(profiles[[ma]]$term_covariate == cv)
           tb <- which(profiles[[mb]]$term_covariate == cv)
           if (!length(ta) || length(ta) != length(tb)) return(NA_real_)
-          ea <- profiles[[ma]]$effects[keep$factor_index[i], ta]
-          eb <- profiles[[mb]]$effects[keep$factor_index[j], tb] *
-            dg$orientation[ia, ib]
-          va <- profiles[[ma]]$se[keep$factor_index[i], ta]^2
-          vb <- profiles[[mb]]$se[keep$factor_index[j], tb]^2
-          ok <- is.finite(ea) & is.finite(eb) & is.finite(va) & is.finite(vb) &
-            va > 0 & vb > 0
-          if (!any(ok)) return(NA_real_)
-          q <- mean((ea[ok] - eb[ok])^2 / (va[ok] + vb[ok]))
-          strength <- sqrt(mean(ea[ok]^2 / va[ok]) * mean(eb[ok]^2 / vb[ok]))
-          (1 - exp(-pmax(strength, 0) / 2)) * exp(-q / 20)
+          block <- chorale_secondary_block_affinity(
+            profiles[[ma]], profiles[[mb]], cv, dg$orientation[ia, ib])
+          block[keep$factor_index[i], keep$factor_index[j]]
         }, numeric(1))
         pair_diagnostics[[length(pair_diagnostics) + 1L]] <- list(
           key = key, ia = ia, ib = ib, candidates = candidates_at,
@@ -1003,10 +996,9 @@ chorale_assign <- function(stat) {
 #' @param fit A `chorale_fit` object.
 #' @param significant_only Return only programmes whose joint evidence beats
 #'   its null.
-#' @param require_pure_features Return only programmes every member of which
-#'   carries the pure features the identification argument requires. Off by
-#'   default, since marker purity is a threshold diagnostic; setting it makes
-#'   the pure-feature condition an eligibility gate.
+#' @param require_pure_features Apply the optional loading-purity filter. Off by
+#'   default because simulations have not established a discovery threshold for
+#'   this diagnostic.
 #'
 #' @returns A data frame with one row per (programme, modality, factor)
 #'   membership, carrying `programme`, `n_modalities`, `modalities`,
@@ -1018,7 +1010,8 @@ chorale_assign <- function(stat) {
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_programmes(fit)
 chorale_programmes <- function(fit, significant_only = TRUE,
                               require_pure_features = FALSE) {
@@ -1029,8 +1022,7 @@ chorale_programmes <- function(fit, significant_only = TRUE,
   if (is.null(pg) || nrow(pg) == 0) return(data.frame())
   if (significant_only) pg <- pg[pg$supported, , drop = FALSE]
   if (require_pure_features && "all_pure" %in% colnames(pg)) {
-    # The identification argument rests on pure features, so a programme whose
-    # factors do not carry them is not identified and is gated out.
+    # This is an explicit diagnostic filter, not a default identification gate.
     pg <- pg[pg$all_pure, , drop = FALSE]
   }
   pg[order(pg$joint_p, -pg$joint_statistic, pg$programme), , drop = FALSE]
@@ -1059,7 +1051,8 @@ chorale_programmes <- function(fit, significant_only = TRUE,
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_leave_one_out(fit)
 chorale_leave_one_out <- function(fit, programmes = NULL) {
   if (!inherits(fit, "chorale_fit")) {
@@ -1101,7 +1094,8 @@ chorale_leave_one_out <- function(fit, programmes = NULL) {
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_joint_evidence(fit)
 chorale_joint_evidence <- function(fit, programmes = NULL, n_perm = NULL,
                                    seed = NULL) {
@@ -1143,9 +1137,8 @@ chorale_add_age_bin <- function(design, n_bins = 3L) {
 #' Match phenotype-responsive factors across modalities
 #'
 #' Components are recovered per modality by independent component analysis over
-#' several initialisations. Pure features are then selected on the loadings
-#' alone, so the identification argument holds before any prior is applied, with
-#' ties broken towards curated-set coherence. The remaining loadings are
+#' several initialisations. Loading-purity diagnostics are then calculated,
+#' with ties broken towards curated-set coherence. The remaining loadings are
 #' expressed in the curated vocabulary and stored beside the fit as a
 #' description of it, with the variance each explains reported.
 #'
@@ -1202,7 +1195,8 @@ chorale_add_age_bin <- function(design, n_bins = 3L) {
 #'                         n_shared_factors = 2, n_private_factors = 1,
 #'                         n_strains = 2, n_per_cell = 2, seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' fit
 chorale_fit <- function(containers,
                         n_factors,
@@ -1482,9 +1476,9 @@ print.chorale_fit <- function(x, ...) {
 #' log; anything already on a symmetric scale is left alone. The choice is
 #' returned so it appears in the record rather than happening silently.
 #'
-#' Batch and study are not removed here. They enter as covariates, since
-#' identification consumes the differences between modalities that a correction
-#' would erase.
+#' Batch and study are not removed here. When shared and estimable, they enter
+#' as adjusted secondary covariates; removing them first would erase information
+#' the fitted multivariable model is meant to separate from phenotype.
 #'
 #' @param mat A features-by-samples numeric matrix.
 #' @param transform One of `"auto"`, `"none"`, `"log"` or `"vst"`.

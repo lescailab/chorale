@@ -23,7 +23,7 @@ test_that("the validation matrix separates the regimes it should", {
     effect_size = c(3, 0, 3),
     same_response = c(FALSE, FALSE, TRUE)
   )
-  res <- chorale_validate(grid, n_rep = 2, seed = 1)
+  res <- chorale_validate(grid, n_rep = 2, n_ambiguity_boot = 19, seed = 1)
 
   clean <- res[res$label == "clean", ]
   null <- res[res$label == "null", ]
@@ -42,6 +42,7 @@ test_that("the validation matrix separates the regimes it should", {
 test_that("the joint null is calibrated", {
   cal <- chorale_null_calibration(
     n_sim = 30, n_perm = 199, n_init = 3,
+    n_ambiguity_boot = 19,
     n_modalities = 2, n_features = 120, n_shared_factors = 2,
     n_private_factors = 1, n_strains = 4, n_per_cell = 3, seed = 1
   )

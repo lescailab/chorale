@@ -19,7 +19,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 3)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 3,
+#'                    n_ambiguity_boot = 19)
 #' chorale_align_truth(fit, sim)
 chorale_align_truth <- function(fit, sim) {
   rows <- list()
@@ -74,7 +75,8 @@ chorale_align_truth <- function(fit, sim) {
 #'                         n_strains = 4, n_per_cell = 4, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3,
+#'                    n_ambiguity_boot = 19)
 #' chorale_score_recovery(fit, sim)
 chorale_score_recovery <- function(fit, sim) {
   align <- chorale_align_truth(fit, sim)
@@ -123,10 +125,10 @@ chorale_score_recovery <- function(fit, sim) {
 #'
 #' The validation matrix. Each row of `grid` is a regime the estimator is run
 #' on, and the recovery, false-match rate and, where relevant, interval
-#' coverage are measured against the planted truth. A regime that satisfies the
-#' identification conditions should recover its shared programmes; one that
-#' violates them, or that plants distinct programmes sharing a phenotype
-#' response, is where the estimator's limits are read.
+#' coverage are measured against the planted truth. Regimes vary factor
+#' stability, detectability, phenotype information and design overlap; cases
+#' that plant distinct programmes with the same phenotype response show where
+#' the estimator must remain ambiguous.
 #'
 #' @param grid A data frame of regimes. Recognised columns are `label`,
 #'   `n_modalities`, `n_features`, `n_shared_factors`, `n_private_factors`,
@@ -144,14 +146,18 @@ chorale_score_recovery <- function(fit, sim) {
 #'   profile, so `n_strains`, `n_per_cell` and `imbalance` no longer describe
 #'   it, and the difference from the same grid without a profile is what the
 #'   observation model costs.
+#' @param n_ambiguity_boot Ambiguity-bootstrap replicates passed to each fitted
+#'   simulation. The production default is 999; small validation grids may use
+#'   fewer for speed.
 #' @param seed Integer seed; replicate `r` of regime `i` uses `seed + 100 * i + r`.
 #'
 #' @returns `grid` with the mean recovery metrics joined on.
 #' @export
 #' @examples
 #' grid <- data.frame(label = c("clean", "null"), effect_size = c(3, 0))
-#' chorale_validate(grid, n_rep = 1)
-chorale_validate <- function(grid, n_rep = 3L, profile = NULL, seed = 1L) {
+#' chorale_validate(grid, n_rep = 1, n_ambiguity_boot = 19)
+chorale_validate <- function(grid, n_rep = 3L, profile = NULL,
+                             n_ambiguity_boot = 999L, seed = 1L) {
   default <- list(n_modalities = 3L, n_features = 150L, n_shared_factors = 2L,
                   n_private_factors = 1L, n_strains = 4L, n_per_cell = 4L,
                   effect_size = 3, imbalance = 0, n_init = 5L,
@@ -198,6 +204,7 @@ chorale_validate <- function(grid, n_rep = 3L, profile = NULL, seed = 1L) {
       }
       fit <- try(chorale_fit(containers, n_factors = nf,
                              n_init = as.integer(get_col(i, "n_init")),
+                             n_ambiguity_boot = n_ambiguity_boot,
                              seed = seed + 100L * i + r), silent = TRUE)
       if (inherits(fit, "try-error")) next
       metrics[[r]] <- chorale_score_recovery(fit, sim)
@@ -236,6 +243,9 @@ chorale_validate <- function(grid, n_rep = 3L, profile = NULL, seed = 1L) {
 #' @param alpha Threshold at which the false positive rate is reported.
 #' @param n_perm Permutations calibrating each fit.
 #' @param n_init Initialisations per fit.
+#' @param n_ambiguity_boot Ambiguity-bootstrap replicates passed to each fitted
+#'   null dataset. The production default is 999; exploratory calibration may
+#'   use fewer for speed.
 #' @param ... Passed to [chorale_simulate()], except `effect_size`, which is
 #'   fixed at zero.
 #' @param seed Integer seed.
@@ -245,9 +255,11 @@ chorale_validate <- function(grid, n_rep = 3L, profile = NULL, seed = 1L) {
 #' @export
 #' @examples
 #' chorale_null_calibration(n_sim = 10, n_perm = 99, n_init = 3,
+#'                          n_ambiguity_boot = 19,
 #'                          n_features = 120, n_per_cell = 3)
 chorale_null_calibration <- function(n_sim = 100L, alpha = 0.05,
-                                     n_perm = 200L, n_init = 5L, ...,
+                                     n_perm = 200L, n_init = 5L,
+                                     n_ambiguity_boot = 999L, ...,
                                      seed = 1L) {
   pvals <- rep(NA_real_, n_sim)
   for (s in seq_len(n_sim)) {
@@ -255,6 +267,8 @@ chorale_null_calibration <- function(n_sim = 100L, alpha = 0.05,
     containers <- Map(chorale_load, sim$modalities, sim$col_data)
     nf <- sim$truth$n_shared_factors + sim$truth$n_private_factors
     fit <- try(chorale_fit(containers, n_factors = nf, n_init = n_init,
+                           n_perm = n_perm,
+                           n_ambiguity_boot = n_ambiguity_boot,
                            n_pathway_perm = 0L, seed = seed + s), silent = TRUE)
     if (inherits(fit, "try-error") || is.null(fit$programmes) ||
         nrow(fit$programmes) == 0) next

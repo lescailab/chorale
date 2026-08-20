@@ -63,6 +63,6 @@ span <- function(from, to) unlist(lapply(ids, function(v) v[from:to]))
 sets <- list(set_a = span(1, 40), set_b = span(30, 80),
              set_c = span(60, 120))
 fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-                   gene_sets = sets)
+                   gene_sets = sets, n_ambiguity_boot = 19)
 chorale_pathway_evidence(fit, n_perm = 20)
 }

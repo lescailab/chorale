@@ -23,11 +23,13 @@
 #' @param n_init Initialisations of the factorisation per modality.
 #' @param consensus Deprecated compatibility switch. Factors are always taken
 #'   from the medoid stable run; aligned-run averaging is not an ICA solution.
-#' @param require_pure_features Report only programmes every member of which
-#'   carries the pure features the identification argument rests on.
+#' @param require_pure_features Optional diagnostic filter: report only
+#'   programmes whose every member passes the requested loading-purity rule.
+#'   This is not an identification condition and defaults to `FALSE`.
 #' @param purity_ratio A feature is pure for a factor when its largest
 #'   competing loading is at most this fraction of its own.
-#' @param min_markers Pure features a factor needs to satisfy the condition.
+#' @param min_markers Features a factor needs to pass the optional purity
+#'   diagnostic.
 #' @param max_markers Markers retained per factor.
 #' @param lambda Ridge penalty on the curated-set coefficients.
 #' @param min_set_features Features of a modality a curated set must contain
@@ -57,8 +59,9 @@
 #'   support. `NULL` uses `alpha`.
 #' @param ambiguity_level Confidence level for assignment-margin intervals.
 #' @param n_ambiguity_boot Bootstrap replicates used to assess whether a
-#'   phenotype-compatible assignment is separated from its alternatives. Zero
-#'   uses an analytic margin diagnostic without resampling.
+#'   phenotype-compatible assignment is separated from its alternatives. The
+#'   default gives about 25 draws in each 2.5 per cent tail of a 95 per cent
+#'   interval. Zero uses an analytic margin diagnostic without resampling.
 #' @param n_cores Worker processes for bootstrap and permutation loops. Results
 #'   are deterministic across worker counts. Windows uses a sequential fallback.
 #'
@@ -94,7 +97,7 @@ chorale_control <- function(alpha = 0.05,
                             exchangeability_blocks = NULL,
                             phenotype_alpha = NULL,
                             ambiguity_level = 0.95,
-                            n_ambiguity_boot = 50L,
+                            n_ambiguity_boot = 999L,
                             n_cores = 1L) {
   phenotype_alpha <- phenotype_alpha %||% alpha
   out <- list(

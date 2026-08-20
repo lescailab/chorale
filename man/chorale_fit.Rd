@@ -76,9 +76,8 @@ An object of class \code{chorale_fit}.
 }
 \description{
 Components are recovered per modality by independent component analysis over
-several initialisations. Pure features are then selected on the loadings
-alone, so the identification argument holds before any prior is applied, with
-ties broken towards curated-set coherence. The remaining loadings are
+several initialisations. Loading-purity diagnostics are then calculated,
+with ties broken towards curated-set coherence. The remaining loadings are
 expressed in the curated vocabulary and stored beside the fit as a
 description of it, with the variance each explains reported.
 }
@@ -96,6 +95,7 @@ sim <- chorale_simulate(n_modalities = 2, n_features = 60,
                         n_shared_factors = 2, n_private_factors = 1,
                         n_strains = 2, n_per_cell = 2, seed = 1)
 containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+                   n_ambiguity_boot = 19)
 fit
 }

@@ -7,9 +7,9 @@
 #' to the data while leaving the design intact, so the anchor agreement of a
 #' genuine shared factor should exceed what permuted labels produce.
 #'
-#' Permuting the modality label pools the samples and reassigns them, which
-#' destroys the modality-specific structure the identification argument
-#' consumes. Matches that survive it were never resting on that structure.
+#' Permuting the modality label pools the samples and reassigns them. This is a
+#' diagnostic for modality-specific structure, not an identification condition
+#' for the phenotype-led correspondence.
 #'
 #' Stability across initialisations is reported because independent component
 #' analysis is non-convex: a factor recovered at one initialisation and not at
@@ -31,7 +31,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_null(fit, containers, n_permutations = 3, n_init = 2)
 chorale_null <- function(fit, containers, n_permutations = 100L,
                          n_init = 5L, seed = 1L) {

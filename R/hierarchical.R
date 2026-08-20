@@ -12,6 +12,25 @@ chorale_deterministic_lapply <- function(x, fun, n_cores = 1L) {
   }
 }
 
+#' Allocate distinct deterministic seeds to independent resampling streams
+#' @keywords internal
+#' @noRd
+chorale_resampling_seeds <- function(seed, sizes) {
+  sizes <- as.integer(sizes)
+  total <- sum(sizes)
+  if (total == 0L) return(lapply(sizes, function(x) integer()))
+  if (total > .Machine$integer.max) {
+    rlang::abort("The requested number of resampling tasks is too large.")
+  }
+  set.seed(seed)
+  values <- sample.int(.Machine$integer.max, total, replace = FALSE)
+  ends <- cumsum(sizes)
+  starts <- ends - sizes + 1L
+  Map(function(first, last, n) {
+    if (n == 0L) integer() else values[first:last]
+  }, starts, ends, sizes)
+}
+
 #' Resolve a common adjusted design signature
 #' @keywords internal
 #' @noRd
@@ -252,6 +271,93 @@ chorale_secondary_signature <- function(profile, spec) {
   if (length(out)) do.call(cbind, out) else z[, integer(), drop = FALSE]
 }
 
+#' Stable quadratic form for an estimated effect block
+#' @keywords internal
+#' @noRd
+chorale_effect_quadratic <- function(effect, covariance) {
+  if (!length(effect) || any(!is.finite(effect)) ||
+      any(!is.finite(covariance))) return(NA_real_)
+  e <- eigen((covariance + t(covariance)) / 2, symmetric = TRUE)
+  keep <- e$values > max(e$values, 0) * sqrt(.Machine$double.eps)
+  if (!any(keep)) return(NA_real_)
+  projected <- crossprod(e$vectors[, keep, drop = FALSE], effect)
+  sum(projected^2 / e$values[keep])
+}
+
+#' Covariance block, with a diagonal fallback for legacy profiles
+#' @keywords internal
+#' @noRd
+chorale_profile_covariance <- function(profile, factor, terms) {
+  v <- profile$covariance[[factor]]
+  if (!is.null(v) && nrow(v) >= max(terms) && ncol(v) >= max(terms)) {
+    return(v[terms, terms, drop = FALSE])
+  }
+  diag(profile$se[factor, terms]^2, length(terms))
+}
+
+#' Bounded conjunction of support and cross-modal compatibility
+#' @keywords internal
+#' @noRd
+chorale_effect_block_affinity <- function(a, b, ia, ib, r, s,
+                                          fixed_orientation = NULL) {
+  ea <- a$effects[r, ia]
+  eb <- b$effects[s, ib]
+  va <- chorale_profile_covariance(a, r, ia)
+  vb <- chorale_profile_covariance(b, s, ib)
+  ok <- is.finite(ea) & is.finite(eb) & is.finite(diag(va)) &
+    is.finite(diag(vb)) & diag(va) > 0 & diag(vb) > 0
+  if (!any(ok)) {
+    return(list(affinity = 0, loss = Inf, signal = 0, signal_evidence = 0,
+                orientation = 1))
+  }
+  ea <- ea[ok]
+  eb <- eb[ok]
+  va <- va[ok, ok, drop = FALSE]
+  vb <- vb[ok, ok, drop = FALSE]
+  joint <- va + vb
+  same <- chorale_effect_quadratic(ea - eb, joint)
+  opposite <- chorale_effect_quadratic(ea + eb, joint)
+  use_opposite <- if (is.null(fixed_orientation)) {
+    is.finite(opposite) && (!is.finite(same) || opposite < same)
+  } else {
+    fixed_orientation < 0
+  }
+  q <- if (use_opposite) opposite else same
+  qa <- chorale_effect_quadratic(ea, va)
+  qb <- chorale_effect_quadratic(eb, vb)
+  df <- length(ea)
+  if (!all(is.finite(c(q, qa, qb)))) {
+    return(list(affinity = 0, loss = Inf, signal = 0, signal_evidence = 0,
+                orientation = if (use_opposite) -1 else 1))
+  }
+  compatibility <- stats::pchisq(q, df = df, lower.tail = FALSE)
+  support_a <- stats::pchisq(qa, df = df, lower.tail = FALSE)
+  support_b <- stats::pchisq(qb, df = df, lower.tail = FALSE)
+  # The minimum is a conjunction: large effects cannot compensate for poor
+  # agreement, and excellent agreement cannot compensate for absent effects.
+  affinity <- min(1 - support_a, 1 - support_b, compatibility)
+  list(affinity = affinity, loss = q / df,
+       signal = sqrt(qa * qb) / df,
+       signal_evidence = min(qa, qb) / df,
+       orientation = if (use_opposite) -1 else 1)
+}
+
+#' Preserve phenotype affinity while secondary evidence refines candidates
+#' @keywords internal
+#' @noRd
+chorale_combine_affinity <- function(primary, secondary, candidate) {
+  out <- primary
+  primary_nonnegative <- pmax(0, primary)
+  out[] <- primary_nonnegative / (1 + primary_nonnegative)
+  secondary_bounded <- secondary
+  secondary_bounded[] <- pmax(0, pmin(1, secondary))
+  # Candidate membership is the primary hierarchy. Within that set the
+  # phenotype affinity remains in the score, and secondary evidence can add
+  # only in proportion to phenotype evidence; it cannot create support alone.
+  out[candidate] <- 1 + out[candidate] * (1 + secondary_bounded[candidate])
+  out
+}
+
 #' Uncertainty-weighted compatibility for one secondary covariate block
 #' @keywords internal
 #' @noRd
@@ -265,16 +371,11 @@ chorale_secondary_block_affinity <- function(a, b, covariate,
   out <- matrix(0, nrow(a$effects), nrow(b$effects),
                 dimnames = list(rownames(a$effects), rownames(b$effects)))
   for (r in seq_len(nrow(out))) for (s in seq_len(ncol(out))) {
-    ea <- a$effects[r, ia]
-    eb <- b$effects[s, ib] * orientation[r, s]
-    va <- a$se[r, ia]^2
-    vb <- b$se[s, ib]^2
-    ok <- is.finite(ea) & is.finite(eb) & is.finite(va) & is.finite(vb) &
-      va > 0 & vb > 0
-    if (!any(ok)) next
-    q <- mean((ea[ok] - eb[ok])^2 / (va[ok] + vb[ok]))
-    strength <- sqrt(mean(ea[ok]^2 / va[ok]) * mean(eb[ok]^2 / vb[ok]))
-    out[r, s] <- (1 - exp(-pmax(strength, 0) / 2)) * exp(-q / 20)
+    # Phenotype orientation is fixed before secondary covariates are examined.
+    fixed <- if (length(orientation) == 1L) orientation else orientation[r, s]
+    value <- chorale_effect_block_affinity(
+      a, b, ia, ib, r, s, fixed_orientation = fixed)
+    out[r, s] <- value$affinity
   }
   out
 }
@@ -309,29 +410,15 @@ chorale_phenotype_affinity <- function(a, b, phenotype_terms) {
   orientation <- matrix(1, na, nb, dimnames = dimnames(affinity))
   signal <- matrix(0, na, nb, dimnames = dimnames(affinity))
   for (i in seq_len(na)) for (j in seq_len(nb)) {
-    ea <- a$effects[i, phenotype_terms]
-    eb <- b$effects[j, phenotype_terms]
-    va <- a$se[i, phenotype_terms]^2
-    vb <- b$se[j, phenotype_terms]^2
-    ok <- is.finite(ea) & is.finite(eb) & is.finite(va) & is.finite(vb) &
-      va > 0 & vb > 0
-    if (!any(ok)) next
-    denom <- va[ok] + vb[ok]
-    same <- mean((ea[ok] - eb[ok])^2 / denom)
-    opposite <- mean((ea[ok] + eb[ok])^2 / denom)
-    use_opposite <- opposite < same
-    q <- min(same, opposite)
-    za <- mean((ea[ok]^2) / va[ok])
-    zb <- mean((eb[ok]^2) / vb[ok])
-    strength <- sqrt(pmax(za, 0) * pmax(zb, 0))
-    # Signal strength supplies power against the phenotype-null permutation;
-    # the compatibility penalty is deliberately softer than a test of exact
-    # coefficient equality because separately standardised modalities need not
-    # express the same biological effect at identical magnitude.
-    affinity[i, j] <- strength * exp(-q / 20)
-    loss[i, j] <- q
-    signal[i, j] <- strength
-    orientation[i, j] <- if (use_opposite) -1 else 1
+    value <- chorale_effect_block_affinity(a, b, phenotype_terms,
+                                            phenotype_terms, i, j)
+    # Compatibility determines the phenotype candidate set. Within that
+    # hierarchy, primary evidence is the weaker of the two Wald signals, so a
+    # large effect in one modality cannot compensate for no effect in another.
+    affinity[i, j] <- value$signal_evidence
+    loss[i, j] <- value$loss
+    signal[i, j] <- value$signal
+    orientation[i, j] <- value$orientation
   }
   list(affinity = affinity, loss = loss, signal = signal,
        orientation = orientation)
@@ -346,7 +433,8 @@ chorale_hierarchical_blocks <- function(profiles, spec,
   phenotype_terms <- names(profiles[[1]]$term_covariate)[
     profiles[[1]]$term_covariate == spec$phenotype]
   primary <- secondary <- final <- diagnostics <- list()
-  cutoff <- stats::qchisq(ambiguity_level, df = max(1L, length(phenotype_terms)))
+  phenotype_df <- max(1L, length(phenotype_terms))
+  cutoff <- stats::qchisq(ambiguity_level, df = phenotype_df) / phenotype_df
   for (i in seq_along(mods)) for (j in seq_along(mods)) {
     if (j <= i) next
     key <- paste(mods[i], mods[j], sep = "|")
@@ -368,22 +456,12 @@ chorale_hierarchical_blocks <- function(profiles, spec,
       best <- min(ph$loss[r, ], na.rm = TRUE)
       candidate[r, ] <- is.finite(ph$loss[r, ]) & ph$loss[r, ] <= best + cutoff
     }
-    sec01 <- matrix((pmax(-1, pmin(1, as.numeric(sec))) + 1) / 2,
-                    nrow = nrow(sec), ncol = ncol(sec),
-                    dimnames = dimnames(sec))
-    combined <- ph$affinity
-    if (length(spec$secondary) > 0L && any(abs(sec) > 0, na.rm = TRUE)) {
-      for (r in seq_len(nrow(combined))) {
-        cand <- which(candidate[r, ])
-        if (length(cand)) combined[r, cand] <- 1 + sec01[r, cand]
-        non <- which(!candidate[r, ])
-        if (length(non)) combined[r, non] <- pmin(ph$affinity[r, non], 0.999999)
-      }
-    }
+    combined <- chorale_combine_affinity(ph$affinity, sec, candidate)
     primary[[key]] <- ph$affinity
     secondary[[key]] <- sec
     final[[key]] <- combined
-    diagnostics[[key]] <- c(ph, list(candidate = candidate))
+    diagnostics[[key]] <- c(ph, list(candidate = candidate,
+                                     ambiguity_cutoff = cutoff))
   }
   list(primary = primary, secondary = secondary, final = final,
        diagnostics = diagnostics, phenotype_terms = phenotype_terms)
@@ -429,18 +507,8 @@ chorale_bootstrap_candidates <- function(blocks, bootstrap_blocks,
     blocks$diagnostics[[key]]$phenotype_margin_upper <- margin_upper
     sec <- blocks$secondary[[key]]
     combined <- blocks$primary[[key]]
-    sec01 <- matrix((pmax(-1, pmin(1, as.numeric(sec))) + 1) / 2,
-                    nrow = nrow(sec), ncol = ncol(sec), dimnames = dimnames(sec))
-    if (any(abs(sec) > 0, na.rm = TRUE)) {
-      for (i in seq_len(nrow(combined))) {
-        yes <- which(candidate[i, ])
-        no <- which(!candidate[i, ])
-        if (length(yes)) combined[i, yes] <- 1 + sec01[i, yes]
-        if (length(no)) combined[i, no] <- pmin(blocks$primary[[key]][i, no],
-                                                 0.999999)
-      }
-    }
-    blocks$final[[key]] <- combined
+    blocks$final[[key]] <- chorale_combine_affinity(
+      blocks$primary[[key]], sec, candidate)
   }
   blocks
 }
@@ -465,17 +533,9 @@ chorale_gate_secondary <- function(blocks, profiles, spec, cutoff) {
       sec <- Reduce(`+`, contributions) / length(contributions)
     }
     blocks$secondary[[key]] <- sec
-    combined <- blocks$primary[[key]]
     candidate <- dg$candidate
-    if (any(sec > 0, na.rm = TRUE)) {
-      for (r in seq_len(nrow(combined))) {
-        yes <- which(candidate[r, ])
-        no <- which(!candidate[r, ])
-        if (length(yes)) combined[r, yes] <- 1 + sec[r, yes]
-        if (length(no)) combined[r, no] <- pmin(combined[r, no], 0.999999)
-      }
-    }
-    blocks$final[[key]] <- combined
+    blocks$final[[key]] <- chorale_combine_affinity(
+      blocks$primary[[key]], sec, candidate)
   }
   blocks
 }

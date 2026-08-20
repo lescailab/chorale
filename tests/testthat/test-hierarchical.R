@@ -72,6 +72,61 @@ test_that("secondary affinity cannot promote phenotype-incompatible factors", {
   expect_gt(blocks$final[["a|b"]][1, 1], blocks$final[["a|b"]][1, 2])
 })
 
+test_that("multi-level ambiguity cutoff is on the mean-loss scale", {
+  effects <- matrix(c(2, 1, 0.5, -0.5), 2, byrow = TRUE,
+                    dimnames = list(c("f1", "f2"),
+                                    c("phenotype=b", "phenotype=c")))
+  make <- function(e) list(
+    effects = e, se = matrix(1, 2, 2, dimnames = dimnames(e)), z = e,
+    covariance = list(diag(2), diag(2)),
+    term_covariate = c("phenotype=b" = "phenotype",
+                       "phenotype=c" = "phenotype"))
+  spec <- list(phenotype = "phenotype", secondary = character())
+  out <- chorale_hierarchical_blocks(list(a = make(effects), b = make(effects)),
+                                      spec, ambiguity_level = 0.95)
+  expect_equal(out$diagnostics[["a|b"]]$ambiguity_cutoff,
+               stats::qchisq(0.95, df = 2) / 2)
+})
+
+test_that("secondary evidence refines rather than replaces phenotype affinity", {
+  primary <- matrix(c(0.9, 0.1), 1, 2)
+  secondary <- matrix(c(0, 0.9), 1, 2)
+  candidate <- matrix(TRUE, 1, 2)
+  out <- chorale_combine_affinity(primary, secondary, candidate)
+  expect_gt(out[1, 1], out[1, 2])
+  bounded <- primary / (1 + primary)
+  expect_equal(out, 1 + bounded * (1 + secondary))
+
+  candidate[1, 2] <- FALSE
+  out <- chorale_combine_affinity(primary, secondary, candidate)
+  expect_gt(out[1, 1], out[1, 2])
+  expect_equal(out[1, 2], bounded[1, 2])
+})
+
+test_that("effect affinity is bounded and requires support plus compatibility", {
+  make <- function(effect) list(
+    effects = matrix(effect, 1, dimnames = list("f1", "phenotype=case")),
+    se = matrix(1, 1, 1), covariance = list(matrix(1, 1, 1)),
+    term_covariate = c("phenotype=case" = "phenotype"))
+  strong_agree <- chorale_effect_block_affinity(
+    make(4), make(4), 1, 1, 1, 1)$affinity
+  strong_disagree <- chorale_effect_block_affinity(
+    make(4), make(1), 1, 1, 1, 1, fixed_orientation = 1)$affinity
+  weak_agree <- chorale_effect_block_affinity(
+    make(0.1), make(0.1), 1, 1, 1, 1)$affinity
+  expect_true(all(c(strong_agree, strong_disagree, weak_agree) >= 0 &
+                    c(strong_agree, strong_disagree, weak_agree) <= 1))
+  expect_gt(strong_agree, strong_disagree)
+  expect_gt(strong_agree, weak_agree)
+})
+
+test_that("resampling streams have distinct deterministic seeds", {
+  a <- chorale_resampling_seeds(7, c(10, 20, 30))
+  b <- chorale_resampling_seeds(7, c(10, 20, 30))
+  expect_identical(a, b)
+  expect_length(unique(unlist(a)), 60)
+})
+
 test_that("bootstrap candidates retain phenotype-loss ties", {
   make <- function(loss) list(
     primary = list("a|b" = matrix(1, 1, 2)),

@@ -30,7 +30,8 @@
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_bound(fit)
 chorale_bound <- function(fit, n_grid = 200L, include_ambiguous = FALSE) {
   if (!inherits(fit, "chorale_fit")) {
@@ -352,7 +353,8 @@ print.chorale_bound <- function(x, ...) {
 #'                         n_strains = 4, n_per_cell = 3, effect_size = 3,
 #'                         seed = 1)
 #' containers <- Map(chorale_load, sim$modalities, sim$col_data)
-#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
+#' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
+#'                    n_ambiguity_boot = 19)
 #' chorale_bound_uncertainty(fit, n_boot = 20)
 chorale_bound_uncertainty <- function(fit, containers = NULL, n_boot = 200L,
                                       level = 0.95, n_grid = 200L,

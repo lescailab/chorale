@@ -152,6 +152,7 @@ fit <- chorale_fit(
   gene_sets      = gene_sets,
   feature_space  = c(METAB = "lipid"),
   n_init         = 10,
+  n_ambiguity_boot = 19, # short vignette run; production default is 999
   n_pathway_perm = 200,
   seed           = 1
 )
