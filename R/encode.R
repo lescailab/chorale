@@ -21,8 +21,9 @@
 #' @param containers A named list of [chorale_load()] containers.
 #' @param concepts A `chorale_concepts` object for the same collection.
 #' @param n_free Free dimensions per modality: one number, one per modality, a
-#'   named vector, or `"auto"` to take the count from parallel analysis on the
-#'   residual, which is the largest count the data can support.
+#'   named vector, or `"auto"` to choose the count by reproducibility, with
+#'   [chorale_select_factors()] holding it to what parallel analysis on the
+#'   residual says the data could support.
 #' @param transform Per-modality scale handling, as in [chorale_transform()].
 #' @param assay_name Assay to read from each container. Defaults to the first.
 #' @param control A [chorale_control()] object.
@@ -87,8 +88,17 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
     k <- free_of[[m]]
     ceiling_k <- chorale_n_factors(residual, quantile = control$n_factors_quantile,
                                    max_factors = control$max_factors, seed = seed)
+    selected <- NULL
     if (identical(k, "auto")) {
-      k <- ceiling_k
+      # Parallel analysis says how many components the data could support;
+      # reproducibility says how many of them are the same components when the
+      # estimator is started again, or run on a different draw of the samples.
+      selected <- chorale_select_factors(
+        residual, max_factors = ceiling_k, n_init = control$n_select_init,
+        n_subsample = control$n_subsample,
+        subsample_fraction = control$subsample_fraction,
+        threshold = control$reproducibility, seed = seed)
+      k <- attr(selected, "selected")
     } else {
       k <- as.integer(k)
     }
@@ -142,6 +152,7 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
       analysis_matrix = x,
       transform = tf$applied,
       stability = if (is.null(free)) data.frame() else free$stability,
+      selection = selected,
       n_free = ncol(free_scores),
       dropped_concepts = scored$dropped
     )

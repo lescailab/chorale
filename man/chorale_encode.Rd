@@ -21,8 +21,9 @@ chorale_encode(
 \item{concepts}{A \code{chorale_concepts} object for the same collection.}
 
 \item{n_free}{Free dimensions per modality: one number, one per modality, a
-named vector, or \code{"auto"} to take the count from parallel analysis on the
-residual, which is the largest count the data can support.}
+named vector, or \code{"auto"} to choose the count by reproducibility, with
+\code{\link[=chorale_select_factors]{chorale_select_factors()}} holding it to what parallel analysis on the
+residual says the data could support.}
 
 \item{transform}{Per-modality scale handling, as in \code{\link[=chorale_transform]{chorale_transform()}}.}
 

@@ -39,6 +39,14 @@
 #' @param min_lipid_specificity Share of a pathway's annotated compounds a lipid
 #'   class must account for before the link is used, as an alternative to the
 #'   count.
+#' @param n_select_init Initialisations compared at each candidate count when
+#'   the number of free dimensions is chosen by reproducibility.
+#' @param n_subsample Subsamples compared at each candidate count. Zero selects
+#'   on initialisations alone, which reports the optimiser rather than the data.
+#' @param subsample_fraction Share of the samples each of those subsamples
+#'   draws.
+#' @param reproducibility Matched correlation the weakest component must reach
+#'   for a count to be admissible.
 #' @param n_factors_quantile Quantile of the permuted eigenvalues a component
 #'   must exceed when the factor count is chosen from the data.
 #' @param max_factors Upper bound on a factor count chosen from the data.
@@ -87,6 +95,10 @@ chorale_control <- function(alpha = 0.05,
                             min_set_features = 5L,
                             min_lipid_compounds = 2L,
                             min_lipid_specificity = 0.05,
+                            n_select_init = 5L,
+                            n_subsample = 5L,
+                            subsample_fraction = 0.8,
+                            reproducibility = 0.75,
                             n_factors_quantile = 0.95,
                             max_factors = 20L,
                             n_grid = 200L,
@@ -110,6 +122,10 @@ chorale_control <- function(alpha = 0.05,
     min_set_features = as.integer(min_set_features),
     min_lipid_compounds = as.integer(min_lipid_compounds),
     min_lipid_specificity = min_lipid_specificity,
+    n_select_init = as.integer(n_select_init),
+    n_subsample = as.integer(n_subsample),
+    subsample_fraction = subsample_fraction,
+    reproducibility = reproducibility,
     n_factors_quantile = n_factors_quantile,
     max_factors = as.integer(max_factors), n_grid = as.integer(n_grid),
     phenotype_column = as.character(phenotype_column),
@@ -126,6 +142,12 @@ chorale_control <- function(alpha = 0.05,
     rlang::abort("`alpha` must lie strictly between 0 and 1.")
   }
   if (out$n_perm < 1) rlang::abort("`n_perm` must be at least 1.")
+  if (out$reproducibility <= 0 || out$reproducibility > 1) {
+    rlang::abort("`reproducibility` must lie in (0, 1].")
+  }
+  if (out$subsample_fraction <= 0 || out$subsample_fraction >= 1) {
+    rlang::abort("`subsample_fraction` must lie strictly between 0 and 1.")
+  }
   if (length(out$phenotype_column) != 1L || !nzchar(out$phenotype_column)) {
     rlang::abort("`phenotype_column` must be one non-empty column name.")
   }
