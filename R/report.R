@@ -326,15 +326,16 @@ chorale_control_table <- function(fit, null) {
     )
     rows[[length(rows) + 1]] <- data.frame(
       control = "modality shuffle",
-      value = if (isTRUE(null$modality_null$applicable)) {
-        signif(null$modality_null$p_value, 4)
-      } else {
-        NA_real_
-      },
-      detail = if (isTRUE(null$modality_null$applicable)) {
-        sprintf(paste("p-value of the observed evidence against %d shuffles",
-                      "reassigning samples across modalities"),
-                null$modality_null$n_shuffles)
+      # A description rather than a test, so the row carries no value: the
+      # shuffled collections run on the common features alone and do not keep
+      # each modality's sample composition, so they are not comparable with the
+      # statistic they would be read against.
+      value = NA_real_,
+      detail = if (is.finite(null$modality_null$agreement)) {
+        sprintf(paste("median evidence %.3f across %d shuffles reassigning",
+                      "samples across modalities; %s"),
+                null$modality_null$agreement, null$modality_null$n_shuffles,
+                null$modality_null$reason)
       } else {
         paste("not applicable:", null$modality_null$reason)
       },

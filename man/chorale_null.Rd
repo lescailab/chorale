@@ -59,8 +59,9 @@ to the data while leaving the design intact, so the anchor agreement of a
 genuine shared factor should exceed what permuted labels produce.
 
 Permuting the modality label pools the samples and reassigns them. This is a
-diagnostic for modality-specific structure, not an identification condition
-for the phenotype-led correspondence.
+description of how much of the result survives that treatment, not a test:
+the shuffled collections are not comparable with the fit they would have to
+be read against.
 
 Stability across initialisations is reported because independent component
 analysis is non-convex: a factor recovered at one initialisation and not at
