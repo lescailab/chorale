@@ -96,62 +96,118 @@ chorale_concept_fit <- function(containers, sets,
   )
 }
 
-#' A small collection with a concept planted in every modality
+#' A collection with named concepts planted in it
 #'
-#' Documentation and tests both need a collection where a named concept really
-#' does separate cases from controls in more than one modality, on features the
-#' modalities share by name. This builds one directly rather than deriving it
-#' from a factor model, so what the concept does is stated rather than inferred.
+#' Documentation, tests and recovery curves all need a collection where named
+#' concepts really do separate cases from controls, on features the modalities
+#' share by name. This builds one directly rather than deriving it from a factor
+#' model, so what each concept does is stated rather than inferred.
+#'
+#' Coverage is a dial rather than a fixture. A concept is defined on the whole
+#' vocabulary, but only a share of its members is measured in any one modality:
+#' the rest carry identifiers of that modality's own, as an assay that does not
+#' quantify every gene would. Lowering `coverage` is therefore the question of
+#' how far the vocabulary has to reach into a modality before a concept planted
+#' in it can still be recovered.
 #'
 #' @param n_samples Samples per modality.
 #' @param n_features Features per modality.
-#' @param effect Shift, in standard deviations, applied to the members of the
-#'   planted concept in cases.
+#' @param effect Shift, in standard deviations, applied in cases to the members
+#'   of every planted concept.
+#' @param n_modalities Modalities in the collection, on disjoint samples.
+#' @param n_concepts Concepts in the vocabulary.
+#' @param n_planted Concepts of those that carry the case-control shift. The
+#'   rest are the vocabulary the estimator must leave alone.
+#' @param coverage Share of each concept's members a modality measures.
 #' @param seed Integer seed.
 #'
-#' @returns A list with `containers`, a named list of two modalities on disjoint
-#'   samples; `sets`, three concepts of which the first is the planted one; and
-#'   `planted`, its name.
+#' @returns A list with `containers`, a named list of modalities on disjoint
+#'   samples; `sets`, the vocabulary; and `planted`, the names of the concepts
+#'   that carry the shift.
 #' @export
 #' @examples
 #' fx <- chorale_concept_example()
 #' names(fx$sets)
+#' fx$planted
 chorale_concept_example <- function(n_samples = 60L, n_features = 90L,
-                                    effect = 1, seed = 1L) {
-  if (n_features < 45L) {
-    rlang::abort("`n_features` must be at least 45 for three concepts and a tail.")
+                                    effect = 1, n_modalities = 2L,
+                                    n_concepts = 3L, n_planted = 1L,
+                                    coverage = 1, seed = 1L) {
+  if (n_planted > n_concepts) {
+    rlang::abort("`n_planted` cannot exceed `n_concepts`.")
+  }
+  if (coverage <= 0 || coverage > 1) {
+    rlang::abort("`coverage` must lie in (0, 1].")
   }
   set.seed(seed)
   ids <- sprintf("feature_%04d", seq_len(n_features))
-  # Three concepts of equal size separated by gaps, and a tail of features no
-  # concept covers, so the vocabulary is genuinely incomplete.
-  k <- floor((n_features - 15L) / 3L)
-  sets <- list(planted = ids[seq_len(k)],
-               quiet = ids[k + 5L + seq_len(k)],
-               other = ids[2L * k + 10L + seq_len(k)])
-  tail_ids <- ids[(3L * k + 11L):n_features]
+  # Concepts of equal size separated by gaps, and a tail of features no concept
+  # covers, so the vocabulary is genuinely incomplete.
+  k <- floor((n_features - 5L * (n_concepts + 1L)) / n_concepts)
+  if (k < 8L) {
+    rlang::abort(paste0(
+      "`n_features` is too small for ", n_concepts,
+      " concepts; each would reach fewer than eight features."))
+  }
+  names_of <- chorale_example_names(n_concepts, n_planted)
+  sets <- stats::setNames(lapply(seq_len(n_concepts), function(j) {
+    ids[(j - 1L) * (k + 5L) + 5L + seq_len(k)]
+  }), names_of)
+  covered <- unlist(sets, use.names = FALSE)
+  tail_ids <- setdiff(ids, covered)
+  planted <- names_of[seq_len(n_planted)]
+
   containers <- list()
-  for (i in seq_len(2L)) {
-    # Disjoint samples: the two modalities share no animal, which is the
-    # situation the estimator exists for.
+  for (i in seq_len(n_modalities)) {
+    # Disjoint samples: the modalities share no animal, which is the situation
+    # the estimator exists for.
     sample_id <- sprintf("m%d_s%03d", i, seq_len(n_samples))
     phenotype <- rep(c("control", "case"), length.out = n_samples)
     sex <- rep(c("F", "F", "M", "M"), length.out = n_samples)
     x <- matrix(stats::rnorm(n_features * n_samples), nrow = n_features,
                 dimnames = list(ids, sample_id))
-    x[sets$planted, phenotype == "case"] <-
-      x[sets$planted, phenotype == "case"] + effect
+    for (cn in planted) {
+      x[sets[[cn]], phenotype == "case"] <-
+        x[sets[[cn]], phenotype == "case"] + effect
+    }
     # A modality-private direction, so the free dimensions have something to
     # carry that no concept explains.
-    private <- stats::rnorm(n_samples)
-    x[tail_ids, ] <- x[tail_ids, ] +
-      matrix(rep(private, each = length(tail_ids)), nrow = length(tail_ids))
+    if (length(tail_ids) > 0) {
+      private <- stats::rnorm(n_samples)
+      x[tail_ids, ] <- x[tail_ids, ] +
+        matrix(rep(private, each = length(tail_ids)), nrow = length(tail_ids))
+    }
+    if (coverage < 1) {
+      # A member the modality does not measure is a feature under an identifier
+      # of that modality's own, so the concept reaches fewer features here.
+      unmeasured <- unlist(lapply(sets, function(members) {
+        n_drop <- length(members) - max(1L, floor(length(members) * coverage))
+        if (n_drop <= 0) character() else sample(members, n_drop)
+      }), use.names = FALSE)
+      at <- match(unmeasured, rownames(x))
+      rownames(x)[at] <- paste0("m", i, "_", unmeasured)
+    }
     containers[[i]] <- chorale_load(
       x, data.frame(sample_id = sample_id, phenotype = phenotype, sex = sex,
                     stringsAsFactors = FALSE))
   }
-  names(containers) <- c("A", "B")
-  list(containers = containers, sets = sets, planted = "planted")
+  names(containers) <- LETTERS[seq_len(n_modalities)]
+  list(containers = containers, sets = sets, planted = planted)
+}
+
+#' Names for an example vocabulary, planted concepts first
+#' @keywords internal
+#' @noRd
+chorale_example_names <- function(n_concepts, n_planted) {
+  planted <- if (n_planted >= 1L) {
+    c("planted", if (n_planted > 1L) paste0("planted_", 2:n_planted))
+  } else {
+    character()
+  }
+  n_quiet <- n_concepts - n_planted
+  quiet <- c("quiet", "other")[seq_len(min(2L, max(n_quiet, 0L)))]
+  if (n_quiet > 2L) quiet <- c(quiet, paste0("concept_", 3:n_quiet))
+  c(planted, quiet)
 }
 
 #' @export

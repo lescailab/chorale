@@ -2,12 +2,16 @@
 % Please edit documentation in R/concept_fit.R
 \name{chorale_concept_example}
 \alias{chorale_concept_example}
-\title{A small collection with a concept planted in every modality}
+\title{A collection with named concepts planted in it}
 \usage{
 chorale_concept_example(
   n_samples = 60L,
   n_features = 90L,
   effect = 1,
+  n_modalities = 2L,
+  n_concepts = 3L,
+  n_planted = 1L,
+  coverage = 1,
   seed = 1L
 )
 }
@@ -16,23 +20,41 @@ chorale_concept_example(
 
 \item{n_features}{Features per modality.}
 
-\item{effect}{Shift, in standard deviations, applied to the members of the
-planted concept in cases.}
+\item{effect}{Shift, in standard deviations, applied in cases to the members
+of every planted concept.}
+
+\item{n_modalities}{Modalities in the collection, on disjoint samples.}
+
+\item{n_concepts}{Concepts in the vocabulary.}
+
+\item{n_planted}{Concepts of those that carry the case-control shift. The
+rest are the vocabulary the estimator must leave alone.}
+
+\item{coverage}{Share of each concept's members a modality measures.}
 
 \item{seed}{Integer seed.}
 }
 \value{
-A list with \code{containers}, a named list of two modalities on disjoint
-samples; \code{sets}, three concepts of which the first is the planted one; and
-\code{planted}, its name.
+A list with \code{containers}, a named list of modalities on disjoint
+samples; \code{sets}, the vocabulary; and \code{planted}, the names of the concepts
+that carry the shift.
 }
 \description{
-Documentation and tests both need a collection where a named concept really
-does separate cases from controls in more than one modality, on features the
-modalities share by name. This builds one directly rather than deriving it
-from a factor model, so what the concept does is stated rather than inferred.
+Documentation, tests and recovery curves all need a collection where named
+concepts really do separate cases from controls, on features the modalities
+share by name. This builds one directly rather than deriving it from a factor
+model, so what each concept does is stated rather than inferred.
+}
+\details{
+Coverage is a dial rather than a fixture. A concept is defined on the whole
+vocabulary, but only a share of its members is measured in any one modality:
+the rest carry identifiers of that modality's own, as an assay that does not
+quantify every gene would. Lowering \code{coverage} is therefore the question of
+how far the vocabulary has to reach into a modality before a concept planted
+in it can still be recovered.
 }
 \examples{
 fx <- chorale_concept_example()
 names(fx$sets)
+fx$planted
 }
