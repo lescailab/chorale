@@ -46,8 +46,8 @@
 #' @param assay_name Assay to read from each container. Defaults to the first.
 #'
 #' @returns An object of class `chorale_concepts` with `vocabulary`, the
-#'   concepts retained; `membership`, one feature-by-concept matrix per
-#'   modality; `coverage`, one row per concept per modality carrying the number
+#'   concepts retained; `sets`, their member identifiers as supplied;
+#'   `membership`, one feature-by-concept matrix per modality; `coverage`, one row per concept per modality carrying the number
 #'   of features that modality has for it; and `summary`, one row per concept
 #'   carrying how many modalities express it and whether all do.
 #' @export
@@ -151,6 +151,7 @@ chorale_concepts <- function(containers, sets,
       modalities = modalities,
       feature_space = space,
       vocabulary = vocabulary,
+      sets = sets[names(sets) %in% vocabulary],
       membership = membership,
       coverage = coverage,
       summary = summary,

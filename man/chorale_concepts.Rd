@@ -50,8 +50,8 @@ can connect modalities.}
 }
 \value{
 An object of class \code{chorale_concepts} with \code{vocabulary}, the
-concepts retained; \code{membership}, one feature-by-concept matrix per
-modality; \code{coverage}, one row per concept per modality carrying the number
+concepts retained; \code{sets}, their member identifiers as supplied;
+\code{membership}, one feature-by-concept matrix per modality; \code{coverage}, one row per concept per modality carrying the number
 of features that modality has for it; and \code{summary}, one row per concept
 carrying how many modalities express it and whether all do.
 }
