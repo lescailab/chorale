@@ -6,11 +6,11 @@
 #' name for. Reporting those separately is what keeps the bound on the
 #' vocabulary visible instead of leaving it to be inferred from an absence.
 #'
-#' Whether such a dimension exceeds noise is a question the same permutations
-#' answer. The phenotype is permuted within strata of the design, the effect on
-#' each free dimension is recomputed from the scores already fitted, and the
-#' largest statistic over every free dimension of the collection forms the null
-#' the observed values are read against. A dimension is therefore called only
+#' Whether such a dimension exceeds noise is a question the same null answers.
+#' The design is held fixed and the part of each free score the adjusting
+#' covariates do not explain is exchanged, and the largest statistic over every
+#' free dimension of the collection forms the null the observed values are read
+#' against. A dimension is therefore called only
 #' when it beats the strongest thing the search could have turned up by chance.
 #'
 #' A free dimension has no name, so what it is made of is reported as the
@@ -53,16 +53,20 @@ chorale_free_dimensions <- function(fit, n_permutations = NULL, n_top = 10L,
   observed <- chorale_free_effects(fit, spec, phenotype_terms, designs)
   if (nrow(observed) == 0) return(chorale_empty_free_table())
 
-  strata <- lapply(designs, function(d) {
-    chorale_permutation_strata(d, spec$phenotype)
-  })
+  blocks <- lapply(designs, chorale_exchangeability_blocks,
+                   columns = fit$control$exchangeability_blocks)
   null_max <- rep(NA_real_, n_perm)
   null_by_dimension <- matrix(NA_real_, nrow = n_perm, ncol = nrow(observed))
   for (b in seq_len(n_perm)) {
-    permuted <- Map(function(d, s, i) {
-      chorale_permute_within(d, spec$phenotype, s, seed + 1000L * b + i)
-    }, designs, strata, seq_along(designs))
-    e <- chorale_free_effects(fit, spec, phenotype_terms, permuted)
+    # The design is held fixed and the response is rebuilt, so the phenotype
+    # keeps the relation to the covariates it has in the data.
+    permuted_scores <- Map(function(m, d, block, i) {
+      chorale_freedman_lane_scores(
+        fit$encoding$encodings[[m]]$free_scores, d, spec,
+        blocks = block, seed = seed + 1000L * b + i)
+    }, fit$modalities, designs, blocks, seq_along(designs))
+    e <- chorale_free_effects(fit, spec, phenotype_terms, designs,
+                              scores_by_modality = permuted_scores)
     v <- abs(e$z[match(observed$key, e$key)])
     v[!is.finite(v)] <- 0
     null_by_dimension[b, ] <- v
@@ -104,15 +108,56 @@ chorale_empty_free_table <- function() {
              stringsAsFactors = FALSE)
 }
 
+#' What each free dimension reconstructs of its modality
+#'
+#' Independent component analysis returns its components in no particular order,
+#' which is sometimes taken to mean they contribute equally. They do not: the
+#' fitted loadings can differ in norm by a wide margin, so dividing the channel's
+#' share evenly among them would report invented numbers.
+#'
+#' Each component is a rank-one term, so what it reconstructs is the product of
+#' the squared norms of its score and its loading. The components are
+#' uncorrelated after whitening, so those contributions should sum to the share
+#' the channel carries as a whole. Where they do not, the cross-terms are
+#' material and no per-dimension attribution is reported rather than an
+#' allocation being forced.
+#'
+#' @keywords internal
+#' @noRd
+chorale_component_variance <- function(encoding, channel_share,
+                                       tolerance = 0.05) {
+  scores <- encoding$free_scores
+  loadings <- encoding$free_loadings
+  total <- sum(encoding$analysis_matrix^2)
+  if (ncol(scores) == 0 || !is.finite(total) || total <= 0) {
+    return(rep(NA_real_, ncol(scores)))
+  }
+  # The reconstruction of one component is the outer product of its score and
+  # its loading, whose squared Frobenius norm is the product of theirs.
+  share <- vapply(seq_len(ncol(scores)), function(j) {
+    sum(scores[, j]^2) * sum(loadings[, j]^2) / total
+  }, numeric(1))
+  if (is.finite(channel_share) &&
+      abs(sum(share) - channel_share) > tolerance * max(channel_share, 1e-8)) {
+    return(rep(NA_real_, ncol(scores)))
+  }
+  round(share, 5)
+}
+
 #' Adjusted phenotype effect on every free dimension
 #' @keywords internal
 #' @noRd
-chorale_free_effects <- function(fit, spec, phenotype_terms, designs) {
+chorale_free_effects <- function(fit, spec, phenotype_terms, designs,
+                                 scores_by_modality = NULL) {
   rows <- list()
   for (m in fit$modalities) {
     e <- fit$encoding$encodings[[m]]
-    scores <- e$free_scores
-    if (ncol(scores) == 0) next
+    scores <- if (is.null(scores_by_modality)) {
+      e$free_scores
+    } else {
+      scores_by_modality[[m]]
+    }
+    if (is.null(scores) || ncol(scores) == 0) next
     profile <- chorale_adjusted_profile(scores, designs[[m]], spec)
     keep <- intersect(phenotype_terms, colnames(profile$effects))
     if (length(keep) == 0) next
@@ -124,14 +169,13 @@ chorale_free_effects <- function(fit, spec, phenotype_terms, designs) {
     }
     share <- fit$encoding$variance$free_share[
       fit$encoding$variance$modality == m]
+    component_share <- chorale_component_variance(e, share)
     for (term in keep) {
       rows[[length(rows) + 1L]] <- data.frame(
         key = paste(m, colnames(scores), term, sep = "|"),
         modality = m,
         dimension = colnames(scores),
-        # The share is the whole free channel's; it is divided evenly rather
-        # than attributed, since the components are not ordered by variance.
-        variance_share = round(share / ncol(scores), 5),
+        variance_share = component_share,
         reproducibility = round(stability, 3),
         term = term,
         effect = round(unname(profile$effects[, term]), 4),

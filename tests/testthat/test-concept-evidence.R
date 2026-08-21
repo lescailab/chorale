@@ -29,7 +29,7 @@ test_that("effects are reported per concept per modality with their errors", {
   expect_true(all(pm$effect[pm$concept == fx$planted] > 0))
 })
 
-test_that("the null permutes the design and never refits the encoder", {
+test_that("the null never refits the encoder", {
   fx <- chorale_concept_example(seed = 3)
   enc <- chorale_encode(fx$containers,
                         chorale_concepts(fx$containers, fx$sets,
@@ -74,6 +74,49 @@ test_that("the vocabulary null is calibrated on data with no signal", {
   # Forty runs give a standard error of about 0.05 at this level, so the test
   # is that the rate is near alpha rather than exactly it.
   expect_lt(rate, alpha + 0.15)
+})
+
+test_that("the null holds the design fixed and rebuilds the score", {
+  fx <- chorale_concept_example(seed = 11)
+  cc <- chorale_concepts(fx$containers, fx$sets, min_features = 5)
+  enc <- chorale_encode(fx$containers, cc, n_free = 0)
+  designs_before <- enc$designs
+  ev <- chorale_concept_evidence(enc, n_permutations = 99)
+
+  # Nothing about the design moves, so the phenotype keeps the relation to
+  # every covariate the model adjusts for that the data give it.
+  expect_identical(designs_before, enc$designs)
+  expect_length(ev$null, 99L)
+})
+
+test_that("blocks come from the study, never from the covariates on hand", {
+  fx <- chorale_concept_example(seed = 12)
+  d <- as.data.frame(SummarizedExperiment::colData(fx$containers$A))
+
+  # Undeclared: every sample is exchangeable with every other.
+  expect_equal(chorale_exchangeability_blocks(d), rep("all", nrow(d)))
+  # Declared: the blocks are the levels of the declared column.
+  expect_setequal(unique(chorale_exchangeability_blocks(d, "sex")), c("F", "M"))
+  expect_error(chorale_exchangeability_blocks(d, "litter"),
+               "a design does not carry")
+})
+
+test_that("the null is calibrated when a covariate confounds the phenotype", {
+  # The stage condition under confounding: a continuous covariate drives a
+  # concept and predicts the phenotype, but no concept separates cases from
+  # controls once that covariate is adjusted for.
+  alpha <- 0.1
+  n_sim <- 40L
+  called <- vapply(seq_len(n_sim), function(s) {
+    fx <- confounded_collection(n_samples = 40L, n_features = 60L,
+                                seed = 500L + s)
+    fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+                               n_permutations = 199, min_features = 5,
+                               alpha = alpha, seed = s)
+    any(fit$evidence$joint$family_significant)
+  }, logical(1))
+
+  expect_lt(mean(called), alpha + 0.15)
 })
 
 test_that("overlapping concepts are reported after their neighbours are removed", {

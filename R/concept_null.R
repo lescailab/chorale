@@ -92,11 +92,24 @@ chorale_finite_mean <- function(v) {
 
 #' Re-encode after reassigning samples across modalities
 #'
-#' If a concept is a property of the biology rather than of the assay it was
-#' measured with, pooling the samples and dealing them out again should destroy
-#' it. The shuffle is defined only where the modalities share enough features to
-#' be pooled at all, and where they do not it is reported as inapplicable rather
-#' than as passed.
+#' Pooling the samples and dealing them out again asks whether a concept is a
+#' property of the biology rather than of the assay it was measured with. It is
+#' reported as a description and not as a test, because the shuffled collections
+#' are not comparable with the fit they would have to be read against.
+#'
+#' Three differences make them incomparable. Pooling keeps only the features the
+#' modalities share, so the shuffled fit is scored on a smaller feature space and
+#' often on a smaller vocabulary than the observed one. The reallocation does not
+#' preserve each modality's original sample count, nor the phenotype and
+#' covariate composition within it, so the precision of the regressions changes.
+#' And the observed statistic it would be compared against was computed on the
+#' full assays. A p-value from that comparison would not mean that the observed
+#' result survived a shuffle of the assay labels.
+#'
+#' An inferential form of this control needs the observed statistic refitted on
+#' exactly the common-feature subset, feature spaces that can be pooled, and
+#' modality labels permuted within declared design cells while each modality
+#' keeps its original count in every cell.
 #'
 #' @keywords internal
 #' @noRd
@@ -153,12 +166,14 @@ chorale_concept_modality_shuffle <- function(containers, fit, n_shuffles, seed) 
                 reason = "every modality shuffle failed to re-encode"))
   }
   list(
-    applicable = TRUE,
+    applicable = FALSE,
     statistic = round(stats::median(null), 4),
     observed = observed,
-    p_value = (1 + sum(null >= observed)) / (1 + length(null)),
+    p_value = NA_real_,
     n_shuffles = length(null),
-    reason = NA_character_
+    reason = paste0(
+      "descriptive only: pooling restricts the feature space and modality ",
+      "labels are not exchangeable under the fitted design")
   )
 }
 
@@ -190,11 +205,7 @@ chorale_concept_control_table <- function(observed, p_phenotype, n_perm,
       observed = round(observed, 4),
       null_value = modality_null$statistic,
       p_value = signif(modality_null$p_value, 3),
-      smallest_attainable_p = if (isTRUE(modality_null$applicable)) {
-        signif(1 / (modality_null$n_shuffles + 1), 3)
-      } else {
-        NA_real_
-      },
+      smallest_attainable_p = NA_real_,
       n_resamples = modality_null$n_shuffles %||% 0L,
       reason = modality_null$reason %||% NA_character_,
       stringsAsFactors = FALSE)
@@ -225,7 +236,10 @@ print.chorale_concept_null <- function(x, ...) {
   cat("  strongest concept statistic:", round(x$observed_statistic, 3), "\n")
   for (i in seq_len(nrow(x$controls))) {
     r <- x$controls[i, ]
-    if (!r$applicable) {
+    if (!r$applicable && is.finite(r$null_value)) {
+      cat(sprintf("  %-24s median %.3f across %d shuffles; %s\n", r$control,
+                  r$null_value, r$n_resamples, r$reason))
+    } else if (!r$applicable) {
       cat(sprintf("  %-24s not applicable: %s\n", r$control, r$reason))
     } else if (is.na(r$p_value)) {
       cat(sprintf("  %-24s weakest component %.3f\n", r$control, r$observed))

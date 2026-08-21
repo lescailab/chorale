@@ -94,20 +94,25 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
       class = "chorale_concept_evidence"))
   }
 
-  # The permutation acts on the design only, so the scores computed once above
-  # are the scores every permutation uses.
+  # The design is held fixed and the score is what moves, so the relation
+  # between the phenotype and every covariate the model adjusts for is exactly
+  # the relation the data have. The encoder is never refitted: only the
+  # response of the already-computed concept scores is rebuilt.
   null_max <- rep(NA_real_, n_permutations)
   null_by_concept <- matrix(NA_real_, nrow = n_permutations,
                             ncol = nrow(observed$joint))
-  strata <- lapply(designs, function(d) {
-    chorale_permutation_strata(d, spec$phenotype)
-  })
+  blocks <- lapply(designs, chorale_exchangeability_blocks,
+                   columns = control$exchangeability_blocks)
   for (b in seq_len(n_permutations)) {
-    permuted <- Map(function(d, s, i) {
-      chorale_permute_within(d, spec$phenotype, s, seed + 1000L * b + i)
-    }, designs, strata, seq_along(designs))
+    permuted_scores <- Map(function(m, d, block, i) {
+      chorale_freedman_lane_scores(
+        encoding$encodings[[m]]$concept_scores, d, spec,
+        blocks = block, seed = seed + 1000L * b + i)
+    }, encoding$modalities, designs, blocks, seq_along(designs))
     e <- chorale_concept_effects(encoding, spec, phenotype_terms,
-                                 designs = permuted, attribution = FALSE)
+                                 designs = designs,
+                                 scores_by_modality = permuted_scores,
+                                 attribution = FALSE)
     v <- abs(e$joint$joint_z[match(observed$joint$key, e$joint$key)])
     v[!is.finite(v)] <- 0
     null_by_concept[b, ] <- v
@@ -149,22 +154,28 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
 #' @param encoding A `chorale_encode` object.
 #' @param spec The resolved design signature.
 #' @param phenotype_terms The phenotype contrasts to read off.
-#' @param designs Designs to use, defaulting to the encoding's own. A
-#'   permutation supplies its own here, which is what lets the null reuse the
-#'   scores rather than recompute them.
+#' @param designs Designs to use, defaulting to the encoding's own.
 #' @param attribution Whether to recompute each effect with overlapping
 #'   concepts regressed out. Skipped under permutation, where only the combined
 #'   statistic is needed.
+#' @param scores_by_modality Optional replacement concept scores, one matrix per
+#'   modality. The null supplies its rebuilt responses here, which is what lets
+#'   it hold the design fixed and never refit the encoder.
 #' @keywords internal
 #' @noRd
 chorale_concept_effects <- function(encoding, spec, phenotype_terms,
                                     designs = NULL, attribution = TRUE,
-                                    min_overlap = 0.1) {
+                                    min_overlap = 0.1,
+                                    scores_by_modality = NULL) {
   designs <- designs %||% encoding$designs
   rows <- list()
   for (m in encoding$modalities) {
-    scores <- encoding$encodings[[m]]$concept_scores
-    if (ncol(scores) == 0) next
+    scores <- if (is.null(scores_by_modality)) {
+      encoding$encodings[[m]]$concept_scores
+    } else {
+      scores_by_modality[[m]]
+    }
+    if (is.null(scores) || ncol(scores) == 0) next
     profile <- chorale_adjusted_profile(scores, designs[[m]], spec)
     keep <- intersect(phenotype_terms, colnames(profile$effects))
     if (length(keep) == 0) next
@@ -320,47 +331,102 @@ chorale_neighbour_residual <- function(scores, membership, min_overlap = 0.1) {
   list(scores = out, n_neighbours = n_neighbours, max_jaccard = max_jaccard)
 }
 
-#' Blocks of otherwise-alike samples the phenotype may be permuted within
+#' Blocks resampling must stay inside
 #'
-#' Permuting the phenotype across the whole cohort would break its relation to
-#' the data and to the rest of the design at the same time, so the null would
-#' contain designs the study could not have produced. Permuting within blocks of
-#' samples alike on every other covariate leaves the design intact and breaks
-#' only what is under test. Blocks are built from whatever the design carries,
-#' since naming the covariates in advance would suit one study and exclude
-#' another, and a covariate so finely divided that no block holds two samples is
-#' dropped rather than making the permutation the identity.
+#' Exchangeability is a property of the study rather than something a table can
+#' be read for. A repeated measure, a litter or a processing batch makes samples
+#' exchangeable only within itself, and only the person who ran the study knows
+#' which column records that. Blocks are therefore taken from the columns
+#' declared in [chorale_control()], and where none are declared every sample is
+#' exchangeable with every other.
+#'
+#' Inferring blocks from whatever the design happens to carry is what this
+#' replaces. A continuous covariate read that way produces one sample per block,
+#' after which resampling is the identity or covariates are dropped until it is
+#' not, and neither is a statement about the study.
 #'
 #' @keywords internal
 #' @noRd
-chorale_permutation_strata <- function(design, phenotype_column = "phenotype") {
-  block_cols <- setdiff(chorale_candidate_covariates(list(design)),
-                        phenotype_column)
-  parts <- lapply(block_cols, function(cv) {
+chorale_exchangeability_blocks <- function(design, columns = NULL) {
+  if (is.null(columns) || length(columns) == 0) {
+    return(rep("all", nrow(design)))
+  }
+  missing <- setdiff(columns, colnames(design))
+  if (length(missing) > 0) {
+    rlang::abort(paste0(
+      "`exchangeability_blocks` names column(s) a design does not carry: ",
+      paste(missing, collapse = ", "), "."))
+  }
+  parts <- lapply(columns, function(cv) {
     v <- as.character(design[[cv]])
     v[is.na(v)] <- "unknown"
     v
   })
-  if (length(parts) == 0) return(rep("all", nrow(design)))
-  repeat {
-    key <- do.call(paste, c(parts, sep = "|"))
-    if (max(table(key)) > 1 || length(parts) == 0) break
-    parts <- parts[-length(parts)]
-  }
-  if (length(parts) == 0) rep("all", nrow(design)) else
-    do.call(paste, c(parts, sep = "|"))
+  do.call(paste, c(parts, sep = "|"))
 }
 
-#' Permute one column within strata
+#' Rebuild a score under the null that the phenotype has no adjusted effect
+#'
+#' The quantity under test is the phenotype coefficient of a model that also
+#' carries the covariates the modalities share. Permuting the phenotype label
+#' would break its relation to those covariates as well, so the permuted designs
+#' would be designs the study could not have produced and the null would not
+#' correspond to the coefficient being tested.
+#'
+#' Freedman and Lane (1983) permute what is left of the response once the
+#' nuisance covariates have explained what they can. The reduced model, carrying
+#' the intercept and every covariate except the phenotype, is fitted; its
+#' residuals are permuted; and the permuted residuals are added back to the
+#' reduced fit. The design matrix never changes, so the phenotype keeps exactly
+#' the relation to the covariates it has in the data, and only the part of the
+#' score the covariates do not explain is exchanged.
+#'
+#' @param scores A samples-by-concepts matrix.
+#' @param design The design for those samples.
+#' @param spec The resolved design signature.
+#' @param blocks Resampling blocks, as returned by
+#'   [chorale_exchangeability_blocks()].
+#' @param seed Integer seed.
+#'
+#' @returns A matrix of the same shape as `scores`.
 #' @keywords internal
 #' @noRd
-chorale_permute_within <- function(design, column, strata, seed) {
-  set.seed(seed)
-  for (lv in unique(strata)) {
-    idx <- which(strata == lv)
-    if (length(idx) > 1) design[[column]][idx] <- sample(design[[column]][idx])
+chorale_freedman_lane_scores <- function(scores, design, spec, blocks, seed) {
+  design <- design[match(rownames(scores), design$sample_id), , drop = FALSE]
+  reduced <- setdiff(spec$covariates, spec$phenotype)
+  mm <- chorale_signature_matrix(
+    design, list(covariates = spec$covariates, levels = spec$levels),
+    include = reduced)
+  x <- mm$x
+
+  ok <- stats::complete.cases(x) & stats::complete.cases(scores)
+  out <- scores
+  if (sum(ok) <= ncol(x) || qr(x[ok, , drop = FALSE])$rank < ncol(x)) {
+    # With no estimable reduced model there is nothing for the covariates to
+    # explain, so the whole score is exchangeable.
+    fitted <- matrix(0, nrow = nrow(scores), ncol = ncol(scores))
+    residual <- scores
+  } else {
+    fit <- stats::lm.fit(x[ok, , drop = FALSE], scores[ok, , drop = FALSE])
+    fitted <- matrix(NA_real_, nrow = nrow(scores), ncol = ncol(scores))
+    residual <- matrix(NA_real_, nrow = nrow(scores), ncol = ncol(scores))
+    fitted[ok, ] <- as.matrix(scores[ok, , drop = FALSE]) -
+      as.matrix(fit$residuals)
+    residual[ok, ] <- as.matrix(fit$residuals)
+    # A sample the reduced model could not use keeps its own value, so it
+    # contributes nothing to the exchange rather than dropping out of the fit.
+    fitted[!ok, ] <- scores[!ok, , drop = FALSE]
+    residual[!ok, ] <- 0
   }
-  design
+
+  set.seed(seed)
+  order_new <- seq_len(nrow(scores))
+  for (lv in unique(blocks)) {
+    at <- which(blocks == lv)
+    if (length(at) > 1) order_new[at] <- sample(at)
+  }
+  out[] <- fitted + residual[order_new, , drop = FALSE]
+  out
 }
 
 #' False discovery rate the permutation null implies at each threshold

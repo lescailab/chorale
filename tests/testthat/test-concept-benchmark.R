@@ -5,10 +5,33 @@ test_that("the correspondence the vocabulary asserts is recovered", {
   s <- r$concept_summary
 
   expect_equal(s$n_concepts, 3L)
-  expect_gt(s$recovered_agreement, s$random_lower_bound)
+  expect_gt(s$recovered_agreement, s$random_baseline)
   expect_gt(s$placement_between_bounds, 0.5)
   expect_equal(s$fraction_partner_correct, 1)
   expect_true(all(r$concept_recovery$partner_correct))
+})
+
+test_that("a concept the modalities rank in opposite directions is not recovered", {
+  p <- paired_concept_data()
+  # The same concept, measured upside down in the second modality. Its score
+  # ranks the same animals in the opposite order, which is not recovery.
+  flipped <- p$b
+  flipped[p$sets$planted, ] <- -flipped[p$sets$planted, ]
+  upright <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
+                                     spaces = "concept", n_random = 100,
+                                     n_init = 2)
+  inverted <- chorale_destroy_pairing(p$a, flipped, p$design, sets = p$sets,
+                                      spaces = "concept", n_random = 100,
+                                      n_init = 2)
+
+  planted_up <- upright$concept_recovery[
+    upright$concept_recovery$concept == "planted", ]
+  planted_down <- inverted$concept_recovery[
+    inverted$concept_recovery$concept == "planted", ]
+  expect_gt(planted_up$self_agreement, 0.5)
+  expect_lt(planted_down$self_agreement, -0.5)
+  expect_lt(inverted$concept_summary$recovered_agreement,
+            upright$concept_summary$recovered_agreement)
 })
 
 test_that("recovery is placed between the two bounds", {
@@ -44,6 +67,20 @@ test_that("a concept with no shared state falls towards the random bound", {
                                 spaces = "concept", n_random = 100, n_init = 2)
   expect_gt(rs$concept_summary$recovered_agreement,
             rn$concept_summary$recovered_agreement)
+})
+
+test_that("a vocabulary that names nothing shared places below random", {
+  p <- paired_concept_data(concept_effect = 1.5, seed = 9)
+  # Every concept measured upside down in the second modality: the names line
+  # up and the biology does not, which is worse than relabelling at random.
+  flipped <- p$b
+  flipped[unlist(p$sets, use.names = FALSE), ] <-
+    -flipped[unlist(p$sets, use.names = FALSE), ]
+  r <- chorale_destroy_pairing(p$a, flipped, p$design, sets = p$sets,
+                               spaces = "concept", n_random = 100, n_init = 2)
+  expect_lt(r$concept_summary$recovered_agreement,
+            r$concept_summary$random_baseline)
+  expect_lt(r$concept_summary$placement_between_bounds, 0)
 })
 
 test_that("both spaces can be scored in one run", {

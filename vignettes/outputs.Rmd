@@ -87,7 +87,7 @@ carried here.
 | Column | Meaning |
 |---|---|
 | `modality`, `dimension` | Which free dimension the row is about. |
-| `variance_share` | Share of the modality's variance the free channel holds, divided evenly among its dimensions. |
+| `variance_share` | Share of the modality's variance this dimension reconstructs. The dimensions of a modality sum to the free share the channel carries; where they cannot, no per-dimension share is reported. |
 | `reproducibility` | Mean matched correlation with the same dimension recovered from other initialisations. |
 | `effect`, `se`, `z` | The adjusted case-control effect on the dimension. |
 | `p_value`, `p_family` | Calibrated against the same permuted phenotypes as the concepts, with `p_family` taken against the largest statistic over every free dimension. |
@@ -114,9 +114,18 @@ One row per control, with the smallest p-value that control can attain beside it
 
 | Control | What it breaks | When it is inapplicable |
 |---|---|---|
-| Phenotype permutation | The relation between the phenotype and the data, within strata of samples alike on every other covariate | Never; it is the calibration the reported p-values come from. |
-| Modality shuffle | The assignment of samples to modalities | Where the modalities share fewer than ten features, so they cannot be pooled. |
+| Phenotype permutation | The part of the score the adjusting covariates do not explain, with the design held fixed | Never; it is the calibration the reported p-values come from. |
+| Modality shuffle | The assignment of samples to modalities, after pooling | Always, as a test. It is reported as a description. |
 | Initialisation stability | Nothing; it reports how reproducibly the free dimensions were recovered | Where no free dimensions were fitted. |
+
+The modality shuffle carries a median statistic and no p-value. Pooling keeps only the features the
+modalities share, so the shuffled collections are scored on a smaller feature space and often on a
+smaller vocabulary than the fit; the reallocation preserves neither each modality's sample count nor
+its phenotype and covariate composition; and the statistic it would be read against was computed on
+the full assays. The median across shuffles describes how much of the result survives that
+treatment, and nothing about it is an error rate. An inferential form needs the observed statistic
+refitted on the common features alone, feature spaces that can be pooled, and modality labels
+permuted within declared design cells with each modality keeping its count in every cell.
 
 A control that could not be computed is named with its reason rather than passed over. Reading
 `smallest_attainable_p` before quoting a p-value is what stops a control being read against a

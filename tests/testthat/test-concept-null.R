@@ -30,9 +30,16 @@ test_that("each control states the smallest p-value it can attain", {
   phenotype <- ct[ct$control == "phenotype permutation", ]
   expect_equal(phenotype$smallest_attainable_p, signif(1 / 200, 3))
   expect_gte(phenotype$p_value, phenotype$smallest_attainable_p)
+  # The shuffle is a description, not a test: the pooled collections are scored
+  # on a smaller feature space and a different sample composition from the fit
+  # they would have to be read against.
   shuffle <- ct[ct$control == "modality shuffle", ]
   expect_equal(shuffle$n_resamples, 5L)
-  expect_equal(shuffle$smallest_attainable_p, signif(1 / 6, 3))
+  expect_false(shuffle$applicable)
+  expect_true(is.na(shuffle$p_value))
+  expect_true(is.na(shuffle$smallest_attainable_p))
+  expect_true(is.finite(shuffle$null_value))
+  expect_match(shuffle$reason, "descriptive only")
 })
 
 test_that("the permutation count is a choice about resolution", {
@@ -65,6 +72,7 @@ test_that("the modality shuffle reports inapplicability rather than passing", {
   expect_false(shuffle$applicable)
   expect_match(shuffle$reason, "fewer than ten features")
   expect_true(is.na(shuffle$p_value))
+  expect_true(is.na(shuffle$null_value))
 })
 
 test_that("without the containers the shuffle says why it did not run", {

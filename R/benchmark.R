@@ -19,14 +19,22 @@
 #' can check it: a concept's score in one modality is compared with its score in
 #' the other across the animals both were measured on, and the comparison the
 #' vocabulary asserts is placed against the best alignment any method could have
-#' found and against alignment at random.
+#' found and against alignment at random. The comparison is signed, because a
+#' concept score has a fixed orientation and two modalities ranking the same
+#' state in opposite directions have not recovered it.
 #'
 #' Three quantities frame the result, in the manner the plan sets out. The
 #' **paired benchmark** is the correspondence obtained by using the pairing,
 #' which is the best any method could do. **Random alignment** is the
 #' correspondence obtained by pairing factors at random, which is the worst.
-#' The estimator's recovery is reported between them, and a result near the
-#' lower bound is a failure however small its p-value.
+#' The estimator's recovery is reported between them, and a result near random
+#' alignment is a failure however small its p-value.
+#'
+#' In concept space random alignment is a baseline rather than a bound. The
+#' identity the vocabulary asserts can do worse than relabelling the concepts at
+#' random, which is what a vocabulary whose names do not track the same biology
+#' in both modalities looks like, and the placement reports it as a negative
+#' value rather than clipping it.
 #'
 #' @param paired_a,paired_b Feature-by-sample matrices for two modalities
 #'   measured on the same individuals, with the same sample identifiers in the
@@ -220,7 +228,7 @@ chorale_concept_pairing <- function(containers, sets, feature_space,
       summary = data.frame(
         n_concepts = length(shared),
         paired_upper_bound = NA_real_, recovered_agreement = NA_real_,
-        random_lower_bound = NA_real_, placement_between_bounds = NA_real_,
+        random_baseline = NA_real_, placement_between_bounds = NA_real_,
         fraction_partner_correct = NA_real_,
         reason = "fewer than two concepts reach both modalities",
         stringsAsFactors = FALSE),
@@ -234,24 +242,38 @@ chorale_concept_pairing <- function(containers, sets, feature_space,
 
   # The pairing enters here and nowhere else: the two matrices are in the same
   # sample order because the withheld pairing put them there.
-  agreement <- abs(suppressWarnings(stats::cor(sa, sb)))
+  #
+  # The correlation is signed. A concept score has a fixed orientation, since a
+  # larger score means a larger weighted mean of the features that carry the
+  # concept, so two modalities ranking the same biological state in opposite
+  # directions have not recovered it. Sign indeterminacy belongs to the free
+  # dimensions, which are not what is being compared here.
+  agreement <- suppressWarnings(stats::cor(sa, sb))
   agreement[!is.finite(agreement)] <- 0
 
-  best <- chorale_assign(agreement)
+  # The assignment solver takes non-negative costs. Adding a constant to every
+  # entry adds the same amount to every complete assignment, so the optimal
+  # assignment is the one the signed agreement implies.
+  best <- chorale_assign(agreement + 1)
   paired_bound <- mean(agreement[cbind(seq_along(shared), best)])
   self <- diag(agreement)
   recovered_agreement <- mean(self)
   correct <- mean(best == seq_along(shared))
 
+  # A random alignment is a one-to-one relabelling of the concepts, which is the
+  # thing the identity is being compared against. Drawing with replacement would
+  # compare against something no alignment could be.
   set.seed(seed)
   random <- vapply(seq_len(n_random), function(i) {
-    j <- sample(seq_along(shared), length(shared), replace = TRUE)
-    mean(agreement[cbind(seq_along(shared), j)])
+    mean(agreement[cbind(seq_along(shared), sample(seq_along(shared)))])
   }, numeric(1))
-  random_bound <- mean(random)
+  random_baseline <- mean(random)
 
-  placement <- if (paired_bound > random_bound) {
-    (recovered_agreement - random_bound) / (paired_bound - random_bound)
+  # A baseline, not a bound: a vocabulary whose names do not track the same
+  # biology in the two modalities can place below it, and the placement says so
+  # by going negative.
+  placement <- if (paired_bound > random_baseline) {
+    (recovered_agreement - random_baseline) / (paired_bound - random_baseline)
   } else {
     NA_real_
   }
@@ -272,7 +294,7 @@ chorale_concept_pairing <- function(containers, sets, feature_space,
       n_concepts = length(shared),
       paired_upper_bound = round(paired_bound, 4),
       recovered_agreement = round(recovered_agreement, 4),
-      random_lower_bound = round(random_bound, 4),
+      random_baseline = round(random_baseline, 4),
       placement_between_bounds = round(placement, 3),
       fraction_partner_correct = round(correct, 3),
       reason = NA_character_,

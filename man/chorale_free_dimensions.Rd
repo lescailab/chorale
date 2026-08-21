@@ -30,11 +30,11 @@ name for. Reporting those separately is what keeps the bound on the
 vocabulary visible instead of leaving it to be inferred from an absence.
 }
 \details{
-Whether such a dimension exceeds noise is a question the same permutations
-answer. The phenotype is permuted within strata of the design, the effect on
-each free dimension is recomputed from the scores already fitted, and the
-largest statistic over every free dimension of the collection forms the null
-the observed values are read against. A dimension is therefore called only
+Whether such a dimension exceeds noise is a question the same null answers.
+The design is held fixed and the part of each free score the adjusting
+covariates do not explain is exchanged, and the largest statistic over every
+free dimension of the collection forms the null the observed values are read
+against. A dimension is therefore called only
 when it beats the strongest thing the search could have turned up by chance.
 
 A free dimension has no name, so what it is made of is reported as the

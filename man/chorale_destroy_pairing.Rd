@@ -81,14 +81,22 @@ is made without seeing a single paired sample. The withheld pairing is what
 can check it: a concept's score in one modality is compared with its score in
 the other across the animals both were measured on, and the comparison the
 vocabulary asserts is placed against the best alignment any method could have
-found and against alignment at random.
+found and against alignment at random. The comparison is signed, because a
+concept score has a fixed orientation and two modalities ranking the same
+state in opposite directions have not recovered it.
 
 Three quantities frame the result, in the manner the plan sets out. The
 \strong{paired benchmark} is the correspondence obtained by using the pairing,
 which is the best any method could do. \strong{Random alignment} is the
 correspondence obtained by pairing factors at random, which is the worst.
-The estimator's recovery is reported between them, and a result near the
-lower bound is a failure however small its p-value.
+The estimator's recovery is reported between them, and a result near random
+alignment is a failure however small its p-value.
+
+In concept space random alignment is a baseline rather than a bound. The
+identity the vocabulary asserts can do worse than relabelling the concepts at
+random, which is what a vocabulary whose names do not track the same biology
+in both modalities looks like, and the placement reports it as a negative
+value rather than clipping it.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 120,

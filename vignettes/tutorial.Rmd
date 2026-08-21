@@ -225,9 +225,9 @@ fit$evidence$joint[, c("concept", "n_modalities", "modalities", "joint_z",
 #> 4    REACTOME_INNATE_IMMUNE_SYSTEM            2        PROT, RNA  0.1401
 #>   sign_agreement heterogeneity_p q_value p_family
 #> 1          1.000          0.9777  0.0000    0.001
-#> 2          0.667          0.1370  0.8894    0.992
-#> 3          0.500          0.3722  0.8894    0.998
-#> 4          0.500          0.5583  0.8894    1.000
+#> 2          0.667          0.1370  0.8944    0.991
+#> 3          0.500          0.3722  0.8944    0.994
+#> 4          0.500          0.5583  0.8944    1.000
 ```
 
 One concept is supported. Four columns decide how much that is worth.
@@ -236,8 +236,8 @@ One concept is supported. Four columns decide how much that is worth.
 cancel. `sign_agreement` of 1.000 says all three modalities move the same way, which is what makes
 the finding shared rather than one modality carrying the others. `heterogeneity_p` of 0.98 says the
 three effects are consistent with one underlying quantity. `p_family` compares the concept with the
-largest statistic anywhere in the vocabulary under permuted phenotypes, and 0.001 is the smallest
-value 999 permutations can produce.
+largest statistic anywhere in the vocabulary under the null, and 0.001 is the smallest value 999
+permutations can produce.
 
 The effect in each modality is where the size of the finding is read:
 
@@ -295,15 +295,18 @@ chorale_free_dimensions(fit, n_permutations = 999)[
   , c("modality", "dimension", "variance_share", "reproducibility", "z",
       "p_family", "outside_vocabulary")]
 #>   modality dimension variance_share reproducibility       z p_family
-#> 1      RNA    free_2         0.0260           0.943 -0.2794        1
-#> 2    METAB    free_2         0.0396           0.969  0.2635        1
-#> 3     PROT    free_2         0.0306           1.000  0.1688        1
-#> 4     PROT    free_1         0.0306           1.000  0.1120        1
-#> 5    METAB    free_1         0.0396           0.969  0.1010        1
-#> 6      RNA    free_1         0.0260           0.943 -0.0186        1
+#> 1      RNA    free_2        0.02360           0.943 -0.2794        1
+#> 2    METAB    free_2        0.04751           0.969  0.2635        1
+#> 3     PROT    free_2        0.03337           1.000  0.1688        1
+#> 4     PROT    free_1        0.02782           1.000  0.1120        1
+#> 5    METAB    free_1        0.03169           0.969  0.1010        1
+#> 6      RNA    free_1        0.02841           0.943 -0.0186        1
 #>   outside_vocabulary
 #> 1              FALSE
 ```
+
+Each dimension carries the share of the modality it reconstructs, which the fitted loadings make
+unequal, and the dimensions of a modality sum to that modality's free share.
 
 Nothing outside the vocabulary moves with the phenotype in this collection, which is correct: the
 cohort-specific direction built into the tail features was drawn independently of the phenotype. A
@@ -323,12 +326,14 @@ controls
 #>   initialisation stability weakest component 0.829
 ```
 
-The phenotype permutation reuses the concept scores, since permuting the design leaves the assay
-untouched: the permutation count is a choice about resolution rather than about what a refit can
-afford. The modality shuffle needs a shared feature space, which a transcriptome and a lipidome do
-not have, so it is declared inapplicable rather than quietly passed. Every control states the
-smallest p-value it can attain, so one that cannot reach the threshold it is read against is visible
-as one.
+The phenotype permutation holds the design fixed and exchanges the part of each concept score the
+covariates do not explain, so the phenotype keeps the relation to `sex` that the cohorts give it.
+The encoder is never refitted, which makes the permutation count a choice about resolution rather
+than about what a refit can afford. The modality shuffle needs a shared feature space, which a
+transcriptome and a lipidome do not have, so it is declared inapplicable rather than quietly passed;
+where it does run it reports a median across shuffles and no p-value, because the pooled collections
+are not comparable with the fit. Every control that produces a p-value states the smallest one it
+can attain, so a control read against a threshold it could never reach is visible as one.
 
 <div class="note warn">
 <span class="lab">Permutation count</span>

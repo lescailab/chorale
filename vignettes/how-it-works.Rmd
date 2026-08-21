@@ -66,13 +66,23 @@ combined statistic by accumulating disagreement. How far they agree is reported 
 statistic, because a statistic carried by one modality against the others is a different finding
 from the same statistic carried by all of them.
 
-## 5. Calibrate against permuted phenotypes
+## 5. Calibrate against a null that keeps the design
 
-The phenotype is permuted within strata of samples alike on every other covariate, so the design
-survives and only its relation to the data is broken. The permutation acts on the design and leaves
-the assay untouched, which means the concept scores are computed once and reused: the number of
-permutations is a choice about the resolution the report needs rather than about what a refit can
-afford.
+The quantity under test is the phenotype coefficient of a model that also carries the covariates the
+modalities share, so the null has to be a null for that coefficient. Permuting the phenotype label
+would break its relation to those covariates as well, and the permuted designs would be designs the
+study could not have produced.
+
+The design is therefore held fixed and the response is what moves. The model without the phenotype
+is fitted, its residuals are exchanged, and they are added back to what that model explains. This is
+the null of Freedman and Lane (1983): the phenotype keeps exactly the relation to the covariates the
+data give it, and only the part of the score those covariates do not explain is exchanged. Samples
+are exchanged freely unless the study declares which of them are exchangeable, since a repeated
+measure or a processing batch is a fact about the study rather than something a design table can be
+read for.
+
+The encoder is never refitted, so the number of permutations is a choice about the resolution the
+report needs rather than about what a refit can afford.
 
 Two levels of error control come from the same permutations. The family-wise p-value compares each
 concept with the largest statistic anywhere in the vocabulary, which is exact under the dependence

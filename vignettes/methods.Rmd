@@ -129,14 +129,35 @@ removes from the problem.
 
 ## Calibration and error control
 
-The phenotype is permuted within strata of samples alike on every other covariate the design
-carries, so the joint distribution of the covariates survives and only the relation of the phenotype
-to the data is broken. A covariate so finely divided that no stratum holds two samples is dropped
-from the strata rather than making the permutation the identity.
+The quantity under test is the phenotype coefficient of a model that also carries the adjusting
+covariates, so the null must be a null for that coefficient. Permuting the phenotype label would
+break its relation to those covariates as well, giving designs the study could not have produced.
 
-The permutation acts on \(D_m\) and leaves \(X_m\) untouched, so \(S_m\) is computed once and reused
-across permutations. The number of permutations \(B\) is therefore set by the resolution required
-rather than by what a refit can afford, and the smallest attainable p-value is \(1/(B+1)\).
+The null is therefore the one of Freedman and Lane (1983). Write \(D_m = [Z_m, P_m]\), with \(Z_m\)
+the intercept and the adjusting covariates and \(P_m\) the phenotype contrasts. The reduced model
+\(y_{mc} = Z_m\gamma_{mc} + r_{mc}\) is fitted, its residuals are permuted, and the response is
+rebuilt as
+
+\[
+y^{*}_{mc} = Z_m\hat{\gamma}_{mc} + \Pi r_{mc},
+\]
+
+with \(\Pi\) a permutation matrix. The full model is refitted to \(y^{*}_{mc}\) and its phenotype
+coefficient recorded. The design matrix never changes, so the phenotype keeps exactly the relation
+to the covariates it has in the data, and only the part of the score the covariates do not explain
+is exchanged. The same \(\Pi\) is applied to every concept of a modality, so the correlation between
+concepts that share features is carried into the null rather than assumed away.
+
+\(\Pi\) is unrestricted unless the study declares which samples are exchangeable. Blocks are read
+only from the columns named in `chorale_control(exchangeability_blocks = )`, because a repeated
+measure, a litter or a processing batch is a fact about the study. Inferring blocks from whatever
+covariates the design carries produces one sample per block wherever a covariate is continuous,
+after which the permutation is either the identity or is taken over covariates dropped until it is
+not, and neither is a statement about the study.
+
+The encoder is never refitted: \(S_m\) is computed once and only its response is rebuilt. The number
+of permutations \(B\) is therefore set by the resolution required rather than by what a refit can
+afford, and the smallest attainable p-value is \(1/(B+1)\).
 
 Two quantities come from the same permutations. Writing \(Z^{(b)}_c\) for the statistic of concept
 \(c\) under permutation \(b\),
@@ -161,6 +182,12 @@ which makes the reported rates monotone in the statistic.
 Free dimensions are calibrated the same way, with the maximum taken over free dimensions rather than
 over concepts, so the two families are controlled separately and neither borrows the other's null.
 
+The modality shuffle is reported as a description rather than as a test. Pooling the modalities
+keeps only the features they share, so a shuffled collection is scored on a smaller feature space
+and often on a smaller vocabulary; the reallocation preserves neither each modality's sample count
+nor its design composition; and the statistic it would be read against was computed on the full
+assays. No error rate follows from that comparison.
+
 ## Attribution among overlapping concepts
 
 Concepts sharing features are not independent claims. For each concept, those whose Jaccard overlap
@@ -177,11 +204,20 @@ sample identifiers and encoded as though disjoint. The pairing then enters once,
 concept-by-concept agreement matrix \(A\) with \(a_{cd} = |\mathrm{cor}(S_{A,c}, S_{B,d})|\) across
 the individuals both were measured on.
 
+The correlation is signed. A concept score has a fixed orientation, since a larger score means a
+larger weighted mean of the features carrying the concept, so two modalities that rank the same
+biological state in opposite directions have not recovered it. Sign indeterminacy belongs to the
+free dimensions, which are not what is compared here.
+
 Three quantities frame the result. The paired upper bound is the mean agreement of the optimal
-assignment of \(A\), which is what any method knowing the pairing could reach. The random lower
-bound is the mean agreement of alignments drawn at random. The recovery is the mean of the diagonal
-of \(A\), which is the identity the vocabulary asserts, concept for concept by name, without having
-seen a paired sample. The recovery is reported between the two bounds.
+assignment of \(A\), which is what any method knowing the pairing could reach. The random baseline
+is the mean agreement over one-to-one relabellings drawn at random. The recovery is the mean of the
+diagonal of \(A\), the identity the vocabulary asserts, concept for concept by name, computed
+without a paired sample having been seen.
+
+Random alignment is a baseline and not a bound: a vocabulary whose names do not track the same
+biology in the two modalities places below it, and the reported placement is negative rather than
+clipped.
 
 ## Conditions of applicability
 
@@ -206,7 +242,9 @@ Independent component analysis and its identification conditions follow Comon (1
 and Oja (2000); the FastICA implementation is Marchini, Heaton and Ripley's `fastICA`. Parallel
 analysis is Horn (1965). Linear assignment for matching components across runs uses the Hungarian
 algorithm through `clue` (Hornik 2005). Inverse-variance combination and Cochran's Q are standard
-fixed-effect meta-analysis, as in Borenstein et al. (2009). Permutation-based false discovery
+fixed-effect meta-analysis, as in Borenstein et al. (2009). The permutation null for a coefficient
+in a model carrying nuisance covariates is Freedman and Lane (1983), whose behaviour under the
+general linear model is reviewed by Winkler et al. (2014). Permutation-based false discovery
 estimation follows Tusher, Tibshirani and Chu (2001) and Storey and Tibshirani (2003); max-statistic
 family-wise control follows Westfall and Young (1993). Single-sample set scoring by the mean
 standardised level of a set's members is the construction underlying Lee et al. (2008) and

@@ -162,18 +162,23 @@ concept scored in one tracks the same concept scored in the other.
 r <- chorale_destroy_pairing(paired_a, paired_b, design, sets = sets,
                              spaces = "concept", n_random = 200)
 r$concept_summary
-#>   n_concepts paired_upper_bound recovered_agreement random_lower_bound
-#> 1          4             0.8827              0.8827             0.3304
+#>   n_concepts paired_upper_bound recovered_agreement random_baseline
+#> 1          4             0.8827              0.8827          0.2713
 #>   placement_between_bounds fraction_partner_correct
 #> 1                        1                        1
 ```
 
 Three quantities frame the result. The **paired upper bound** is the best alignment the pairing
-admits, which is what any method knowing the pairing could reach. The **random lower bound** is
-alignment at random. The **recovered agreement** is the identity the vocabulary asserts, concept for
-concept by name, computed without a paired sample ever having been seen. A placement of 1 means the
-identity is the correspondence the pairing shows; a placement near 0 would mean the vocabulary names
-the same concept in the two modalities without those names tracking the same biology.
+admits, which is what any method knowing the pairing could reach. The **random baseline** is the
+mean over one-to-one relabellings of the concepts drawn at random. The **recovered agreement** is
+the identity the vocabulary asserts, concept for concept by name, computed without a paired sample
+ever having been seen. A placement of 1 means the identity is the correspondence the pairing shows.
+
+The agreement is a signed correlation, because a concept score has a fixed orientation: a larger
+score means a larger weighted mean of the features carrying the concept, so two modalities that rank
+the same state in opposite directions have not recovered it. Random alignment is therefore a
+baseline and not a bound. A vocabulary whose names line up while the biology does not places below
+it, and the placement reports that as a negative value rather than clipping it to zero.
 
 Per-concept results say where that holds and where it does not.
 

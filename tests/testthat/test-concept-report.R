@@ -43,6 +43,16 @@ test_that("free dimensions are reported separately from the concepts", {
   expect_setequal(free$modality, c("A", "B"))
   expect_true(all(c("variance_share", "reproducibility", "p_family",
                     "outside_vocabulary", "top_features") %in% names(free)))
+  # Each dimension carries what it reconstructs, which the fitted loadings make
+  # unequal; the shares of one modality sum to that modality's free share.
+  expect_false(isTRUE(all.equal(free$variance_share[free$modality == "A"][1],
+                               free$variance_share[free$modality == "A"][2])))
+  for (m in c("A", "B")) {
+    expect_equal(sum(free$variance_share[free$modality == m]),
+                 h$fit$encoding$variance$free_share[
+                   h$fit$encoding$variance$modality == m],
+                 tolerance = 1e-3)
+  }
   # The features naming a dimension are a description of it, and there are as
   # many as were asked for.
   expect_equal(lengths(strsplit(free$top_features, ", ")), rep(10L, 4L))
@@ -72,6 +82,16 @@ test_that("a phenotype-linked direction outside the vocabulary is called", {
 
   expect_true(any(free$outside_vocabulary))
   expect_lt(min(free$p_family), 0.05)
+})
+
+test_that("no per-dimension share is reported where the cross-terms matter", {
+  h <- report_fit()
+  encoding <- h$fit$encoding$encodings$A
+  # A channel share the components cannot account for: the allocation is
+  # refused rather than forced.
+  expect_true(all(is.na(chorale_component_variance(encoding, 0.9))))
+  expect_true(all(is.finite(chorale_component_variance(
+    encoding, h$fit$encoding$variance$free_share[1]))))
 })
 
 test_that("added value says whether more than one modality was needed", {
