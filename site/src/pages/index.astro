@@ -30,17 +30,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   .fig .panel    { fill: var(--bg-2); stroke: var(--rule); }
   .fig .panel-hi { fill: var(--bg-2); stroke: var(--accent); }
   .fig .stem     { stroke: var(--rule); stroke-width: 1.5; }
+  .fig .stem-hi  { stroke: var(--accent); stroke-width: 1.5; }
 </style>
 
 <section class="hero">
   <p class="eyebrow">R package · disjoint-cohort multi-omics</p>
-  <h1>Omics measured on different individuals, integrated without inventing the link.</h1>
+  <h1>Omics measured on different individuals, integrated through named biology.</h1>
   <p class="lede">
     Measuring several omics layers on the same individuals is rarely possible: the assay consumes
     the sample, each platform needs its own preparation, and the layers of a study usually come
-    from different groups at different times. CHORALE proposes phenotype-led factor
-    correspondences, states how far the data constrain the relationship between them, and
-    reports the checks the result survived.
+    from different groups at different times. CHORALE scores every modality on one fixed vocabulary
+    of named biological concepts, and asks the design of each study whether a concept separates
+    cases from controls. Coordinated variation the vocabulary has no name for is kept and reported
+    as its own result.
   </p>
   <div class="btnrow">
     <a class="btn" href={base + '/tutorial'}>Run the tutorial</a>
@@ -50,7 +52,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </section>
 
 <section class="fig reveal">
-  <svg viewBox="0 0 900 286" role="img" aria-label="Three cohorts with no individual in common, each yielding a latent axis, compared through the experimental design and through curated biology to give one shared biological function.">
+  <svg viewBox="0 0 900 372" role="img" aria-label="Three cohorts with no individual in common are each scored on one fixed vocabulary of named concepts; within each modality the design gives an adjusted case-control effect per concept, and concepts whose effects agree across the modalities that express them are the result.">
     <defs>
       <linearGradient id="g" x1="0" x2="1">
         <stop offset="0" style="stop-color:var(--accent);stop-opacity:.14"/>
@@ -71,26 +73,41 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
             <circle class="dot" cx={x + 12 + (j % 4) * 48} cy={58 + Math.floor(j / 4) * 18}
                     r="5" style={`animation-delay:${(i * 8 + j) * 0.18}s`} />
           ))}
-          <rect x={x} y="100" width="170" height="56" rx="8" class="panel"/>
-          <text x={x + 85} y="124" text-anchor="middle" font-size="11.5" class="t-soft">latent axis</text>
-          <text x={x + 85} y="142" text-anchor="middle" font-size="11.5" class="t-mute">recovered separately</text>
-          <line class="stem" x1={x + 85} y1="156" x2={x + 85} y2="190"/>
+          <line class="stem" x1={x + 85} y1="86" x2={x + 85} y2="104"/>
         </g>
       );
     })}
 
-    <line class="flow" x1="175" y1="190" x2="725" y2="190"/>
-    <rect x="235" y="198" width="430" height="34" rx="8" class="panel-hi"/>
-    <text x="450" y="220" text-anchor="middle" font-size="12" class="t-strong">compared on the design, and again on curated biology</text>
-    <line class="stem" x1="450" y1="232" x2="450" y2="250"/>
+    <rect x="60" y="104" width="780" height="44" rx="8" class="panel-hi"/>
+    <text x="450" y="124" text-anchor="middle" font-size="12" class="t-strong">one vocabulary of named concepts, fixed before the run</text>
+    <text x="450" y="140" text-anchor="middle" font-size="11" class="t-soft">curated sets of features, the same sets for every modality</text>
 
-    <rect x="0" y="250" width="900" height="36" rx="9" fill="url(#g)"/>
-    <text x="450" y="273" text-anchor="middle" font-size="12.5" class="t-strong">one phenotype-supported factor correspondence</text>
+    {[0,1,2].map((i) => {
+      const x = 90 + i * 310;
+      return (
+        <g>
+          <line class="stem-hi" x1={x + 85} y1="148" x2={x + 85} y2="170"/>
+          <rect x={x} y="170" width="170" height="52" rx="8" class="panel"/>
+          <text x={x + 85} y="191" text-anchor="middle" font-size="11.5" class="t-soft">concept scores</text>
+          <text x={x + 85} y="209" text-anchor="middle" font-size="11.5" class="t-mute">one per concept, per sample</text>
+          <line class="stem" x1={x + 85} y1="222" x2={x + 85} y2="252"/>
+        </g>
+      );
+    })}
+
+    <line class="flow" x1="175" y1="252" x2="725" y2="252"/>
+    <rect x="205" y="260" width="490" height="44" rx="8" class="panel-hi"/>
+    <text x="450" y="280" text-anchor="middle" font-size="12" class="t-strong">the design asks whether each concept separates cases from controls</text>
+    <text x="450" y="296" text-anchor="middle" font-size="11" class="t-soft">one adjusted effect per concept per modality</text>
+    <line class="stem" x1="450" y1="304" x2="450" y2="322"/>
+
+    <rect x="0" y="322" width="900" height="36" rx="9" fill="url(#g)"/>
+    <text x="450" y="345" text-anchor="middle" font-size="12.5" class="t-strong">concepts whose effects agree across the modalities that express them</text>
   </svg>
   <p class="cap">
-    No individual appears twice, and the cohorts need not be the same size. They are joined by
-    what they do have in common, which is the experimental design and a shared vocabulary of
-    biological processes, never by a constructed pairing between individuals.
+    No individual appears twice, and the cohorts need not be the same size. Two modalities need
+    share neither an individual nor a feature to be compared on how far a named piece of biology
+    moves with the phenotype in each of them.
   </p>
 </section>
 
@@ -99,39 +116,42 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <div class="cards">
     <div class="card">
       <span class="num">01</span>
-      <h3>One assignment, not many</h3>
-      <p>Correspondence is solved once over all modalities together, so a function is never
-         assembled by chaining one pair to the next through a single mistaken link.</p>
+      <h3>A concept is the same concept everywhere</h3>
+      <p>Its name and its members are fixed before the data are seen, so the modalities meet in one
+         space and no correspondence between them has to be estimated.</p>
     </div>
     <div class="card">
       <span class="num">02</span>
-      <h3>Two channels that can disagree</h3>
-      <p>Factors are fitted without ever seeing curated pathways, so agreement on biology
-         corroborates the result rather than restating it.</p>
+      <h3>A few hundred stated hypotheses</h3>
+      <p>Each modality is asked whether a named concept separates cases from controls, under
+         family-wise control across the whole vocabulary and a false discovery rate estimated over
+         the same permutations.</p>
     </div>
     <div class="card">
       <span class="num">03</span>
-      <h3>The range the data support</h3>
-      <p>Where the coupling within an individual is not identified, the output is the interval of
-         correlations the data cannot exclude, narrowed as far as the design allows.</p>
+      <h3>Biology outside the vocabulary</h3>
+      <p>The concept scores are removed from each assay and what remains is decomposed into free
+         dimensions. A free dimension that moves with the phenotype is coordinated variation the
+         vocabulary has no name for.</p>
     </div>
     <div class="card">
       <span class="num">04</span>
-      <h3>A lipidome in the gene vocabulary</h3>
-      <p>A shipped table places lipid classes in the same pathway sets the genes occupy, so
-         enzymes and their substrates land together.</p>
+      <h3>A lipidome in the same vocabulary</h3>
+      <p>Lipid species reach a concept through their class, since a pathway acts on a class rather
+         than on one chain length, so enzymes and their substrates land in the same sets.</p>
     </div>
     <div class="card">
       <span class="num">05</span>
-      <h3>Selection-aware calibration</h3>
-      <p>The null reruns the whole procedure, assignment included, so the p-value accounts for the
-         freedom the method had.</p>
+      <h3>Coverage before results</h3>
+      <p><code>chorale_concepts()</code> reports how many features each modality has for each
+         concept before anything is fitted, so the size of the claim is known in advance.</p>
     </div>
     <div class="card">
       <span class="num">06</span>
-      <h3>Failure is an output</h3>
-      <p>A run in which nothing survives its null says so, and writes its tables empty rather
-         than promoting an unsupported assignment.</p>
+      <h3>A calibration that keeps the design</h3>
+      <p>The null holds the design fixed and exchanges the part of a score the covariates do not
+         explain, and one permutation serves every concept, so concepts sharing features stay
+         dependent in the null as they are in the data.</p>
     </div>
   </div>
 </section>
@@ -139,30 +159,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 <section class="band prose reveal">
   <h2>What a result looks like</h2>
   <p>
-    One row per modality carrying a shared biological function, with the evidence that supports it
-    and the contribution each layer made. The column grouping the rows is named
-    <code>programme</code>, which is the term the tables and the function names use for the object.
-    This is the first table the report writes.
+    One row per concept, carrying the modalities that express it, the effect combined across them,
+    and the error rates the vocabulary was read at. This is the first table the report writes,
+    as <code>concepts.tsv</code>.
   </p>
 
 <div class="tablewrap">
 
-| programme | modalities | joint_p | pathway_p | evidence |
-|---|---|---|---|---|
-| P3 | RNA, PROT, METAB | 0.005 | 0.008 | design and pathway |
-| P1 | RNA, PROT | 0.015 | 0.42 | design only |
+| concept | modalities | joint_z | sign_agreement | p_family | q_value |
+|---|---|---|---|---|---|
+| REACTOME_COMPLEMENT_CASCADE | RNA, PROT, METAB | 5.12 | TRUE | 0.004 | 0.01 |
+| HALLMARK_OXIDATIVE_PHOSPHORYLATION | RNA, PROT | -4.03 | TRUE | 0.031 | 0.04 |
 
 </div>
 
   <p>
-    <strong>P3</strong> has phenotype support across all three cohorts and pathway corroboration.
-    <strong>P1</strong> has phenotype support but no pathway support; the missing second channel is
-    reported rather than treated as proof of disagreement.
+    <code>p_family</code> is read against the largest statistic anywhere in the vocabulary, so it
+    accounts for every concept the run scored rather than the ones it reported.
+    <code>sign_agreement</code> says whether the modalities moved the same way: a concept whose
+    layers disagree in direction has not been recovered in common, whatever the size of its effects.
   </p>
   <p>
-    Alongside it, <code>chorale_leave_one_out()</code> reports what happens to each function when a
-    modality is removed, which separates a result the integration produced from one a single layer
-    carried while the others followed along.
+    Alongside it, <code>chorale_concept_specificity()</code> puts each covariate the modalities
+    share in the phenotype's place, on the terms that covariate contributes, which separates a
+    concept that tracks the disease from one tracking something the cohorts differ in.
   </p>
 </section>
 
@@ -175,9 +195,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
          different groups on different individuals.</p>
     </div>
     <div class="card">
-      <h3>Uncorrected matrices</h3>
-      <p>Batch correction removes the between-modality structure identification uses, so study and
-         batch enter as covariates instead.</p>
+      <h3>Two columns required</h3>
+      <p>A sample identifier and a phenotype. Every other column is a covariate, used where the
+         modalities share it and dropped where they do not.</p>
     </div>
     <div class="card">
       <h3>Tens to hundreds of samples</h3>
@@ -196,15 +216,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   </p>
 <pre><code>containers &lt;- Map(chorale_load, matrices, designs)
 
-fit &lt;- chorale_fit(containers,
-                  n_factors     = "auto",
-                  gene_sets     = chorale_genesets(species = "Mus musculus"),
-                  feature_space = c(METAB = "lipid"))
+concepts &lt;- chorale_concepts(containers,
+                            sets          = chorale_genesets(species = "Mus musculus"),
+                            feature_space = c(METAB = "lipid"))
 
-chorale_programmes(fit)        # the functions several cohorts carry in common
-chorale_leave_one_out(fit)     # whether it needed all of them
-chorale_bound(fit)             # what the data cannot determine
-chorale_report(fit, chorale_bound(fit), chorale_null(fit, containers), "results/")</code></pre>
+fit &lt;- chorale_concept_fit(containers, concepts, n_free = "auto")
+
+fit                                   # the concepts the design supports
+chorale_free_dimensions(fit)          # what moved with the phenotype unnamed
+chorale_concept_specificity(fit)      # whether another covariate does the same
+chorale_report(fit, chorale_null(fit, containers), "results/")</code></pre>
   <p>
     The <a href={base + '/tutorial'}>tutorial</a> runs this end to end on simulated data and explains
     every number it prints.

@@ -33,6 +33,10 @@ vignettes <- sort(list.files(file.path(root, "vignettes"), pattern = "[.]Rmd$",
                              full.names = TRUE))
 if (length(vignettes) == 0) stop("No vignettes found to build the site from.")
 
+generated <- list.files(pages, pattern = "[.]md$", full.names = TRUE)
+keep <- file.path(pages, paste0(sub("[.]Rmd$", "", basename(vignettes)), ".md"))
+unlink(setdiff(generated, keep))
+
 for (path in vignettes) {
   lines <- readLines(path, warn = FALSE)
   ends <- which(lines == "---")
@@ -68,6 +72,11 @@ for (path in vignettes) {
 }
 
 # ---- function reference ---------------------------------------------------
+
+# A page whose topic has been removed from the package would otherwise stay on
+# disk and be published by the next build, so the generated directory is
+# cleared before it is written.
+unlink(list.files(refdir, pattern = "[.]md$", full.names = TRUE))
 
 rd_files <- sort(list.files(file.path(root, "man"), pattern = "[.]Rd$",
                             full.names = TRUE))
