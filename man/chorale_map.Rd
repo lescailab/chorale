@@ -31,11 +31,16 @@ weight of \code{1 / n}, where \code{n} is the number of Entrez identifiers that 
 identifier maps to.
 }
 \details{
+This is how a gene or protein modality reaches the vocabulary of named
+concepts that connects modalities measured on different individuals: a
+concept is a set of features, and a feature reaches it through an identifier
+the two have in common.
+
 The organism is an argument rather than a fixture. Any Bioconductor
 \code{OrgDb} will do, so a study of human, rat or any other annotated organism
 maps its features without changing the package. Metabolite identifiers reach
-curated sets through their class rather than through gene identifiers, and
-are handled by \code{\link[=chorale_metabolite_matrix]{chorale_metabolite_matrix()}}.
+the same concepts through their class rather than through gene identifiers,
+and are handled by \code{\link[=chorale_metabolite_matrix]{chorale_metabolite_matrix()}}.
 }
 \examples{
 \dontshow{if (rlang::is_installed("org.Mm.eg.db")) withAutoprint(\{ # examplesIf}

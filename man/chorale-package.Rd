@@ -4,9 +4,9 @@
 \name{chorale-package}
 \alias{chorale}
 \alias{chorale-package}
-\title{chorale: Phenotype-Led Factor Matching Across Disjoint Omics Modalities}
+\title{chorale: A Shared Biological State Across Omics Modalities on Disjoint Samples}
 \description{
-Finds phenotype-led, design-concordant factor groupings across molecular modalities measured on disjoint sample sets. Components are extracted independently within each modality and matched jointly so the resulting correspondences are cycle consistent. Shared covariates refine phenotype-compatible alternatives but cannot replace missing phenotype evidence. Reports ambiguity, pathway corroboration, negative controls and partial-identification bounds instead of selecting an unidentified cross-modality coupling.
+Estimates a shared biological state across omics modalities measured on different individuals, and expresses it in named biological terms. The modalities share no sample and need share no feature, so a fixed vocabulary of named concepts connects them: every modality is scored on the same concepts, and the experimental design supplies the evidence that a concept separates cases from controls. Coordinated variation no concept explains is retained as free dimensions selected by reproducibility. Permutation calibration over the whole vocabulary gives family-wise and false-discovery control under the dependence that overlapping concept definitions carry.
 }
 \seealso{
 Useful links:

@@ -2,7 +2,7 @@
 % Please edit documentation in R/genesets.R
 \name{chorale_geneset_registry}
 \alias{chorale_geneset_registry}
-\title{Registry of curated gene-set collections}
+\title{Registry of curated collections a vocabulary can be built from}
 \usage{
 chorale_geneset_registry()
 }
@@ -13,11 +13,14 @@ A named list, one element per collection. Each element holds
 by \code{\link[msigdbr:msigdbr]{msigdbr::msigdbr()}}, and a human-readable \code{description}.
 }
 \description{
-Each entry names one collection and records how to retrieve it from
-MSigDB. The registry is the exchange point of the gene-set layer: adding an
-entry, or passing a replacement registry to \code{\link[=chorale_genesets]{chorale_genesets()}}, changes
-which vocabulary the factors are described and compared in, without
-touching the estimator.
+Modalities measured on different individuals share no sample, so what
+connects them is a fixed vocabulary of named biological concepts: a concept
+is a set of features that belong together for a stated biological reason.
+Each entry here names one collection such concepts can be drawn from, and
+records how to retrieve it from MSigDB. The registry is the exchange point of
+that layer: adding an entry, or passing a replacement registry to
+\code{\link[=chorale_genesets]{chorale_genesets()}}, changes which vocabulary a collection is scored on,
+without touching the estimator.
 }
 \details{
 The default registry is deliberately organism-agnostic and disease-agnostic.

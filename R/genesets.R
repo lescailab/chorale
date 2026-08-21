@@ -1,10 +1,13 @@
-#' Registry of curated gene-set collections
+#' Registry of curated collections a vocabulary can be built from
 #'
-#' Each entry names one collection and records how to retrieve it from
-#' MSigDB. The registry is the exchange point of the gene-set layer: adding an
-#' entry, or passing a replacement registry to [chorale_genesets()], changes
-#' which vocabulary the factors are described and compared in, without
-#' touching the estimator.
+#' Modalities measured on different individuals share no sample, so what
+#' connects them is a fixed vocabulary of named biological concepts: a concept
+#' is a set of features that belong together for a stated biological reason.
+#' Each entry here names one collection such concepts can be drawn from, and
+#' records how to retrieve it from MSigDB. The registry is the exchange point of
+#' that layer: adding an entry, or passing a replacement registry to
+#' [chorale_genesets()], changes which vocabulary a collection is scored on,
+#' without touching the estimator.
 #'
 #' The default registry is deliberately organism-agnostic and disease-agnostic.
 #' Collections tied to one disease would name factors in terms of the answer
@@ -58,17 +61,18 @@ chorale_geneset_registry <- function() {
   )
 }
 
-#' Retrieve curated sets for description and cross-modality comparison
+#' Retrieve the concepts a collection is scored on
 #'
-#' Returns curated gene sets as Entrez identifiers, the space
-#' [chorale_map()] harmonises features into. The sets serve two purposes: they
-#' supply the vocabulary a factor is named in, and they place factors from
-#' different modalities in one biological coordinate system, which is what lets
-#' their agreement be assessed on biology as well as on the design.
+#' Returns curated sets as Entrez identifiers, the space [chorale_map()]
+#' harmonises features into. Those sets are the vocabulary of named concepts
+#' that connects modalities measured on different individuals: every modality is
+#' scored on the same concepts, and a concept is the same concept in every
+#' modality because its name and its membership are fixed before any data are
+#' looked at.
 #'
 #' Sets far outside the size window are dropped. Very small sets are matched by
-#' chance and very large ones name nothing specific, so both weaken a factor
-#' definition rather than sharpening it.
+#' chance and very large ones name nothing specific, so both weaken a concept
+#' rather than sharpening it.
 #'
 #' @param collections Character vector naming entries of `registry`.
 #' @param species Species the identifiers are returned for, as understood by
@@ -155,11 +159,11 @@ chorale_genesets <- function(collections = c("hallmark", "reactome", "cell_type"
   sets
 }
 
-#' Represent gene sets as a feature-by-set indicator matrix
+#' Place a modality's features in the vocabulary
 #'
-#' Builds the feature-by-set matrix the pathway layer reads: rows are
-#' the features of one modality, columns are gene sets, and an entry is 1 where
-#' the feature belongs to the set. Features carry fractional weight where an
+#' Builds the feature-by-concept matrix [chorale_concepts()] reads: rows are
+#' the features of one modality, columns are concepts, and an entry is 1 where
+#' the feature carries the concept. Features carry fractional weight where an
 #' identifier maps to several genes, so a one-to-many mapping contributes
 #' proportionally rather than counting once per gene.
 #'

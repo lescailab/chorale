@@ -2,7 +2,7 @@
 % Please edit documentation in R/pathways.R
 \name{chorale_metabolite_matrix}
 \alias{chorale_metabolite_matrix}
-\title{Represent a lipidome as a feature-by-set indicator matrix}
+\title{Place a lipidome's features in the vocabulary}
 \usage{
 chorale_metabolite_matrix(
   feature_ids,
@@ -37,8 +37,9 @@ retained set.
 }
 \description{
 The counterpart of \code{\link[=chorale_geneset_matrix]{chorale_geneset_matrix()}} for a modality whose features
-are lipids. The columns are the same sets, so the two modalities are
-described in one vocabulary and their factors can be compared on biology.
+are lipids. The columns are the same concepts, so a lipidome and a
+transcriptome end up in one vocabulary rather than in two that would have to
+be reconciled afterwards.
 }
 \details{
 The two thresholds are alternatives, not conditions to be met together,

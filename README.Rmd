@@ -17,37 +17,42 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
 [![Codecov test coverage](https://codecov.io/gh/lescailab/chorale/graph/badge.svg)](https://app.codecov.io/gh/lescailab/chorale)
 <!-- badges: end -->
 
-CHORALE matches factors across omics modalities measured on different individuals. It does not
-invent sample pairs and does not claim to reconstruct a unique hidden biological state.
+CHORALE estimates a shared biological state across omics modalities measured on different
+individuals, and expresses it in named biological terms.
 
-The production rule is hierarchical:
+The modalities share no sample and need share no feature, so what connects them is a fixed
+vocabulary of named biological concepts. A concept is a set of features that belong together for a
+stated biological reason, such as a curated pathway or a cell type signature. Every modality is
+scored on the same concepts, a concept is the same concept in every modality, and the design then
+supplies the evidence that a concept separates cases from controls.
 
-1. ICA extracts factors separately in each modality, without phenotype or covariate weights.
-2. A multivariable model estimates each factor's adjusted phenotype effect.
-3. Phenotype defines which cross-modal matches are eligible.
-4. Every other eligible shared covariate can refine those candidates, with equal weight per
-   covariate block.
-5. Secondary agreement can never rescue absent or incompatible phenotype evidence.
+The estimator runs in a fixed order:
 
-This gives phenotype genuine priority without an arbitrary numerical weight.
+1. The vocabulary is fixed and its coverage reported, per concept and per modality.
+2. Every modality is scored on it, without the design being consulted.
+3. What the vocabulary does not explain is kept as free dimensions, selected by reproducibility.
+4. The concept score is regressed on the design in each modality, and the modalities are combined by
+   inverse-variance weighting.
+5. Permuting the phenotype within strata of the design calibrates the whole vocabulary at once.
 
 ## What a result says
 
-Each match is classified as `resolved`, `ambiguous`, `phenotype_unsupported`, or
-`incompatible`. The output includes adjusted effects, uncertainty, factor orientation, candidate
-sets, phenotype and secondary margins, and reasons why covariates were excluded.
+Each concept carries its adjusted case-control effect in every modality that expresses it, the
+combined statistic, how far the modalities agree in direction and in magnitude, family-wise and
+false-discovery control over the vocabulary, and the statistic that survives once overlapping
+concepts are regressed out. Coordinated variation no concept explains is reported separately as
+free dimensions, so the bound the vocabulary places on interpretation stays visible.
 
-Because the cohorts are unpaired, CHORALE reports a range of compatible cross-modal correlations.
-For example, `[0.35, 0.70]` says every compatible value is positive but the data cannot select one
-point. `[-0.95, 0.96]` says the relationship remains undetermined. Bootstrap output is called a
-sensitivity envelope until confidence coverage is established.
+A supported concept is a coordinated case-control shift in a named piece of biology, seen in more
+than one measurement layer, at a stated error rate. Ordering cause and consequence requires timing,
+mediation or perturbation.
 
 ## Status
 
 This branch is a production candidate for external review, not a stable or CRAN release. Validation
-includes planted-signal simulations, complete-null calibration, destroyed-pairing recovery,
-deterministic tests, package checks, and site builds. Remaining limitations are reported in the
-[methods documentation](https://lescailab.github.io/chorale/methods).
+includes planted-concept simulations, complete-null calibration, recovery measured against a
+withheld pairing, deterministic tests, package checks, and site builds. Conditions of applicability
+are stated in the [methods documentation](https://lescailab.github.io/chorale/methods).
 
 ## Installation
 
@@ -71,31 +76,28 @@ machine-specific build hashes.
 ```{r example}
 library(chorale)
 
-sim <- chorale_simulate(
-  n_modalities = 3,
-  n_features = 120,
-  n_shared_factors = 2,
-  n_private_factors = 1,
-  n_strains = 4,
-  n_per_cell = 3,
-  seed = 1
-)
+# Two cohorts on disjoint individuals, with one named concept planted in both.
+fx <- chorale_concept_example(seed = 1)
 
-containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 3,
-                   n_ambiguity_boot = 19) # short documentation run
-chorale_programmes(fit, significant_only = FALSE)
+fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 1,
+                           n_permutations = 199, n_init = 3)
+fit$evidence$joint[, c("concept", "n_modalities", "joint_z",
+                       "sign_agreement", "q_value")]
 ```
 
-Use `chorale_control()` to set the phenotype column, reference level, exchangeability blocks,
-support threshold, and ambiguity bootstrap. There is no phenotype-weight parameter.
+Use `chorale_control()` to set the phenotype column, reference level, exchangeability blocks, the
+reproducibility threshold the free dimensions are selected at, and the error rate concepts are
+called at.
 
 ## Documentation
 
 The repository vignettes are the canonical source for the
 [documentation site](https://lescailab.github.io/chorale):
 
+- [Why CHORALE exists](https://lescailab.github.io/chorale/why)
 - [How the estimator works](https://lescailab.github.io/chorale/how-it-works)
-- [Outputs and interpretation](https://lescailab.github.io/chorale/outputs)
-- [Statistical methods](https://lescailab.github.io/chorale/methods)
+- [The input data](https://lescailab.github.io/chorale/input-format)
 - [Tutorial](https://lescailab.github.io/chorale/tutorial)
+- [Outputs and how to read them](https://lescailab.github.io/chorale/outputs)
+- [Statistical methods](https://lescailab.github.io/chorale/methods)
+- [Simulation and validation](https://lescailab.github.io/chorale/simulation)

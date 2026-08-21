@@ -2,7 +2,7 @@
 % Please edit documentation in R/genesets.R
 \name{chorale_genesets}
 \alias{chorale_genesets}
-\title{Retrieve curated sets for description and cross-modality comparison}
+\title{Retrieve the concepts a collection is scored on}
 \usage{
 chorale_genesets(
   collections = c("hallmark", "reactome", "cell_type"),
@@ -38,16 +38,17 @@ A named list of character vectors of Entrez gene identifiers, with
 an attribute \code{collection} recording which collection each set came from.
 }
 \description{
-Returns curated gene sets as Entrez identifiers, the space
-\code{\link[=chorale_map]{chorale_map()}} harmonises features into. The sets serve two purposes: they
-supply the vocabulary a factor is named in, and they place factors from
-different modalities in one biological coordinate system, which is what lets
-their agreement be assessed on biology as well as on the design.
+Returns curated sets as Entrez identifiers, the space \code{\link[=chorale_map]{chorale_map()}}
+harmonises features into. Those sets are the vocabulary of named concepts
+that connects modalities measured on different individuals: every modality is
+scored on the same concepts, and a concept is the same concept in every
+modality because its name and its membership are fixed before any data are
+looked at.
 }
 \details{
 Sets far outside the size window are dropped. Very small sets are matched by
-chance and very large ones name nothing specific, so both weaken a factor
-definition rather than sharpening it.
+chance and very large ones name nothing specific, so both weaken a concept
+rather than sharpening it.
 }
 \examples{
 \dontshow{if (rlang::is_installed("msigdbr")) withAutoprint(\{ # examplesIf}

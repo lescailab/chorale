@@ -1,6 +1,6 @@
 ---
 title: "Why CHORALE exists"
-description: "What can be learned when modalities were measured on different individuals."
+description: "What connects omics modalities when no individual was measured twice."
 site_order: 1
 site_wide: false
 output:
@@ -12,52 +12,66 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-Many studies measure different omics layers in separate cohorts. Standard integration methods often
-need paired individuals, a shared feature space, or a learned translation from one modality to
-another. Those assumptions do not hold here.
+CHORALE estimates a shared biological state across omics modalities that were measured on different
+individuals, and expresses that state in named biological terms.
 
-CHORALE addresses a narrower question:
+## The problem
 
-> Which separately estimated factors show a reproducible, compatible response to the same
-> phenotype after adjustment for the other design variables?
+Most public omics data were not deposited as one study. A transcriptome comes from one set of
+animals, a proteome from another, a metabolome from a third. No individual appears twice, so there
+is no row that both matrices describe. Standard integration needs one of three things: the same
+individuals in both modalities, the same features in both, or a translation learned from paired
+examples. A collection assembled from separate deposits offers none of them.
 
-The phenotype is mandatory because it defines the scientific comparison. Age, sex, batch, and other
-shared covariates are valuable, but they answer different questions. They can distinguish factors
-that fit the phenotype equally well; they cannot establish phenotype relevance by themselves.
+## What connects the modalities
 
-## What CHORALE adds
+The connecting object is a fixed vocabulary of named biological concepts. A concept is a set of
+features that belong together for a stated biological reason, such as a curated pathway or a cell
+type signature. Every modality is scored on the same concepts: for each sample, how high the
+features carrying that concept sit relative to the rest of the cohort. A concept is the same
+concept in every modality, because its name and its membership were fixed before any data were
+looked at.
 
-- Factors are extracted without supervision, so the phenotype does not determine what ICA finds.
-- Phenotype effects are adjusted in one multivariable model rather than compared one covariate at a
-  time.
-- Matching is simultaneous across modalities, avoiding inconsistent chains of pairwise decisions.
-- Candidate uncertainty is retained instead of forcing every factor into a confident match.
-- Search-aware permutation tests control family-wise error.
-- The lack of individual pairing is shown through correlation bounds rather than hidden behind a
-  point estimate.
+That is what removes the missing pairing from the problem. Two modalities need not share an
+individual, and need not share a feature, in order to be compared on how far a named piece of
+biology moves with the disease in each of them.
 
-## What it does not add
+## What the design is for
 
-CHORALE does not create missing sample pairs, identify a unique latent state, prove that two factors
-have the same biological cause, or make pathway evidence independent of design evidence. A resolved
-correspondence is evidence for compatible adjusted phenotype responses under the stated model and
-controls.
+The design supplies the evidence. Within each modality, the concept score is regressed on the
+phenotype and on whatever covariates the modality records, giving one adjusted case-control effect
+per concept per modality. A concept is supported when those effects agree in direction and are
+large relative to their standard errors in the modalities that express it.
 
-## Why phenotype does not need a numerical weight
+The direction of inference follows from the choice of connecting object. Where the design connects
+modalities, the burden falls on it to identify one correspondence among several hundred candidate
+pairings from two or three design terms, which independently deposited studies cannot carry.
+Where concepts connect modalities, the design answers a different and far easier question: whether a
+named concept separates cases from controls, one modality at a time, over a few hundred
+prespecified hypotheses under error control.
 
-A weighted average such as “60% phenotype and 40% other covariates” would make the conclusion depend
-on an arbitrary tuning value. CHORALE instead uses an ordered rule:
+## What lies outside the vocabulary
 
-1. phenotype decides eligibility;
-2. bootstrap uncertainty keeps phenotype-equivalent alternatives;
-3. secondary covariates order only those alternatives.
+A fixed vocabulary bounds what the concept channel can express. Biology absent from it would
+otherwise disappear silently, so the concept scores are removed from each assay and what remains is
+decomposed into free dimensions. A free dimension that moves with the phenotype is coordinated
+variation the vocabulary has no name for, and it is reported as such rather than forced into a
+concept that does not describe it.
 
-This is testable and easy to interpret. A strong batch match cannot compensate for no phenotype
-signal, regardless of its magnitude.
+## What a supported concept establishes
+
+A supported concept is a coordinated case-control shift in a named piece of biology, seen in more
+than one measurement layer, at a stated error rate. Ordering cause and consequence requires timing,
+mediation or perturbation, none of which a cross-sectional collection carries.
+
+The vocabulary is where interpretation is fixed, so its choice is part of the analysis rather than a
+presentational step after it. A concept that no modality has enough features for cannot be tested,
+and coverage is reported per concept for that reason.
 
 ## A useful negative result
 
-If the phenotype is unsupported, the factor-level results still describe each modality. If a broad
-bound includes negative, zero, and positive correlations, that also provides useful information: the
-available unpaired design cannot determine the relationship, and collecting more samples of the same
-kind may not solve the missing-pairing problem.
+A collection in which no concept is supported still says something. The coverage report states how
+many concepts each modality could be scored on at all. The free dimensions state whether coordinated
+variation exists outside the vocabulary. Together these separate two situations that a bare absence
+of results confuses: a collection carrying no shared signal, and a collection whose shared signal
+the chosen vocabulary cannot name.

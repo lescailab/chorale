@@ -2,7 +2,7 @@
 % Please edit documentation in R/genesets.R
 \name{chorale_geneset_matrix}
 \alias{chorale_geneset_matrix}
-\title{Represent gene sets as a feature-by-set indicator matrix}
+\title{Place a modality's features in the vocabulary}
 \usage{
 chorale_geneset_matrix(
   feature_ids,
@@ -34,9 +34,9 @@ A numeric matrix with one row per feature and one column per
 retained gene set.
 }
 \description{
-Builds the feature-by-set matrix the pathway layer reads: rows are
-the features of one modality, columns are gene sets, and an entry is 1 where
-the feature belongs to the set. Features carry fractional weight where an
+Builds the feature-by-concept matrix \code{\link[=chorale_concepts]{chorale_concepts()}} reads: rows are
+the features of one modality, columns are concepts, and an entry is 1 where
+the feature carries the concept. Features carry fractional weight where an
 identifier maps to several genes, so a one-to-many mapping contributes
 proportionally rather than counting once per gene.
 }
