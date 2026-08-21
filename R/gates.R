@@ -23,7 +23,7 @@
 #' }
 #'
 #' Distributional diagnostics are evaluated in R on components recovered by
-#' the same estimator used by [chorale_fit()]. The current estimator does not
+#' the same estimator the free dimensions are recovered with. The estimator does not
 #' claim unique latent-state recovery: its permutation inference is conditional
 #' on stable, detectable fitted factors. Consequently cross-modality shape is
 #' not an identification condition for the reported phenotype correspondence,

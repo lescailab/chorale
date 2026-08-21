@@ -15,8 +15,6 @@ chorale_plant(
   min_features = 10L,
   member_fraction = 0.6,
   leak_fraction = 0.2,
-  max_jaccard = 0.4,
-  level = c("factor", "concept"),
   n_markers = 5L,
   background_sd = 0.2,
   seed = 1L,
@@ -35,8 +33,9 @@ lipids. Row names must be the profile's feature identifiers.}
 \item{plant_sets}{The planting collection, a named list of member
 identifiers, as returned by \code{\link[=chorale_genesets]{chorale_genesets()}}.}
 
-\item{score_sets}{The collection the pathway channel will be scored in.
-Planting sets overlapping any of these above \code{max_jaccard} are refused.}
+\item{score_sets}{The collection recovery is scored in, which is the planting
+collection itself. The realised overlap between planted sets travels with
+the result.}
 
 \item{n_programmes}{Number of pathways to plant.}
 
@@ -53,12 +52,6 @@ programme.}
 \item{leak_fraction}{Share of the programme's loading mass placed on features
 outside the set.}
 
-\item{max_jaccard}{Largest overlap a planting set may have with any scoring
-set. Applies at the factor level only.}
-
-\item{level}{Whether the planting is scored as a factor correspondence or as
-a named concept. See the details.}
-
 \item{n_markers}{Members per programme made pure, so the pure features of a
 recovered factor can be checked against the pathway.}
 
@@ -74,8 +67,7 @@ no programme.}
 A list with \code{sim}, the \code{\link[=chorale_simulate]{chorale_simulate()}} output; \code{plant}, one row
 per programme and modality recording the set, its size, the features that
 received loading and the markers among them; \code{sets}, the planted sets in
-their planting vocabulary; \code{concepts}, their names; and \code{level}, the space
-the planting is to be scored in.
+their planting vocabulary; and \code{concepts}, their names.
 }
 \description{
 Simulated data in which the shared programmes are curated pathways rather
@@ -87,22 +79,11 @@ cohort supports, since no real cohort records which features belong to a
 programme.
 }
 \details{
-What is planted is scored differently in the two spaces the estimator works in,
-and \code{level} says which.
-
-At the factor level the vocabulary a programme is planted from is not the
-vocabulary it is scored in. Planting from the collection the pathway channel
-regresses on would make that channel succeed by construction, so a planting
-set is admitted only when its overlap with every scoring set falls below
-\code{max_jaccard}, and the realised overlap travels with the result.
-
-At the concept level the planting and scoring vocabularies are deliberately
-the same one, because a concept is planted and recovered by name: the
-question is not whether its composition can be rediscovered but whether the
-design shows it separating cases from controls in every modality that
-expresses it, and whether the concepts that were not planted stay quiet. The
-overlap refusal would remove exactly the sets the question is about, so it
-does not apply.
+A concept is planted and recovered by name, so the planting and scoring
+vocabularies are the same one. The question is not whether a concept\'s
+composition can be rediscovered but whether the design shows it separating
+cases from controls in every modality that expresses it, and whether the
+concepts that were not planted stay quiet.
 
 Two dials govern how far a planted signal departs from a clean set
 indicator. \code{member_fraction} is the share of a set's features that carry the

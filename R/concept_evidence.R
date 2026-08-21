@@ -474,3 +474,107 @@ print.chorale_concept_evidence <- function(x, ...) {
   }
   invisible(x)
 }
+
+#' Compare the phenotype with what a nuisance covariate reaches
+#'
+#' A concept that answers to any strong contrast is not telling you about the
+#' disease. Each nuisance covariate is put in the phenotype's place and the
+#' whole vocabulary is tested again, so a concept's phenotype evidence can be
+#' read against what the same procedure recovers when something else drives it.
+#' A vocabulary whose evidence under the phenotype is no stronger than under
+#' cohort or sex is reporting cohort structure.
+#'
+#' The comparison is inexpensive because the encoding does not depend on the
+#' design. Concept scores are computed once and every substitution reuses them,
+#' so substituting a covariate costs the permutations and nothing else.
+#'
+#' @param fit A `chorale_concept_fit`.
+#' @param covariates Nuisance covariates to substitute for the phenotype.
+#'   `NULL` uses every covariate the modalities share, which is what the
+#'   evidence was adjusted for.
+#' @param n_permutations Permutations calibrating each substitution. `NULL`
+#'   uses the count the fit was calibrated with.
+#' @param seed Integer seed.
+#'
+#' @returns A data frame with one row per substituted covariate, carrying the
+#'   strongest statistic the vocabulary reaches with that covariate in the
+#'   phenotype's place, beside the observed value under the phenotype, and
+#'   whether the substitution reached at least as far.
+#' @export
+#' @examples
+#' fx <- chorale_concept_example(seed = 1)
+#' fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+#'                            n_permutations = 99)
+#' chorale_concept_specificity(fit, covariates = "sex", n_permutations = 99)
+chorale_concept_specificity <- function(fit, covariates = NULL,
+                                        n_permutations = NULL, seed = 1L) {
+  if (!inherits(fit, "chorale_concept_fit")) {
+    rlang::abort("`fit` must be a chorale_concept_fit object.")
+  }
+  observed <- chorale_best_concept(fit$evidence)
+  n_perm <- n_permutations %||% fit$evidence$n_permutations
+  phenotype <- fit$control$phenotype_column
+  covariates <- covariates %||% setdiff(fit$evidence$spec$covariates, phenotype)
+  if (length(covariates) == 0) {
+    return(data.frame(anchor = character(), statistic = numeric(),
+                      observed_phenotype = numeric(),
+                      reaches_phenotype = logical(), reason = character(),
+                      stringsAsFactors = FALSE))
+  }
+
+  rows <- lapply(covariates, function(cv) {
+    swapped <- fit$encoding
+    usable <- TRUE
+    for (m in fit$modalities) {
+      d <- swapped$designs[[m]]
+      if (!cv %in% colnames(d) ||
+          length(unique(stats::na.omit(d[[cv]]))) < 2) {
+        usable <- FALSE
+        break
+      }
+      # The covariate takes the phenotype's place, so the vocabulary is tested
+      # on it and on nothing else that distinguishes the design.
+      d[[phenotype]] <- as.character(d[[cv]])
+      swapped$designs[[m]] <- d
+    }
+    if (!usable) {
+      return(data.frame(anchor = cv, statistic = NA_real_,
+                        observed_phenotype = round(observed, 4),
+                        reaches_phenotype = NA,
+                        reason = "covariate absent or constant",
+                        stringsAsFactors = FALSE))
+    }
+    # The declared phenotype reference is a level of the phenotype, not of the
+    # covariate standing in for it, so the substitution names its own.
+    levels_shared <- Reduce(intersect, lapply(swapped$designs, function(d) {
+      unique(as.character(stats::na.omit(d[[phenotype]])))
+    }))
+    if (length(levels_shared) < 2) {
+      return(data.frame(anchor = cv, statistic = NA_real_,
+                        observed_phenotype = round(observed, 4),
+                        reaches_phenotype = NA,
+                        reason = "fewer than two levels shared by the modalities",
+                        stringsAsFactors = FALSE))
+    }
+    swapped$control <- chorale_merge_control(
+      fit$control, list(phenotype_reference = sort(levels_shared)[1]))
+    ev <- try(chorale_concept_evidence(swapped, n_permutations = n_perm,
+                                       control = swapped$control, seed = seed),
+              silent = TRUE)
+    value <- if (inherits(ev, "try-error")) NA_real_ else chorale_best_concept(ev)
+    data.frame(
+      anchor = cv,
+      statistic = round(value, 4),
+      observed_phenotype = round(observed, 4),
+      reaches_phenotype = isTRUE(value >= observed),
+      reason = if (inherits(ev, "try-error")) {
+        "the substituted contrast could not be estimated"
+      } else {
+        NA_character_
+      },
+      stringsAsFactors = FALSE)
+  })
+  out <- do.call(rbind, rows)
+  rownames(out) <- NULL
+  out
+}

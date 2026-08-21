@@ -354,10 +354,11 @@ basename(out)
 #>  [9] "concept_scores_RNA.tsv"   "free_scores_RNA.tsv"
 #> [11] "concept_scores_PROT.tsv"  "free_scores_PROT.tsv"
 #> [13] "concept_scores_METAB.tsv" "free_scores_METAB.tsv"
-#> [15] "report.html"
+#> [15] "fit.rds"                  "report.html"
 ```
 
-`report.html` leads with the concept table and explains which controls were run. The
+`report.html` leads with the concept table and explains which controls were run, and `fit.rds`
+reloads the whole fit with `readRDS()`, so an analysis resumes without re-reading anything. The
 [outputs page](../outputs) documents every column.
 
 ## Using your own data

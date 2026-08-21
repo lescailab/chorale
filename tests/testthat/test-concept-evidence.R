@@ -166,3 +166,33 @@ test_that("printing reports what was supported", {
   expect_output(print(fit), "concepts in the vocabulary: 3")
   expect_output(print(fit$evidence), "concepts tested: 3")
 })
+
+test_that("a nuisance covariate in the phenotype's place is a comparison, not a refit", {
+  fx <- chorale_concept_example(seed = 13)
+  fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+                             n_permutations = 199)
+  before <- fit$encoding$encodings$A$concept_scores
+
+  spec <- chorale_concept_specificity(fit, covariates = "sex",
+                                      n_permutations = 199)
+
+  # The encoding does not depend on the design, so substituting a covariate
+  # costs the permutations and nothing else.
+  expect_identical(before, fit$encoding$encodings$A$concept_scores)
+  expect_equal(spec$anchor, "sex")
+  expect_true(is.finite(spec$statistic))
+  expect_equal(spec$observed_phenotype, round(chorale_best_concept(fit$evidence), 4))
+  # The planted concept answers to the phenotype, not to sex.
+  expect_false(spec$reaches_phenotype)
+})
+
+test_that("a covariate that cannot stand in is reported with its reason", {
+  fx <- chorale_concept_example(seed = 14)
+  fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+                             n_permutations = 99)
+  spec <- chorale_concept_specificity(fit, covariates = "not_a_column",
+                                      n_permutations = 99)
+  expect_true(is.na(spec$statistic))
+  expect_match(spec$reason, "absent or constant")
+  expect_error(chorale_concept_specificity(list()), "chorale_concept_fit")
+})

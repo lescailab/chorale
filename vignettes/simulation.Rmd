@@ -81,10 +81,10 @@ Which control decides a call is an argument, because the two answer different qu
 `criterion = "fdr"` holds the share of calls expected to be false at the configured level;
 `criterion = "family_wise"` holds the probability of any false call anywhere in the vocabulary.
 
-`chorale_plant()` plants concepts into the observation model of real layers instead, with
-`level = "concept"`. At that level the planting and scoring vocabularies are deliberately the same
-one, because a concept is planted and recovered by name: the question is whether the design shows it
-separating cases from controls, not whether its composition can be rediscovered.
+`chorale_plant()` plants concepts into the observation model of real layers instead. The planting
+and scoring vocabularies are the same one, because a concept is planted and recovered by name: the
+question is whether the design shows it separating cases from controls, not whether its composition
+can be rediscovered.
 
 ## Recovery curves
 
@@ -160,7 +160,7 @@ concept scored in one tracks the same concept scored in the other.
 
 ```r
 r <- chorale_destroy_pairing(paired_a, paired_b, design, sets = sets,
-                             spaces = "concept", n_random = 200)
+                             n_random = 200)
 r$concept_summary
 #>   n_concepts paired_upper_bound recovered_agreement random_baseline
 #> 1          4             0.8827              0.8827          0.2713

@@ -131,6 +131,12 @@ A control that could not be computed is named with its reason rather than passed
 `smallest_attainable_p` before quoting a p-value is what stops a control being read against a
 threshold it could never reach.
 
+## `fit.rds`: the whole result
+
+The fitted object, written with `saveRDS()` and reloaded with `readRDS()`. It carries the concept
+scores, the free dimensions, the vocabulary and its coverage, the evidence table and the control
+object that produced them, so an analysis resumes from it without the tables having to be lossless.
+
 ## `concept_scores_<m>.tsv` and `free_scores_<m>.tsv`
 
 One row per sample, one column per concept or free dimension. These are the quantities every table

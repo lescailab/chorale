@@ -8,22 +8,11 @@
 #' cohort supports, since no real cohort records which features belong to a
 #' programme.
 #'
-#' What is planted is scored differently in the two spaces the estimator works in,
-#' and `level` says which.
-#'
-#' At the factor level the vocabulary a programme is planted from is not the
-#' vocabulary it is scored in. Planting from the collection the pathway channel
-#' regresses on would make that channel succeed by construction, so a planting
-#' set is admitted only when its overlap with every scoring set falls below
-#' `max_jaccard`, and the realised overlap travels with the result.
-#'
-#' At the concept level the planting and scoring vocabularies are deliberately
-#' the same one, because a concept is planted and recovered by name: the
-#' question is not whether its composition can be rediscovered but whether the
-#' design shows it separating cases from controls in every modality that
-#' expresses it, and whether the concepts that were not planted stay quiet. The
-#' overlap refusal would remove exactly the sets the question is about, so it
-#' does not apply.
+#' A concept is planted and recovered by name, so the planting and scoring
+#' vocabularies are the same one. The question is not whether a concept\'s
+#' composition can be rediscovered but whether the design shows it separating
+#' cases from controls in every modality that expresses it, and whether the
+#' concepts that were not planted stay quiet.
 #'
 #' Two dials govern how far a planted signal departs from a clean set
 #' indicator. `member_fraction` is the share of a set's features that carry the
@@ -40,8 +29,9 @@
 #'   lipids. Row names must be the profile's feature identifiers.
 #' @param plant_sets The planting collection, a named list of member
 #'   identifiers, as returned by [chorale_genesets()].
-#' @param score_sets The collection the pathway channel will be scored in.
-#'   Planting sets overlapping any of these above `max_jaccard` are refused.
+#' @param score_sets The collection recovery is scored in, which is the planting
+#'   collection itself. The realised overlap between planted sets travels with
+#'   the result.
 #' @param n_programmes Number of pathways to plant.
 #' @param n_private_factors Modality-private factors carrying no pathway and no
 #'   cross-modality partner.
@@ -51,10 +41,6 @@
 #'   programme.
 #' @param leak_fraction Share of the programme's loading mass placed on features
 #'   outside the set.
-#' @param max_jaccard Largest overlap a planting set may have with any scoring
-#'   set. Applies at the factor level only.
-#' @param level Whether the planting is scored as a factor correspondence or as
-#'   a named concept. See the details.
 #' @param n_markers Members per programme made pure, so the pure features of a
 #'   recovered factor can be checked against the pathway.
 #' @param background_sd Standard deviation of the loadings of features carrying
@@ -66,8 +52,7 @@
 #' @returns A list with `sim`, the [chorale_simulate()] output; `plant`, one row
 #'   per programme and modality recording the set, its size, the features that
 #'   received loading and the markers among them; `sets`, the planted sets in
-#'   their planting vocabulary; `concepts`, their names; and `level`, the space
-#'   the planting is to be scored in.
+#'   their planting vocabulary; and `concepts`, their names.
 #' @export
 #' @examplesIf FALSE
 #' plant <- chorale_plant(profiles, membership, kegg, reactome)
@@ -78,8 +63,6 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
                           min_features = 10L,
                           member_fraction = 0.6,
                           leak_fraction = 0.2,
-                          max_jaccard = 0.4,
-                          level = c("factor", "concept"),
                           n_markers = 5L,
                           background_sd = 0.2,
                           seed = 1L,
@@ -99,7 +82,6 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   if (leak_fraction < 0 || leak_fraction >= 1) {
     rlang::abort("`leak_fraction` must lie in [0, 1).")
   }
-  level <- match.arg(level)
   membership <- membership[names(profiles)]
 
   for (m in names(profiles)) {
@@ -122,17 +104,6 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   overlap <- chorale_set_overlap(plant_sets[candidates$set], score_sets)
   candidates$max_jaccard <- overlap$max_jaccard[match(candidates$set,
                                                       overlap$set)]
-  if (identical(level, "factor")) {
-    candidates <- candidates[is.finite(candidates$max_jaccard) &
-                               candidates$max_jaccard <= max_jaccard, ,
-                             drop = FALSE]
-    if (nrow(candidates) == 0) {
-      rlang::abort(paste0(
-        "Every plantable set overlaps a scoring set above `max_jaccard` = ",
-        max_jaccard, "."
-      ))
-    }
-  }
 
   # The widest programmes first, since a programme reaching every modality is
   # what the integration is being asked to recover, and among those the ones
@@ -227,7 +198,6 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
 
   list(sim = sim, plant = plant,
        sets = plant_sets[chosen$set],
-       level = level,
        concepts = chosen$set,
        programmes = stats::setNames(chosen$set, paste0("shared_", seq_len(n_programmes))))
 }
@@ -374,117 +344,6 @@ chorale_plant_loadings <- function(profile, membership, sets,
   list(loadings = l, planted = planted, leaked = leaked, markers = markers)
 }
 
-#' Score a fit against the pathways that were planted
-#'
-#' Three quantities, one per question the planting was built to answer. The
-#' pathway ranking asks whether the recovered composition in the scoring
-#' vocabulary puts the sets genuinely overlapping the planted pathway at the
-#' top, measured as the probability that an overlapping set outranks a
-#' non-overlapping one. The marker precision asks whether the pure features a
-#' factor reports belong to the pathway that was planted. The channel
-#' specificity asks whether the pathway channel reaches significance for planted
-#' programmes and stays quiet elsewhere, which is its own false positive rate.
-#'
-#' Overlap between the planting and the scoring vocabulary is what makes the
-#' first question answerable: a planted pathway has no counterpart under its own
-#' name in the scoring collection, so the truth is the set of scoring sets
-#' sharing at least `overlap` of their membership with it.
-#'
-#' @param fit A `chorale_fit` on the planted data, fitted with the scoring
-#'   collection as `gene_sets`.
-#' @param planted The [chorale_plant()] output the data came from.
-#' @param score_sets The scoring collection, as passed to [chorale_fit()].
-#' @param overlap Jaccard index at which a scoring set counts as covering the
-#'   planted pathway.
-#' @param alpha Threshold at which the pathway channel is called.
-#'
-#' @returns A list with `per_modality`, one row per programme and modality, and
-#'   `channel`, one row per programme the fit supported.
-#' @export
-#' @examplesIf FALSE
-#' chorale_score_planting(fit, planted, reactome)
-chorale_score_planting <- function(fit, planted, score_sets, overlap = 0.1,
-                                   alpha = 0.05) {
-  if (!inherits(fit, "chorale_fit")) {
-    rlang::abort("`fit` must be a chorale_fit object.")
-  }
-  align <- chorale_align_truth(fit, planted$sim)
-  programmes <- planted$programmes
-
-  truth_of <- function(set_name, vocabulary) {
-    j <- vapply(score_sets[vocabulary], function(b) {
-      a <- unique(as.character(planted$sets[[set_name]]))
-      b <- unique(as.character(b))
-      inter <- length(intersect(a, b))
-      if (inter == 0) return(0)
-      inter / length(union(a, b))
-    }, numeric(1))
-    names(j)[j >= overlap]
-  }
-
-  rows <- list()
-  for (k in seq_along(programmes)) {
-    label <- names(programmes)[k]
-    set_name <- programmes[[k]]
-    for (m in fit$modalities) {
-      a <- align[align$modality == m & align$planted == label, , drop = FALSE]
-      row <- data.frame(
-        programme = label, set = set_name, modality = m,
-        factor = NA_character_, correlation = NA_real_,
-        n_truth_sets = NA_integer_, pathway_auc = NA_real_,
-        marker_precision = NA_real_, n_markers = NA_integer_,
-        stringsAsFactors = FALSE
-      )
-      if (nrow(a) > 0) {
-        a <- a[which.max(a$correlation), , drop = FALSE]
-        row$factor <- a$factor
-        row$correlation <- a$correlation
-
-        prior <- fit$fits[[m]]$prior
-        if (!is.null(prior) && ncol(prior) > 1) {
-          prof <- chorale_pathway_profile(fit$fits[[m]]$loadings, prior)
-          fi <- match(a$factor, rownames(prof))
-          vocabulary <- intersect(colnames(prof), names(score_sets))
-          truth <- truth_of(set_name, vocabulary)
-          if (!is.na(fi) && length(vocabulary) > 2) {
-            score <- abs(prof[fi, vocabulary])
-            row$n_truth_sets <- length(truth)
-            row$pathway_auc <- chorale_rank_auc(score, vocabulary %in% truth)
-          }
-        }
-
-        mk <- fit$fits[[m]]$markers[[a$factor]]
-        pl <- planted$plant
-        idx <- which(pl$programme == label & pl$modality == m)
-        if (length(mk) > 0 && length(idx) == 1) {
-          members <- planted$plant$planted[[idx]]
-          row$n_markers <- length(mk)
-          row$marker_precision <- round(mean(mk %in% members), 3)
-        }
-      }
-      rows[[length(rows) + 1L]] <- row
-    }
-  }
-  per_modality <- do.call(rbind, rows)
-  per_modality$pathway_auc <- round(per_modality$pathway_auc, 3)
-
-  channel <- data.frame()
-  ev <- fit$pathway_evidence
-  if (is.data.frame(ev) && nrow(ev) > 0) {
-    pg <- chorale_programmes(fit, significant_only = TRUE)
-    key <- stats::setNames(align$planted, paste(align$modality, align$factor))
-    channel <- ev
-    channel$planted <- vapply(channel$programme, function(pr) {
-      d <- pg[pg$programme == pr, , drop = FALSE]
-      if (nrow(d) < 2) return(NA_character_)
-      lab <- unique(key[paste(d$modality, d$factor)])
-      if (length(lab) == 1 && grepl("^shared_", lab)) lab else NA_character_
-    }, character(1))
-    channel$called <- channel$pathway_p <= alpha
-  }
-
-  list(per_modality = per_modality, channel = channel)
-}
 
 #' Probability that a member of the truth set outranks a non-member
 #' @keywords internal
