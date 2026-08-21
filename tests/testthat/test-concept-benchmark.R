@@ -1,7 +1,7 @@
 test_that("the correspondence the vocabulary asserts is recovered", {
   p <- paired_concept_data()
   r <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
-                               spaces = "concept", n_random = 100, n_init = 2)
+                               n_random = 100, n_init = 2)
   s <- r$concept_summary
 
   expect_equal(s$n_concepts, 3L)
@@ -17,11 +17,9 @@ test_that("a concept the modalities rank in opposite directions is not recovered
   # ranks the same animals in the opposite order, which is not recovery.
   flipped <- p$b
   flipped[p$sets$planted, ] <- -flipped[p$sets$planted, ]
-  upright <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
-                                     spaces = "concept", n_random = 100,
+  upright <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets, n_random = 100,
                                      n_init = 2)
-  inverted <- chorale_destroy_pairing(p$a, flipped, p$design, sets = p$sets,
-                                      spaces = "concept", n_random = 100,
+  inverted <- chorale_destroy_pairing(p$a, flipped, p$design, sets = p$sets, n_random = 100,
                                       n_init = 2)
 
   planted_up <- upright$concept_recovery[
@@ -37,7 +35,7 @@ test_that("a concept the modalities rank in opposite directions is not recovered
 test_that("recovery is placed between the two bounds", {
   p <- paired_concept_data()
   r <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
-                               spaces = "concept", n_random = 100, n_init = 2)
+                               n_random = 100, n_init = 2)
   s <- r$concept_summary
   # The identity the vocabulary asserts cannot beat the best alignment the
   # pairing admits, and the placement is where it sits between the two.
@@ -49,7 +47,7 @@ test_that("recovery is placed between the two bounds", {
 test_that("the pairing is withheld from the encoder", {
   p <- paired_concept_data()
   r <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
-                               spaces = "concept", n_random = 20, n_init = 2)
+                               n_random = 20, n_init = 2)
   ids_a <- rownames(r$concept_encoding$encodings$A$concept_scores)
   ids_b <- rownames(r$concept_encoding$encodings$B$concept_scores)
   expect_length(intersect(ids_a, ids_b), 0)
@@ -61,10 +59,10 @@ test_that("a concept with no shared state falls towards the random bound", {
   strong <- paired_concept_data(concept_effect = 1.5, seed = 2)
   none <- paired_concept_data(concept_effect = 0, seed = 2)
   rs <- chorale_destroy_pairing(strong$a, strong$b, strong$design,
-                                sets = strong$sets, spaces = "concept",
+                                sets = strong$sets,
                                 n_random = 100, n_init = 2)
   rn <- chorale_destroy_pairing(none$a, none$b, none$design, sets = none$sets,
-                                spaces = "concept", n_random = 100, n_init = 2)
+                                n_random = 100, n_init = 2)
   expect_gt(rs$concept_summary$recovered_agreement,
             rn$concept_summary$recovered_agreement)
 })
@@ -77,37 +75,33 @@ test_that("a vocabulary that names nothing shared places below random", {
   flipped[unlist(p$sets, use.names = FALSE), ] <-
     -flipped[unlist(p$sets, use.names = FALSE), ]
   r <- chorale_destroy_pairing(p$a, flipped, p$design, sets = p$sets,
-                               spaces = "concept", n_random = 100, n_init = 2)
+                               n_random = 100, n_init = 2)
   expect_lt(r$concept_summary$recovered_agreement,
             r$concept_summary$random_baseline)
   expect_lt(r$concept_summary$placement_between_bounds, 0)
 })
 
-test_that("both spaces can be scored in one run", {
+test_that("the benchmark returns the concept result and nothing else", {
   p <- paired_concept_data()
   r <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets,
-                               n_factors = 3, n_init = 2, n_random = 20)
-  expect_equal(nrow(r$summary), 1L)
+                               n_init = 2, n_random = 20)
   expect_equal(nrow(r$concept_summary), 1L)
-  expect_s3_class(r$fit, "chorale_fit")
+  expect_setequal(names(r), c("concept_summary", "concept_recovery",
+                              "concept_encoding"))
 })
 
-test_that("the factor space alone is what a run without a vocabulary scores", {
+test_that("a run without a vocabulary is refused", {
   p <- paired_concept_data()
-  r <- chorale_destroy_pairing(p$a, p$b, p$design, n_factors = 3, n_init = 2,
-                               n_random = 20)
-  expect_equal(nrow(r$summary), 1L)
-  expect_null(r$concept_summary)
-  expect_error(
-    chorale_destroy_pairing(p$a, p$b, p$design, spaces = "concept"),
-    "needs `sets`")
+  # The vocabulary is what the two modalities are compared in, so there is no
+  # benchmark to run without one.
+  expect_error(chorale_destroy_pairing(p$a, p$b, p$design), "sets")
 })
 
 test_that("a vocabulary reaching neither modality is reported, not scored", {
   p <- paired_concept_data()
   r <- chorale_destroy_pairing(p$a, p$b, p$design,
                                sets = list(absent = paste0("no_such_", 1:20)),
-                               spaces = "concept", n_random = 20)
+                               n_random = 20)
   expect_true(is.na(r$concept_summary$placement_between_bounds))
   expect_match(r$concept_summary$reason, "fewer than two concepts")
 })

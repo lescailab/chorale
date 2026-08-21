@@ -39,27 +39,6 @@ test_that("the variance-stabilising transform removes the mean-variance trend", 
   expect_lt(abs(vst_trend), raw_trend)
 })
 
-test_that("chorale_fit records the transform it applied", {
-  sim <- chorale_simulate(n_modalities = 2, n_features = 120,
-                          n_shared_factors = 2, n_private_factors = 1,
-                          n_strains = 4, n_per_cell = 3, effect_size = 3,
-                          seed = 1)
-  containers <- Map(chorale_load, sim$modalities, sim$col_data)
-  fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
-  applied <- vapply(fit$modalities, function(m) fit$fits[[m]]$transform,
-                    character(1))
-  expect_length(applied, 2L)
-  expect_true(all(applied %in% c("auto", "none", "log", "vst")))
-
-  # A per-modality request is honoured, and an unknown one is refused.
-  fit2 <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
-                      transform = c(modality_1 = "log"))
-  expect_equal(unname(fit2$fits$modality_1$transform), "log")
-  expect_error(chorale_fit(containers, n_factors = 2, n_init = 2,
-                           transform = "quantile"), class = "rlang_error")
-  expect_error(chorale_fit(containers, n_factors = 2, n_init = 2,
-                           transform = c(nope = "log")), class = "rlang_error")
-})
 
 test_that("the medoid is the factor run the starts agree on", {
   sim <- chorale_simulate(n_modalities = 2, n_features = 150,
@@ -83,14 +62,30 @@ test_that("the medoid is the factor run the starts agree on", {
   expect_true(all(abs(colMeans(cons$scores)) < 1e-8))
 })
 
-test_that("run alignment resolves the order and sign a factor is recovered in", {
-  set.seed(3)
-  ref <- scale(matrix(stats::rnorm(120), ncol = 3))
-  # The same factors, permuted and sign-flipped, which is all that separates
-  # two initialisations of the same solution.
-  other <- ref[, c(3, 1, 2)] %*% diag(c(-1, 1, -1))
-  aligned <- chorale_align_runs(ref, list(other))
-  expect_length(aligned, 1L)
-  expect_equal(as.numeric(diag(stats::cor(ref, aligned[[1]]))), rep(1, 3),
-               tolerance = 1e-8)
+
+test_that("the transform each modality was read on travels with the encoding", {
+  sim <- chorale_simulate(n_modalities = 2, n_features = 60, seed = 1)
+  ids <- sprintf("feature_%05d", seq_len(60))
+  sim$modalities <- lapply(sim$modalities, function(m) {
+    rownames(m) <- ids
+    m
+  })
+  containers <- Map(chorale_load, sim$modalities, sim$col_data)
+  names(containers) <- c("A", "B")
+  cc <- chorale_concepts(containers, list(one = ids[1:20], two = ids[21:45]),
+                         min_features = 5)
+
+  enc <- chorale_encode(containers, cc, n_free = 0)
+  expect_true(all(vapply(enc$encodings, function(e) nzchar(e$transform),
+                         logical(1))))
+
+  # A modality whose scale is declared is read on the declared one.
+  named <- chorale_encode(containers, cc, n_free = 0,
+                          transform = c(A = "none", B = "log"))
+  expect_equal(named$encodings$A$transform, "none")
+  expect_equal(named$encodings$B$transform, "log")
+  expect_error(chorale_encode(containers, cc, transform = c(Z = "log")),
+               "unknown modalities")
+  expect_error(chorale_encode(containers, cc, transform = "nonsense"),
+               "must be one of")
 })

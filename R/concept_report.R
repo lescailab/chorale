@@ -1,3 +1,59 @@
+#' Emit interpretable outputs from a concept fit
+#'
+#' Writes the concept table, the free-dimension table and the added-value table,
+#' with the coverage and variance behind them, a page that leads with what the
+#' collection shares, and the fit itself so an analysis can be resumed without
+#' re-reading anything.
+#'
+#' @param fit A `chorale_concept_fit`.
+#' @param null A `chorale_null` object, as returned by [chorale_null()]. Where it
+#'   is absent no control table is written.
+#' @param path Directory to write into. Created if absent.
+#' @param ... Passed to the method.
+#' @returns Invisibly, a character vector of the files written.
+#' @export
+#' @examples
+#' fx <- chorale_concept_example(seed = 1)
+#' fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 1,
+#'                            n_permutations = 99, n_init = 2)
+#' basename(chorale_report(fit, path = withr::local_tempdir()))
+chorale_report <- function(fit, null = NULL, path, ...) {
+  UseMethod("chorale_report")
+}
+
+#' @export
+chorale_report.default <- function(fit, null = NULL, path, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit object.")
+}
+
+#' Whether a concept needed more than one modality
+#'
+#' The claim that integration produced a result is only worth making if the
+#' result is stronger than what any one modality could have produced alone. The
+#' combined statistic is therefore reported beside the best any single modality
+#' reached, and a concept only one modality expresses cannot need more than one
+#' whatever its statistic.
+#'
+#' @param fit A `chorale_concept_fit`.
+#' @param ... Passed to the method.
+#' @returns A data frame with one row per concept carrying the combined
+#'   statistic, the best single-modality statistic, the margin between them and
+#'   whether more than one modality was needed.
+#' @export
+#' @examples
+#' fx <- chorale_concept_example(seed = 1)
+#' fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+#'                            n_permutations = 99)
+#' chorale_added_value(fit)
+chorale_added_value <- function(fit, ...) {
+  UseMethod("chorale_added_value")
+}
+
+#' @export
+chorale_added_value.default <- function(fit, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit object.")
+}
+
 #' Coordinated variation that no concept explains
 #'
 #' The vocabulary bounds what the concept channel can say. Biology outside it
@@ -261,6 +317,12 @@ chorale_report.chorale_concept_fit <- function(fit, null = NULL, path,
     }
   }
 
+  # The fit itself, so an analysis can be resumed without re-reading anything
+  # and without the tables having to be lossless.
+  fit_file <- file.path(path, "fit.rds")
+  saveRDS(fit, fit_file)
+  written <- c(written, fit_file)
+
   written <- c(written, chorale_write_concept_html(fit, concepts, free, added,
                                                    controls, path))
   invisible(written)
@@ -365,4 +427,42 @@ chorale_write_concept_html <- function(fit, concepts, free, added, controls,
     "</body></html>")
   writeLines(parts, file)
   file
+}
+
+
+#' @keywords internal
+#' @noRd
+chorale_write <- function(x, path, file) {
+  f <- file.path(path, file)
+  utils::write.table(x, f, sep = "\t", row.names = FALSE, quote = FALSE)
+  f
+}
+
+#' Escape text for HTML
+#' @keywords internal
+#' @noRd
+chorale_esc <- function(x) {
+  x <- as.character(x)
+  x[is.na(x)] <- ""
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  gsub(">", "&gt;", x, fixed = TRUE)
+}
+
+#' A table with its legend
+#' @keywords internal
+#' @noRd
+chorale_html_table <- function(d, caption, legend) {
+  head_block <- paste0("<h3>", chorale_esc(caption), "</h3>",
+                       "<p class='legend'>", legend, "</p>")
+  if (is.null(d) || nrow(d) == 0) {
+    return(paste0(head_block, "<p class='empty'>No rows.</p>"))
+  }
+  hdr <- paste0("<tr>", paste0("<th>", chorale_esc(colnames(d)), "</th>",
+                               collapse = ""), "</tr>")
+  body <- apply(d, 1, function(r) {
+    paste0("<tr>", paste0("<td>", chorale_esc(r), "</td>", collapse = ""), "</tr>")
+  })
+  paste0(head_block, "<div class='scroll'><table>", hdr,
+         paste(body, collapse = ""), "</table></div>")
 }

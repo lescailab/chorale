@@ -99,7 +99,7 @@ chorale_planted_names <- function(planted) {
   if (is.character(planted)) return(planted)
   if (is.list(planted)) {
     if (!is.null(planted$concepts)) return(as.character(planted$concepts))
-    if (!is.null(planted$programmes)) return(unname(as.character(planted$programmes)))
+    if (!is.null(planted$planted)) return(unname(as.character(planted$planted)))
   }
   rlang::abort("`planted` must be concept names or the result of chorale_plant().")
 }

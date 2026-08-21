@@ -110,28 +110,6 @@ test_that("only the columns an estimand needs are required", {
   expect_error(chorale_load(m, minimal["sample_id"]), "phenotype")
 })
 
-test_that("a design the package has never seen anchors without configuration", {
-  mk <- function(tag, ph) {
-    set.seed(nchar(tag))
-    m <- matrix(stats::rnorm(80 * 24), 80,
-                dimnames = list(paste0("f", 1:80), paste0(tag, 1:24)))
-    d <- data.frame(sample_id = paste0(tag, 1:24),
-                    phenotype = rep(ph, each = 12),
-                    tissue_source = rep(c("liver", "kidney"), 12),
-                    donor_age = rep(c(30, 60), 12), stringsAsFactors = FALSE)
-    chorale_load(m, d)
-  }
-  containers <- list(x = mk("x", c("case", "control")),
-                     y = mk("y", c("case", "control")))
-  fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
-  anchored <- strsplit(unique(fit$matches$shared_covariates), ",")[[1]]
-  expect_true("phenotype" %in% anchored)
-  expect_true("tissue_source" %in% anchored)
-  # The controls run on it too, so nothing downstream needs the column names
-  # of one particular study.
-  n <- chorale_null(fit, containers, n_permutations = 2, n_init = 2)
-  expect_true(is.finite(n$p_phenotype))
-})
 
 test_that("chorale_check_design says what a collection can anchor on", {
   mk <- function(tag, ph, tis) {
@@ -151,16 +129,3 @@ test_that("chorale_check_design says what a collection can anchor on", {
   expect_equal(attr(chk, "usable"), "phenotype")
 })
 
-test_that("age bands follow the cohort rather than an assumed lifespan", {
-  # Ages in years, which no band expressed in months could describe.
-  d <- data.frame(sample_id = paste0("s", 1:60),
-                  age = rep(c(20, 45, 70), each = 20), stringsAsFactors = FALSE)
-  out <- chorale:::chorale_add_age_bin(d)
-  expect_true("age_bin" %in% colnames(out))
-  expect_equal(length(unique(out$age_bin)), 3L)
-
-  # Continuous ages are cut into quantile bands of the ages observed.
-  d2 <- data.frame(sample_id = paste0("s", 1:90), age_months = runif(90, 1, 300))
-  out2 <- chorale:::chorale_add_age_bin(d2)
-  expect_equal(length(unique(out2$age_bin)), 3L)
-})

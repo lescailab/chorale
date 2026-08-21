@@ -96,6 +96,19 @@ concept is therefore reported a second time with its overlapping neighbours regr
 score. A concept whose statistic survives that carries the signal itself; one whose statistic
 collapses is reporting the neighbourhood it sits in.
 
+## What the phenotype is compared against
+
+A vocabulary that answers to any strong contrast is not telling you about the disease.
+`chorale_concept_specificity()` tests each covariate the modalities share in the phenotype's place,
+over the same vocabulary and against the same null. Because the encoding never read the design, the
+concept scores are computed once and every covariate reuses them, so the comparison costs the
+permutations and nothing else.
+
+A covariate is tested on the terms it contributes to the model: a contrast per level for a
+categorical one, a standardised slope for a continuous one. Recoding a continuous covariate into a
+contrast would give it one level per sample, leave no residual degrees of freedom, and turn a
+failure to estimate into an appearance of specificity.
+
 ## What the free dimensions add
 
 The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every

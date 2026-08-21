@@ -1,3 +1,54 @@
+#' Permutation calibration and stability diagnostics
+#'
+#' Every reported result is accompanied by the check that would have caught it
+#' if it were an artefact. Three run here.
+#'
+#' The phenotype null holds the design fixed and exchanges the part of each
+#' concept score the adjusting covariates do not explain, so the phenotype keeps
+#' the relation to those covariates that the data give it. The encoder is never
+#' refitted.
+#'
+#' The modality shuffle pools the samples and deals them out again. It is a
+#' description of how much of the result survives that treatment rather than a
+#' test, because pooling restricts the collection to the features every modality
+#' shares and the reallocation preserves neither each modality's sample count
+#' nor its design composition.
+#'
+#' Stability across initialisations is reported because independent component
+#' analysis is non-convex: a free dimension recovered at one initialisation and
+#' not at another is a draw, not an estimate.
+#'
+#' @param fit A `chorale_concept_fit`.
+#' @param containers The modality containers the fit was built from, needed only
+#'   by the modality shuffle.
+#' @param n_permutations Number of permutations. `NULL` reuses the permutations
+#'   the fit already paid for.
+#' @param n_init Retained for compatibility; the encoder is not refitted.
+#' @param seed Integer seed.
+#' @param ... Passed to the method.
+#'
+#' @returns An object of class `chorale_concept_null` holding the phenotype
+#'   null, the modality-shuffle description, per-modality stability, and one row
+#'   per control with the smallest p-value it can attain.
+#' @export
+#' @examples
+#' fx <- chorale_concept_example(seed = 1)
+#' fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 1,
+#'                            n_permutations = 99, n_init = 2)
+#' chorale_null(fit, fx$containers, n_shuffles = 3)
+chorale_null <- function(fit, containers = NULL, n_permutations = 100L,
+                         n_init = 5L, seed = 1L, ...) {
+  UseMethod("chorale_null")
+}
+
+#' @export
+chorale_null.default <- function(fit, containers = NULL, n_permutations = 100L,
+                                 n_init = 5L, seed = 1L, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit or a chorale_fit object.")
+}
+
+#' @export
+
 #' @rdname chorale_null
 #' @param n_shuffles Reassignments of samples across modalities forming the
 #'   modality-shuffle null. Zero skips that control.
