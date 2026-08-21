@@ -247,8 +247,12 @@ chorale_adjusted_profile <- function(scores, design, spec) {
   if (sum(common_ok) > ncol(common_x) && qr(common_x)$rank == ncol(common_x)) {
     fit <- stats::lm.fit(common_x, scores[common_ok, , drop = FALSE])
     inv <- chol2inv(qr.R(fit$qr))
-    sigma2 <- colSums(fit$residuals^2) / fit$df.residual
-    effects[,] <- t(fit$coefficients[-1L, , drop = FALSE])
+    # A single response column comes back as a vector rather than a matrix, so
+    # both are restored to matrices before anything indexes them by column.
+    residuals <- as.matrix(fit$residuals)
+    coefficients <- as.matrix(fit$coefficients)
+    sigma2 <- colSums(residuals^2) / fit$df.residual
+    effects[,] <- t(coefficients[-1L, , drop = FALSE])
     for (j in seq_len(ncol(scores))) {
       v <- sigma2[j] * inv[-1L, -1L, drop = FALSE]
       covariance[[j]] <- v

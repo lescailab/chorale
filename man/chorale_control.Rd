@@ -18,6 +18,10 @@ chorale_control(
   min_set_features = 5L,
   min_lipid_compounds = 2L,
   min_lipid_specificity = 0.05,
+  n_select_init = 5L,
+  n_subsample = 5L,
+  subsample_fraction = 0.8,
+  reproducibility = 0.75,
   n_factors_quantile = 0.95,
   max_factors = 20L,
   n_grid = 200L,
@@ -71,6 +75,18 @@ be annotated with before the link is used.}
 \item{min_lipid_specificity}{Share of a pathway's annotated compounds a lipid
 class must account for before the link is used, as an alternative to the
 count.}
+
+\item{n_select_init}{Initialisations compared at each candidate count when
+the number of free dimensions is chosen by reproducibility.}
+
+\item{n_subsample}{Subsamples compared at each candidate count. Zero selects
+on initialisations alone, which reports the optimiser rather than the data.}
+
+\item{subsample_fraction}{Share of the samples each of those subsamples
+draws.}
+
+\item{reproducibility}{Matched correlation the weakest component must reach
+for a count to be admissible.}
 
 \item{n_factors_quantile}{Quantile of the permuted eigenvalues a component
 must exceed when the factor count is chosen from the data.}

@@ -1,6 +1,6 @@
 ---
 title: "Outputs and how to read them"
-description: "A plain-language guide to every result and its limits."
+description: "Every table the report writes, what each column means, and what it does not establish."
 site_order: 5
 site_wide: true
 output:
@@ -12,101 +12,134 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-`chorale_report()` writes an HTML report and machine-readable tables. Read the HTML first. It
-uses the same values as the tables and explains which controls were run.
+`chorale_report()` writes `report.html` and the machine-readable tables beside it. The HTML uses the
+same values as the tables and states which controls were run, so it is the place to start.
 
-## The four resolution states
+The modalities were measured on different individuals, so what connects them is a fixed vocabulary
+of named biological concepts: a concept is a set of features that belong together for a stated
+biological reason, and every modality is scored on the same concepts. Every table below is organised
+by concept for that reason.
 
-Every proposed correspondence has one status.
+## `concepts.tsv`: the primary result
 
-| Status | Meaning |
-|---|---|
-| `resolved` | Phenotype effects agree reproducibly, and no remaining candidate fits the evidence equally well. |
-| `ambiguous` | Phenotype supports more than one candidate and the other shared covariates do not separate them reliably. |
-| `phenotype_unsupported` | The phenotype signal is not reproducible. Agreement on age, sex, batch, or another covariate cannot change this status. |
-| `incompatible` | The selected factors require phenotype effects that do not fit the same cross-modal relationship. |
-
-Phenotype is mandatory and leads matching. Other covariates only refine matches that phenotype
-already supports.
-
-Four common patterns are:
-
-1. **Phenotype and secondary covariates agree.** The match is `resolved`; secondary evidence
-   confirms it.
-2. **Two candidates fit phenotype equally well.** A shared covariate can select one, but only among
-   those phenotype-compatible candidates.
-3. **Age or batch agrees but phenotype does not.** The result stays `phenotype_unsupported`.
-4. **Phenotype and secondary evidence disagree.** The conflict is reported; secondary evidence
-   cannot overturn phenotype compatibility.
-
-## `programmes.tsv`: the primary result
-
-Rows with the same `programme` are factors assigned together across modalities.
+One row per concept and phenotype contrast.
 
 | Column | Meaning |
 |---|---|
-| `modality`, `factor` | The modality-specific factor. |
-| `joint_statistic`, `joint_p` | Strength and family-wise calibrated p-value of phenotype support. |
-| `resolution_status` | One of the four states above. |
-| `secondary_evidence` | Whether secondary covariates confirmed, selected, conflicted, or were uninformative. |
-| `supported` | Whether phenotype evidence passed the configured threshold. |
+| `concept`, `term` | The concept and the phenotype contrast the row is about. |
+| `n_modalities`, `modalities` | How many modalities express the concept, and which. |
+| `in_all_modalities` | Whether every modality of the collection expresses it. |
+| `effect_<m>`, `z_<m>` | The adjusted case-control effect in modality `m`, in standard deviations of the concept score, and its ratio to its standard error. |
+| `joint_effect`, `joint_z` | The inverse-variance combination across the modalities that express the concept. |
+| `sign_agreement` | Share of those modalities whose effect points the same way as the combination. |
+| `heterogeneity_p` | Cochran's Q for the modalities being one quantity. A small value means they are not. |
+| `max_jaccard`, `attributed_z` | The largest overlap with another concept, and the statistic that survives once overlapping concepts are regressed out. |
+| `p_value` | Permutation p-value for this concept alone. |
+| `p_family` | Permutation p-value against the largest statistic anywhere in the vocabulary. |
+| `q_value` | False discovery rate over the vocabulary at this threshold. |
+| `significant` | Whether `q_value` clears the configured level. |
+| `beats_best_single` | Whether the combination exceeds the best any one modality reached. |
 
-`joint_p` already accounts for searching across factors and modality subsets by using the maximum
-statistic in each permutation. It is not followed by a second BH correction.
+Four columns decide how much a supported concept is worth, and they answer different questions.
+`joint_z` says how strong the combined evidence is. `sign_agreement` says whether the modalities
+agree; a large statistic with agreement of 0.5 is one modality carrying the others.
+`heterogeneity_p` says whether they are consistent with one underlying effect. `attributed_z` says
+whether the signal belongs to the concept or to the concepts it overlaps.
 
-## `matches.tsv`: why two factors were paired
+`p_family` and `q_value` control different things and neither is a correction applied to the other.
+`p_family` is the probability of any false call anywhere in the vocabulary; `q_value` is the share
+of calls expected to be false at that threshold. Both come from the same permutations, so both carry
+the dependence that overlapping concepts have rather than assuming it away.
 
-This table contains adjusted phenotype effects, the phenotype contrast, factor orientation,
-candidate set, phenotype margin, secondary contributions, and final status. A negative orientation
-means the signs were aligned before comparison; ICA signs are arbitrary.
+## `concept_effects.tsv`: one row per concept per modality
 
-The bootstrap phenotype margin describes assignment stability. If its interval reaches zero, an
-alternative cannot be ruled out as an equally good phenotype match. The secondary margin is used
-only among retained candidates.
+The unaggregated effects: `effect`, `se` and `z` per modality, with `n_features`, the number of
+features that modality has for the concept, and the same overlap columns computed within that
+modality. Read `n_features` before reading an effect. A concept a modality reaches through five
+features is a different measurement from one it reaches through five hundred.
 
-## `bounds.tsv`: compatible correlations, not a chosen correlation
+## `concept_coverage.tsv`: what could be tested at all
 
-The cohorts do not contain paired individuals, so they do not identify one cross-modal correlation.
-The bounds list all correlations compatible with the observed marginal distributions and the stated
-design conditions.
+One row per concept per modality, carrying `n_features` and whether the modality expresses the
+concept at the configured threshold. This is the table that separates two situations a bare absence
+of results confuses: a collection carrying no shared signal, and a collection whose vocabulary
+reaches too little of the measured features to ask the question.
 
-- `[0.35, 0.70]` means the separate cohorts are compatible with any correlation in that range.
-  CHORALE cannot choose one point, but every compatible value is positive.
-- `[-0.95, 0.96]` permits a strong negative, absent, or strong positive relationship. The
-  relationship is therefore undetermined.
+## `variance.tsv` and `concept_variance.tsv`: what each channel holds
 
-The **bound width** measures uncertainty caused by missing pairing. The **bootstrap sensitivity
-envelope** measures how much endpoints change under resampling. The envelope is not called a
-confidence interval because its coverage has not yet been established by simulation.
+`variance.tsv` gives, per modality, the share of variance the concept scores reconstruct, the share
+the free dimensions carry, and the share left over. The three partition the variance of the analysis
+matrix. Most of the total is feature-level noise in any bulk assay, so the interesting comparison is
+between the first two rather than against one.
 
-Bounds use `resolved` correspondences by default. Set `include_ambiguous = TRUE` to inspect
-ambiguous candidates; they remain labelled and separate.
+`max_free_concept_correlation` is a check on the construction rather than a result. The projection
+is onto the space the concept scores span, so the residual is orthogonal to every concept score and
+the value is zero to numerical precision. A value that is not near zero would mean the two channels
+are reporting the same signal twice.
 
-## Pathway evidence: a separate channel
+`concept_variance.tsv` gives the share each concept carries on its own, in each modality.
 
-Pathway agreement can corroborate a design result, but it is not statistically independent of it:
-both are derived from the same fitted factors. Its null permutes score residuals relative to the
-unchanged assay and recalculates loadings, preserving feature correlation and annotations.
+## `free_dimensions.tsv`: what the vocabulary cannot name
 
-An empty pathway table means the channel was unavailable or not run. It does not count as support
-or disagreement.
+A fixed vocabulary bounds what the concept channel can express. Coordinated variation outside it is
+carried here.
 
-## Controls and diagnostics
+| Column | Meaning |
+|---|---|
+| `modality`, `dimension` | Which free dimension the row is about. |
+| `variance_share` | Share of the modality's variance this dimension reconstructs. The dimensions of a modality sum to the free share the channel carries; where they cannot, no per-dimension share is reported. |
+| `reproducibility` | Mean matched correlation with the same dimension recovered from other initialisations. |
+| `effect`, `se`, `z` | The adjusted case-control effect on the dimension. |
+| `p_value`, `p_family` | Calibrated against the same permuted phenotypes as the concepts, with `p_family` taken against the largest statistic over every free dimension. |
+| `outside_vocabulary` | Whether the dimension is called at the configured level. |
+| `top_features` | The features loading on it most heavily. |
 
-- Controls cover phenotype estimability, design overlap and rank, factor stability, detectability,
-  permutation support, and assignment ambiguity.
-- Non-Gaussianity, cross-modality distribution differences, and pure-feature summaries are
-  diagnostics. Their tables explicitly say `gates_matching = FALSE`: they describe the fitted
-  factors but neither establish nor refuse a phenotype correspondence. The reported inference is
-  conditional on factors that passed stability and detectability checks; it is not a claim of
-  unique latent-state recovery.
+`top_features` describes a dimension; it does not identify it. A free dimension has no name, and
+naming it from its loadings is the reader's inference rather than the method's output.
 
-A control that was skipped or could not be computed is named explicitly. Reports remain available
-so failed or missing controls can be inspected, but unsupported results are never described with
-phenotype-specific language.
+The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every
+concept score. A phenotype-linked direction that shares its direction with a concept is carried by
+that concept and does not appear here.
 
-## Per-modality detail
+## `added_value.tsv`: whether integration was needed
 
-`factors.tsv`, `markers.tsv`, `associations.tsv`, loadings, and scores describe fitted factors
-inside each modality. They remain useful when no cross-modal match is supported. `factors.gmt`
-contains marker sets, and `chorale_mae.rds` stores the complete result.
+`joint_z` beside `best_single_z`, their difference as `margin`, and `needs_multiple`. A concept only
+one modality expresses cannot need more than one modality, whatever its statistic, and is marked
+accordingly. A positive margin is what separates a result integration produced from a result one
+modality produced and the others accompanied.
+
+## `controls.tsv`: what would have caught an artefact
+
+One row per control, with the smallest p-value that control can attain beside its result.
+
+| Control | What it breaks | When it is inapplicable |
+|---|---|---|
+| Phenotype permutation | The part of the score the adjusting covariates do not explain, with the design held fixed | Never; it is the calibration the reported p-values come from. |
+| Modality shuffle | The assignment of samples to modalities, after pooling | Always, as a test. It is reported as a description. |
+| Initialisation stability | Nothing; it reports how reproducibly the free dimensions were recovered | Where no free dimensions were fitted. |
+
+The modality shuffle carries a median statistic and no p-value. Pooling keeps only the features the
+modalities share, so the shuffled collections are scored on a smaller feature space and often on a
+smaller vocabulary than the fit; the reallocation preserves neither each modality's sample count nor
+its phenotype and covariate composition; and the statistic it would be read against was computed on
+the full assays. The median across shuffles describes how much of the result survives that
+treatment, and nothing about it is an error rate. An inferential form needs the observed statistic
+refitted on the common features alone, feature spaces that can be pooled, and modality labels
+permuted within declared design cells with each modality keeping its count in every cell.
+
+A control that could not be computed is named with its reason rather than passed over. Reading
+`smallest_attainable_p` before quoting a p-value is what stops a control being read against a
+threshold it could never reach.
+
+## `concept_scores_<m>.tsv` and `free_scores_<m>.tsv`
+
+One row per sample, one column per concept or free dimension. These are the quantities every table
+above is computed from, so they are what a downstream analysis of the same collection starts from.
+
+## What a supported concept establishes
+
+A coordinated case-control shift in a named piece of biology, seen in the modalities that express
+the concept, at a stated error rate. Ordering cause and consequence requires timing, mediation or
+perturbation. Attribution to the concept rather than to its neighbourhood is what `attributed_z`
+reports, and a concept whose statistic collapses there describes the region of the vocabulary it
+sits in.

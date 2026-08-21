@@ -1,6 +1,6 @@
 ---
 title: "The input data"
-description: "The container the tables become, the scale each matrix is on, and what every column does."
+description: "The container the tables become, the scale each matrix is on, what every column does, and how features reach the vocabulary."
 site_order: 3
 site_wide: true
 output:
@@ -15,6 +15,12 @@ vignette: >
 Two tables go in per modality: a feature-by-sample matrix of measurements, and a sample table with
 one row per sample. Nothing about the organism, the assay or the condition is assumed, and no column
 name beyond the two below is required.
+
+The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
+named biological concepts rather than a shared sample. A concept is a set of features that belong
+together for a stated biological reason, and every modality is scored on the same concepts. A
+modality therefore has to supply two things: measurements its samples can be compared on, and
+feature identifiers that reach the vocabulary.
 
 ## The container the tables become
 
@@ -41,8 +47,8 @@ se <- chorale_load(SummarizedExperiment::assay(existing),
 ```
 
 `chorale_load()` is the route in because it also resolves the design labels into one vocabulary, as
-described below. An object built by hand can be passed to `chorale_fit()` directly, provided its
-`colData` already carries the required columns in canonical form.
+described below. An object built by hand can be passed to `chorale_concept_fit()` directly, provided
+its `colData` already carries the required columns in canonical form.
 
 ## The measurement matrix
 
@@ -50,10 +56,15 @@ Features in rows, samples in columns, and `colnames(matrix)` equal to `samples$s
 same order. A modality is whatever was measured on its own set of samples: a transcriptome, a
 proteome, a lipidome, a panel of variant dosages. Each is one matrix and one call.
 
-Row names are the feature identifiers, and they are what reaches the curated vocabulary. Gene and
-protein modalities are mapped to Entrez identifiers by [`chorale_map()`](reference/chorale_map),
+Row names are the feature identifiers, and they are what reaches the vocabulary of concepts. Gene
+and protein modalities are mapped to Entrez identifiers by [`chorale_map()`](reference/chorale_map),
 from Ensembl identifiers, symbols or UniProt accessions. A lipidome is declared with
-`feature_space = "lipid"` and reaches the sets through its class names instead.
+`feature_space = "lipid"` and reaches the same concepts through its class names instead.
+
+How many features a modality has for a concept decides whether it can be scored on that concept at
+all. `chorale_concepts()` reports that count for every concept and every modality, so a modality
+whose annotation reaches little of the vocabulary is visible before anything is fitted rather than
+afterwards as an absence of results.
 
 Missing values are permitted. Each feature is centred and scaled before decomposition, and an entry
 that is not finite afterwards is set to the feature mean, so a feature observed in few samples
@@ -85,9 +96,8 @@ logarithm; anything else is left alone. What was applied is recorded in the fit.
 Where the matrix is not what its distribution suggests, say it explicitly, one value per modality:
 
 ```r
-fit <- chorale_fit(containers, n_factors = "auto",
-                   transform = c(RNA = "vst", PROT = "log", METAB = "none"),
-                   n_ambiguity_boot = 19) # short vignette run
+fit <- chorale_concept_fit(containers, sets,
+                           transform = c(RNA = "vst", PROT = "log", METAB = "none"))
 ```
 
 ## What every modality must carry
@@ -103,35 +113,35 @@ carry it stops with that named as the reason.
 
 ## What every other column does
 
-Every remaining column is a possible secondary covariate. Eligible covariates are fitted jointly
-with phenotype and refine only phenotype-compatible candidates. Excluded covariates are reported
-with a reason: absent modality, incompatible type or levels, excessive missingness, or lack of joint
-estimability.
+Every remaining column is a possible covariate. Eligible covariates enter the model the concept
+score is regressed on, so the reported phenotype effect is adjusted for them. Excluded covariates
+are reported with a reason: absent modality, incompatible type or levels, excessive missingness, or
+lack of joint estimability.
 
 How a covariate is read follows from its type in the sample table, so the type is what needs getting
 right.
 
 | Stored as | Read as | What it contributes |
 |---|---|---|
-| Character or factor | Categorical | One adjusted coefficient per level beyond a common reference. The whole block receives the same total weight as any other secondary covariate. |
-| Numeric with more than two distinct values in every modality | Continuous | One adjusted slope after the covariate is standardised. |
-| Numeric with two distinct values, or a number stored as text | Categorical | The two values become levels. A continuous covariate stored as text is read this way, which is the common mistake. |
+| Character or factor | Categorical | One adjusted coefficient per level beyond a common reference, on the levels every modality realises. |
+| Numeric in every modality | Continuous | One adjusted slope after the covariate is standardised. |
+| A number stored as text | Categorical | The values become levels, so two cohorts recording the same age as `6` and `6.0` share none. A continuous covariate stored as text is read this way, which is the common mistake. |
 
-A column named `age`, `age_months`, `age_years` or `age_days` additionally gains a banded companion,
-`age_bin`, cut at quantiles of the ages observed, so a cohort with few distinct ages anchors on the
-bands and one with many anchors on both.
+The design is read as supplied. A study that wants a continuous covariate treated in bands supplies
+the bands as a column of their own, which keeps the choice of cut points with the person who knows
+what they mean.
 
 Two column names are treated as bookkeeping rather than biology and never anchor a comparison:
 `sample_id` and `modality`. A column holding a distinct value for nearly every sample identifies
 the sample rather than grouping it, and is dropped for the same reason.
 
-## The vocabulary labels are read in
+## One set of words for the design labels
 
 Cohorts assembled by different groups can record the same thing differently. CHORALE maps only
 unambiguous general labels, such as `ctrl` to `control` and `male` to `M`. Study-specific meanings
 are never guessed.
 
-Labels are therefore put in one vocabulary as the data are read.
+Labels are therefore resolved as the data are read.
 
 | Covariate | Resolves to |
 |---|---|
@@ -139,7 +149,7 @@ Labels are therefore put in one vocabulary as the data are read.
 | `sex` | `F`, `M` |
 | `genotype` | `carrier`, `non-carrier` |
 
-The vocabulary holds only terms general across biology. Names particular to one organism, model or
+The registry holds only terms general across biology. Names particular to one organism, model or
 study are absent by design, since a tool carrying the labels of the data it was built on fits
 nothing else. A study whose labels are not covered supplies its own:
 
@@ -150,18 +160,17 @@ registry$treatment <- c("drug" = "treated", "placebo" = "untreated")
 se <- chorale_load(matrix, design, labels = registry)
 ```
 
-A label the vocabulary does not recognise is left as it is. Two cohorts using different unrecognised
+A label the registry does not recognise is left as it is. Two cohorts using different unrecognised
 labels for the same thing share no level, which is a silent way to recover nothing, so
 `chorale_check_design()` reports what a collection can and cannot anchor on before anything is
 fitted.
 
 ## Genotype beside phenotype
 
-Where a design records genotype separately from phenotype status, phenotype remains the primary
-criterion and genotype enters as secondary adjusted evidence. Genotype can refine a
-phenotype-compatible match but cannot rescue absent phenotype support. A study whose primary
-contrast *is* the genotype puts it in the
-`phenotype` column, since that column names the role rather than the measurement.
+Where a design records genotype separately from phenotype status, the phenotype remains the contrast
+being estimated and genotype enters as one more covariate the effect is adjusted for. A study whose
+primary contrast *is* the genotype puts it in the `phenotype` column, since that column names the
+role rather than the measurement.
 
 ## Organism and annotation
 
@@ -172,17 +181,22 @@ species it describes.
 ```r
 feature_map <- chorale_map(rownames(matrix), from = "ENSEMBL",
                            orgdb = "org.Hs.eg.db")
-gene_sets <- chorale_genesets(species = "Homo sapiens", db_species = "HS")
+sets <- chorale_genesets(species = "Homo sapiens", db_species = "HS")
 ```
+
+The vocabulary is an argument, so a collection can be analysed in curated pathways, in cell type
+signatures, in a set of concepts defined for the study, or in any combination of them. What the
+vocabulary contains bounds what the concept channel can express, which is why it is chosen before
+the data are looked at.
 
 The lipid-to-pathway table ships with its compound annotation taken from one organism, and is keyed
 on set names that are the same across species, so it places a lipid in the set a study of another
 organism would use wherever that pathway exists there. A table of the same shape built for another
 organism is supplied in its place.
 
-## What must not be supplied
+## Conditions on what is supplied
 
-Supply matrices normalised appropriately within each modality. Avoid cross-modal transformations
-that use the intended answer or constructed sample pairs, because they would leak matching
-information into factor extraction. Record batch and study variables in the design so their effects
-can be adjusted and reported.
+Matrices are normalised within each modality before they are loaded. A cross-modal transformation
+that uses the intended answer, or constructed sample pairs, puts information into the scores that
+the design is then asked to find in them, so scoring must see each modality on its own. Batch and
+study variables belong in the design, where their effects are adjusted and reported.

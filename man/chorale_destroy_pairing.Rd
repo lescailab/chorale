@@ -11,6 +11,11 @@ chorale_destroy_pairing(
   n_factors = "auto",
   n_init = 5L,
   n_random = 200L,
+  sets = NULL,
+  spaces = NULL,
+  feature_space = NULL,
+  min_features = 5L,
+  n_free = 0L,
   seed = 1L
 )
 }
@@ -28,6 +33,22 @@ the covariates the estimator anchors on.}
 
 \item{n_random}{Random alignments forming the lower bound.}
 
+\item{sets}{A named list of concepts, as returned by \code{\link[=chorale_genesets]{chorale_genesets()}}.
+Supplying it adds the concept-space benchmark; without it only the factor
+correspondence is scored.}
+
+\item{spaces}{Which spaces to score, \code{"factor"}, \code{"concept"}, or both.
+Defaults to whichever \code{sets} makes available.}
+
+\item{feature_space}{Passed to \code{\link[=chorale_concepts]{chorale_concepts()}}, for a modality whose
+features reach the vocabulary through lipid class rather than through gene
+identifiers.}
+
+\item{min_features}{Features of a modality a concept must reach to be scored
+in it.}
+
+\item{n_free}{Free dimensions per modality when the collection is encoded.}
+
 \item{seed}{Integer seed.}
 }
 \value{
@@ -35,7 +56,9 @@ A list with \code{truth}, the factor correspondence the pairing implies;
 \code{recovered}, the correspondence the estimator found without it; and
 \code{summary}, a one-row data frame carrying the recovered agreement against
 the paired upper bound and the random lower bound, and the fraction of
-factors whose partner was recovered correctly.
+factors whose partner was recovered correctly. Where the concept space is
+scored, \code{concept_summary} carries the same three quantities for the
+vocabulary and \code{concept_recovery} one row per concept.
 }
 \description{
 Every other check asks whether the estimator's output beats a null. This asks
@@ -52,12 +75,28 @@ programme when their scores agree across the animals both were measured on.
 That agreement is computable only because the pairing exists, and it is
 withheld from the estimator throughout.
 
+In concept space the question is sharper. The vocabulary asserts that a
+concept in one modality is the same concept in the other, and that assertion
+is made without seeing a single paired sample. The withheld pairing is what
+can check it: a concept's score in one modality is compared with its score in
+the other across the animals both were measured on, and the comparison the
+vocabulary asserts is placed against the best alignment any method could have
+found and against alignment at random. The comparison is signed, because a
+concept score has a fixed orientation and two modalities ranking the same
+state in opposite directions have not recovered it.
+
 Three quantities frame the result, in the manner the plan sets out. The
 \strong{paired benchmark} is the correspondence obtained by using the pairing,
 which is the best any method could do. \strong{Random alignment} is the
 correspondence obtained by pairing factors at random, which is the worst.
-The estimator's recovery is reported between them, and a result near the
-lower bound is a failure however small its p-value.
+The estimator's recovery is reported between them, and a result near random
+alignment is a failure however small its p-value.
+
+In concept space random alignment is a baseline rather than a bound. The
+identity the vocabulary asserts can do worse than relabelling the concepts at
+random, which is what a vocabulary whose names do not track the same biology
+in both modalities looks like, and the placement reports it as a negative
+value rather than clipping it.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 120,

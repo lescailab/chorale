@@ -10,11 +10,13 @@
 #' in opposite directions are aligned for comparison and their orientation is
 #' retained rather than silently discarded.
 #'
-#' @param fit A `chorale_fit` object, as returned by [chorale_fit()].
+#' @param fit A fit to write out: a `chorale_concept_fit` or a `chorale_fit`.
 #' @param bound A `chorale_bound` object, as returned by [chorale_bound()].
+#'   Applies to a `chorale_fit` only.
 #' @param null A `chorale_null` object, as returned by [chorale_null()].
 #' @param path Directory to write into. Created if absent.
 #' @param n_top_sets Number of curated sets naming each factor.
+#' @param ... Passed to the method.
 #'
 #' @returns Invisibly, a character vector of the files written.
 #' @export
@@ -29,11 +31,19 @@
 #' out <- chorale_report(fit, chorale_bound(fit), NULL,
 #'                       path = withr::local_tempdir())
 #' basename(out)
-chorale_report <- function(fit, bound = NULL, null = NULL, path,
-                           n_top_sets = 5L) {
-  if (!inherits(fit, "chorale_fit")) {
-    rlang::abort("`fit` must be a chorale_fit object.")
-  }
+chorale_report <- function(fit, ...) {
+  UseMethod("chorale_report")
+}
+
+#' @export
+chorale_report.default <- function(fit, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit or a chorale_fit object.")
+}
+
+#' @rdname chorale_report
+#' @export
+chorale_report.chorale_fit <- function(fit, bound = NULL, null = NULL, path,
+                                       n_top_sets = 5L, ...) {
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   written <- character()
 
@@ -316,15 +326,16 @@ chorale_control_table <- function(fit, null) {
     )
     rows[[length(rows) + 1]] <- data.frame(
       control = "modality shuffle",
-      value = if (isTRUE(null$modality_null$applicable)) {
-        signif(null$modality_null$p_value, 4)
-      } else {
-        NA_real_
-      },
-      detail = if (isTRUE(null$modality_null$applicable)) {
-        sprintf(paste("p-value of the observed evidence against %d shuffles",
-                      "reassigning samples across modalities"),
-                null$modality_null$n_shuffles)
+      # A description rather than a test, so the row carries no value: the
+      # shuffled collections run on the common features alone and do not keep
+      # each modality's sample composition, so they are not comparable with the
+      # statistic they would be read against.
+      value = NA_real_,
+      detail = if (is.finite(null$modality_null$agreement)) {
+        sprintf(paste("median evidence %.3f across %d shuffles reassigning",
+                      "samples across modalities; %s"),
+                null$modality_null$agreement, null$modality_null$n_shuffles,
+                null$modality_null$reason)
       } else {
         paste("not applicable:", null$modality_null$reason)
       },

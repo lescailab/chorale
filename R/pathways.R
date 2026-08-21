@@ -96,11 +96,12 @@ chorale_lipid_class <- function(ids) {
   ifelse(is.na(parsed), fallback, parsed)
 }
 
-#' Represent a lipidome as a feature-by-set indicator matrix
+#' Place a lipidome's features in the vocabulary
 #'
 #' The counterpart of [chorale_geneset_matrix()] for a modality whose features
-#' are lipids. The columns are the same sets, so the two modalities are
-#' described in one vocabulary and their factors can be compared on biology.
+#' are lipids. The columns are the same concepts, so a lipidome and a
+#' transcriptome end up in one vocabulary rather than in two that would have to
+#' be reconciled afterwards.
 #'
 #' @param feature_ids Character vector of lipid shorthand identifiers, in the
 #'   row order of the modality's assay.

@@ -1,6 +1,6 @@
 ---
 title: "How the estimator works"
-description: "Phenotype leads matching; other shared covariates refine it."
+description: "A fixed vocabulary of named concepts connects the modalities; the design supplies the evidence."
 site_order: 2
 site_wide: false
 output:
@@ -12,60 +12,93 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-## 1. Fit each modality separately
+The modalities were measured on different individuals, so nothing can be matched sample to sample.
+What connects them is a fixed vocabulary of named biological concepts: a concept is a set of
+features that belong together for a stated biological reason, every modality is scored on the same
+concepts, and a concept is the same concept in every modality. The six steps below run in a fixed
+order, and the order is part of the method.
 
-CHORALE transforms each assay on an appropriate measurement scale and runs independent component
-analysis (ICA) without phenotype or covariates. Covariate weighting therefore cannot change factor
-extraction. Several ICA starts are aligned, and CHORALE keeps the stable run closest to the other
-runs (the medoid). Stability is reported.
+## 1. Fix the vocabulary
 
-## 2. Estimate adjusted effects
+`chorale_concepts()` builds the vocabulary for a collection and reports its coverage. Genes and
+proteins reach a concept through their identifiers, mapped to a common identifier space by
+`chorale_map()`. Lipid species reach the same concept through their class, since a pathway acts on a
+class rather than on one chain length.
 
-For every factor, one multivariable model includes phenotype and every eligible covariate shared by
-all modalities. This gives the phenotype effect after adjustment for the other included variables.
+Coverage is reported rather than assumed. For every concept and every modality, the number of
+features that modality carries for it is recorded, and a modality is counted as expressing a concept
+only above a stated number of features. The counts expressible in every modality, in a subset, and
+in none are what the vocabulary can and cannot carry for this collection.
 
-Continuous covariates are standardised. Binary covariates contribute one contrast. A categorical
-covariate with several levels contributes a block of contrasts. Each secondary block has equal total
-weight, so a variable does not become influential merely because it has many levels. Standard errors
-and coefficient covariance matrices are retained, so imprecise effects provide less evidence.
+## 2. Score every modality on the vocabulary
 
-Phenotype must be present in every modality, must have compatible levels, and must include the
-declared reference level (`control` by default). Covariates that are absent, incompatible, too
-incomplete, or not jointly estimable are reported with a reason.
+`chorale_encode()` gives each sample one number per concept: the average standardised level of the
+features carrying that concept in that sample. The scores are standardised afterwards, so an effect
+on a large concept and an effect on a small one are on one scale.
 
-## 3. Let phenotype define the candidates
+Nothing in this step reads the design. The concept scores therefore cannot have been shaped by the
+contrast they are tested on in step 4.
 
-The primary affinity compares adjusted phenotype effects only. A simultaneous spectral assignment
-uses all modality pairs at once, producing a cycle-consistent proposal.
+## 3. Keep what the vocabulary misses
 
-Bootstrap resampling repeats the phenotype comparison. An alternative is removed only when its
-phenotype loss is reproducibly worse than the best loss. Alternatives that cannot be separated on
-phenotype remain in the candidate set.
+The concept scores are projected out of the assay and independent component analysis is run on what
+remains. Those free dimensions carry coordinated variation no concept explains. Because the
+projection is onto the space the concept scores span, the residual is exactly orthogonal to every
+concept score, so a free dimension cannot absorb concept signal.
 
-## 4. Let secondary covariates refine, never rescue
+How many free dimensions a modality supports is decided by reproducibility rather than by variance.
+`chorale_select_factors()` runs the decomposition repeatedly at each candidate count, from different
+initialisations and on subsamples of the samples, matches the components one to one, and takes the
+largest count at which the weakest component still clears a declared threshold. Parallel analysis
+sets the upper bound the selection is held to.
 
-Every other eligible shared covariate is compared only inside the phenotype candidate set. These
-covariates can confirm the phenotype assignment or choose among phenotype-equivalent candidates.
-They cannot promote a candidate excluded by phenotype and cannot turn absent phenotype support into
-a resolved result.
+## 4. Ask the design whether each concept separates cases from controls
 
-There is deliberately no numerical parameter such as “60% phenotype”. Priority comes from the
-sequence of decisions, not an arbitrary weighted average.
+`chorale_concept_evidence()` regresses each concept score on the design within each modality. The
+model carries the phenotype and every covariate the modalities share and can jointly estimate, so
+the reported phenotype effect is adjusted for them. Continuous covariates enter as standardised
+slopes, categorical ones as treatment contrasts on their shared levels.
 
-## 5. Calibrate the search
+The modalities are combined by inverse-variance weighting. A modality that measures a concept
+precisely counts for more than one that measures it loosely, and effects in opposite directions
+cancel rather than accumulate, so a concept the modalities disagree about cannot reach a large
+combined statistic by accumulating disagreement. How far they agree is reported beside the combined
+statistic, because a statistic carried by one modality against the others is a different finding
+from the same statistic carried by all of them.
 
-A joint phenotype permutation null keeps ICA fixed and repeats matching and modality-subset
-selection. Each permutation records the largest statistic reached anywhere in the search. Reported
-p-values therefore use max-statistic family-wise error control across searched factors and subsets.
+## 5. Calibrate against a null that keeps the design
 
-Pathway analysis is separate evidence. It uses score-residual permutations relative to the fixed
-assay, then recalculates loadings by matrix regression. This preserves feature correlation and
-feature annotations. Design and pathway evidence are related because both use fitted factors; they
-are not described as independent.
+The quantity under test is the phenotype coefficient of a model that also carries the covariates the
+modalities share, so the null has to be a null for that coefficient. Permuting the phenotype label
+would break its relation to those covariates as well, and the permuted designs would be designs the
+study could not have produced.
 
-## 6. State what the unpaired design cannot identify
+The design is therefore held fixed and the response is what moves. The model without the phenotype
+is fitted, its residuals are exchanged, and they are added back to what that model explains. This is
+the null of Freedman and Lane (1983): the phenotype keeps exactly the relation to the covariates the
+data give it, and only the part of the score those covariates do not explain is exchanged. Samples
+are exchanged freely unless the study declares which of them are exchangeable, since a repeated
+measure or a processing batch is a fact about the study rather than something a design table can be
+read for.
 
-Matching factors does not reconstruct measurements that would have been observed in the same
-individual. CHORALE reports bounds on compatible cross-modal correlations, not a point estimate.
-Resampling refits each resampled container, aligns re-estimated factors, and reports a sensitivity
-envelope around the bound endpoints.
+The encoder is never refitted, so the number of permutations is a choice about the resolution the
+report needs rather than about what a refit can afford.
+
+Two levels of error control come from the same permutations. The family-wise p-value compares each
+concept with the largest statistic anywhere in the vocabulary, which is exact under the dependence
+that overlapping concepts have. The q-value is the false discovery rate that null implies at the
+same threshold.
+
+## 6. Separate a concept from its neighbourhood
+
+Curated concepts share features, so a signal in one appears in every concept overlapping it. Each
+concept is therefore reported a second time with its overlapping neighbours regressed out of its
+score. A concept whose statistic survives that carries the signal itself; one whose statistic
+collapses is reporting the neighbourhood it sits in.
+
+## What the free dimensions add
+
+The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every
+concept score. `chorale_free_dimensions()` tests each of them against the same permutations and
+names the features loading on it most heavily. A dimension called there is a candidate outside the
+vocabulary, described by its features and not identified by them.

@@ -1,6 +1,6 @@
 ---
 title: "Simulation and validation"
-description: "How to give simulated data the shape of real data, plant curated pathways in it, and measure what the estimator recovers."
+description: "What planted concepts, borrowed observation models and a withheld pairing establish, and what they do not."
 site_order: 7
 site_wide: true
 output:
@@ -13,253 +13,205 @@ vignette: >
 ---
 
 <div class="note">
-<span class="lab">What you will end up with</span>
-<p>Synthetic cohorts whose marginals, missingness, correlation structure and design cells are those
-of real data, carrying programmes chosen in advance, and a score for how much of that planted truth
-the estimator gave back.</p>
+<span class="lab">What this produces</span>
+<p>Collections in which named concepts are known to separate cases from controls, a score for how
+much of that planting the estimator gave back, and a placement of concept-space recovery between the
+best any method could reach and alignment at random.</p>
 </div>
+
+The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
+named biological concepts: a concept is a set of features that belong together for a stated
+biological reason, and every modality is scored on the same concepts. A validation therefore has to
+answer two questions that no real cohort can. Are the concepts that take part in the disease the
+ones that get called? And does a concept scored in one modality track the same concept scored in
+another?
 
 ## What a simulation has to reproduce, and what it does not
 
-The estimator reads a normalised feature-by-sample matrix. Fragment bias, retention time,
-ionisation efficiency and isotope envelopes are modelled upstream of that matrix, and normalisation
-removes or absorbs them before anything reaches the estimator. The simulation target is therefore
-not measurement physics but the six properties of a prepared matrix the estimator can respond to:
+The estimator reads a normalised feature-by-sample matrix. Fragment bias, retention time, ionisation
+efficiency and isotope envelopes are modelled upstream of that matrix, and normalisation removes or
+absorbs them before anything reaches the estimator. The simulation target is therefore not
+measurement physics but the six properties of a prepared matrix the estimator can respond to:
 
 1. the per-feature marginal distribution, including its skewness and tail weight;
 2. the mean-variance relation across features;
 3. missingness as a function of abundance;
 4. the feature-feature correlation structure, summarised by its eigenspectrum;
-5. non-Gaussianity relevant to ICA separation;
+5. non-Gaussianity relevant to the recovery of free dimensions;
 6. the design margins, including unpopulated cells and covariates recorded in only one cohort.
 
-A generator that reproduces these properties provides a useful observation-model stress test. It
-does not prove that all relevant properties of a real assay were captured.
+A generator that reproduces these properties provides a useful observation-model stress test. Which
+properties of a real assay it does not capture bounds what recovery on it establishes.
 
-## Three tiers, and what each establishes
+## Three questions, three constructions
 
-| Tier | What is simulated | What it establishes |
+| Construction | What is simulated | What it establishes |
 |---|---|---|
-| Parametric | Non-Gaussian sources; Gaussian loadings with planted pure features; known adjusted design responses | Recovery, ambiguity, and false matches when the planted model is known |
-| Borrowed marginals | The same latent structure, read through the marginals, missingness, correlation and design cells of real layers | How recovery changes when the matrix has the shape of the data the method is applied to |
-| Planted pathways | Shared programmes that are curated pathways, in the features that belong to them | Whether the biological channel recovers biology it was not shown |
+| Planted concepts | Named concepts that separate cases from controls in every modality that expresses them | Whether the concepts that take part get called, and whether the rest of the vocabulary stays quiet |
+| Borrowed observation model | The same structure, read through the marginals, missingness, correlation and design cells of real layers | How recovery changes when the matrix has the shape of the data the method is applied to |
+| Withheld pairing | Two modalities measured on the same individuals, encoded as though disjoint | Whether the identity the vocabulary asserts is the correspondence the pairing shows |
 
-The first tier needs nothing but `chorale_simulate()`. The second and third are built on a shape
-profile.
+## Planting concepts
 
-## Tier one: the parametric simulator
-
-`chorale_simulate()` plants latent sources and adjusted design responses by construction.
-A shared factor carries a **design signature**, one weight per design contrast, which is the same in
-every modality; its remaining variation is drawn independently per modality, because the samples are
-disjoint. Matching modalities on their design response is therefore what the truth rewards.
+`chorale_concept_example()` builds a collection in which named concepts carry a case-control shift.
+The vocabulary, how many of its concepts are planted, how many features a modality measures of each,
+and the size of the shift are all arguments.
 
 ```r
 library(chorale)
 
-sim <- chorale_simulate(
-  n_modalities      = 3,
-  n_features        = 400,
-  n_shared_factors  = 2,
-  n_private_factors = 1,
-  effect_size       = 3,
-  seed              = 1
-)
-
-containers <- Map(chorale_load, sim$modalities, sim$col_data)
-fit <- chorale_fit(containers, n_factors = 3, n_init = 5,
-                   n_ambiguity_boot = 19) # short vignette run
-chorale_score_recovery(fit, sim)
+fx <- chorale_concept_example(n_samples = 60, n_features = 200,
+                              n_concepts = 6, n_planted = 2,
+                              effect = 0.1, coverage = 1, seed = 1)
+fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+                           n_permutations = 999)
+chorale_score_concepts(fit, fx$planted)$summary
 ```
 
-`chorale_score_recovery()` reduces the fit to the quantities a validation cares about: how many
-programmes were supported, how many of them correspond to one planted shared factor, the accuracy of
-the assignments, and the share of planted shared factors recovered as a programme spanning at least
-two modalities. Under hierarchical matching, a planted factor driven only by a secondary covariate
-is expected to remain phenotype unsupported and is a negative control, not a missed discovery.
+`chorale_score_concepts()` answers two questions rather than one. **Recall** is the share of planted
+concepts that were called. The **false positive rate** is the share of the rest of the vocabulary
+that was called as well. A method that calls everything answers the first and fails the second, so
+neither is the result on its own.
 
-`chorale_validate()` runs a grid of regimes and averages those metrics over replicates. Setting
-`effect_size = 0` detaches the shared factors from the design and gives the complete null;
-`same_response = TRUE` plants two shared factors with the same phenotype response, which is the
-adversarial case the design channel cannot separate and should not merge.
+**Rank AUC** is the probability that a planted concept outranks one that was not planted. A
+threshold is a choice and a ranking is not, so the ranking says how far the two are separated
+whatever cut is applied. Chance is 0.5.
+
+Which control decides a call is an argument, because the two answer different questions.
+`criterion = "fdr"` holds the share of calls expected to be false at the configured level;
+`criterion = "family_wise"` holds the probability of any false call anywhere in the vocabulary.
+
+`chorale_plant()` plants concepts into the observation model of real layers instead, with
+`level = "concept"`. At that level the planting and scoring vocabularies are deliberately the same
+one, because a concept is planted and recovered by name: the question is whether the design shows it
+separating cases from controls, not whether its composition can be rediscovered.
+
+## Recovery curves
+
+`chorale_validate_concepts()` runs a grid of regimes, draws several collections from each, and
+averages the recovery over them. Three dials matter and each asks a different question.
 
 ```r
-grid <- data.frame(
-  label         = c("clean", "weak", "null", "same_response"),
-  effect_size   = c(3, 1, 0, 3),
-  same_response = c(FALSE, FALSE, FALSE, TRUE)
-)
-chorale_validate(grid, n_rep = 5, n_ambiguity_boot = 19)
+grid <- data.frame(label = c("0.20", "0.10", "0.05", "0.02", "0.00"),
+                   effect = c(0.2, 0.1, 0.05, 0.02, 0),
+                   n_concepts = 6L, n_planted = 2L,
+                   n_features = 200L, n_samples = 40L)
+chorale_validate_concepts(grid, n_rep = 5, n_permutations = 999)
+#>   label effect recall false_positive_rate rank_auc n_evaluated
+#> 1  0.20   0.20    1.0                0.05    1.000           5
+#> 2  0.10   0.10    0.4                0.10    0.825           5
+#> 3  0.05   0.05    0.1                0.00    0.675           5
+#> 4  0.02   0.02    0.0                0.00    0.600           5
+#> 5  0.00   0.00    0.0                0.00    0.550           5
 ```
 
-## Tier two: giving the simulation the shape of real data
+Recall falls away between a per-feature shift of 0.2 and one of 0.05 standard deviations, in forty
+samples per cohort with concepts of about thirty features. The false positive rate stays at or below
+the level it was called at throughout, and at a shift of zero the ranking sits at chance, which is
+what a calibrated null looks like from this side.
+
+**Effect size** asks how strong a concept's separation of cases from controls has to be. The unit is
+the shift in each member feature, not in the concept score, and the difference matters: a concept
+score is a mean over its members, so a shift of \(d\) in each of \(m\) members that are otherwise
+independent moves the score by about \(d\sqrt{m}\). Concept scoring aggregates, which is why
+per-feature effects far below the threshold of a per-feature test are recovered.
+
+**Sample size** asks whether bulk cohorts are large enough. **Vocabulary coverage** asks how far the
+vocabulary has to reach into a modality's measured features, which is the question raised by a
+modality whose annotation is incomplete: a concept defined on fifty features but measured on twelve
+is scored on the twelve.
+
+A regime the estimator cannot be run in is reported with its reason rather than as an empty cell. A
+coverage low enough that no concept reaches the minimum number of features leaves nothing to score,
+and that is a result about the regime.
+
+## Giving the simulation the shape of real data
 
 `chorale_data_profile()` measures the six properties from any matrix and returns them as one object.
-It stores summaries rather than data: no sample identifier enters it, and no covariate you withhold.
-Name the design columns you want profiled, and identifying fields stay out.
+It stores summaries rather than data: no sample identifier enters it, and no covariate left
+unnamed.
 
 ```r
-profile <- chorale_data_profile(
-  assay      = my_matrix,
-  col_data   = my_design,
-  covariates = c("phenotype", "sex"),
-  layer      = "PROT"
-)
-profile
+profile <- chorale_data_profile(assay = my_matrix, col_data = my_design,
+                                covariates = c("phenotype", "sex"),
+                                layer = "PROT")
 ```
 
-The covariates you profile are the terms a planted signature can be written over, since a signature
-means the same thing in every modality only where every modality carries the term.
-`chorale_signature_terms()` reports them.
+Passing the profile to `chorale_simulate()` replaces the observation model with it and leaves the
+latent structure untouched. Each simulated feature is read through a real feature's quantile grid,
+so the values that come out have the distribution a real feature had, and the map is monotone, so
+the sign and the ordering of a planted design response survive it. The design is drawn from the
+cells the real cohort populated, so a cell no sample occupied stays empty.
 
-Passing the profile to `chorale_simulate()` leaves the latent structure untouched and replaces the
-observation model with it. Each simulated feature is read through a real feature's quantile grid, so
-the values that come out have the distribution a real feature had, and the map is monotone, so the
-sign and the ordering of a planted design response survive it. The design is drawn from the cells
-the real cohort populated, so a cell no sample occupied stays empty.
-
-```r
-sim <- chorale_simulate(
-  n_modalities      = 3,
-  n_features        = 400,
-  n_shared_factors  = 2,
-  n_private_factors = 1,
-  effect_size       = 3,
-  profile           = list(profile_rna, profile_prot, profile_metab),
-  seed              = 1
-)
-```
-
-Marginals are imposed feature by feature and therefore carry nothing about how features covary.
 Correlation enters separately, as directions drawn at random in feature space with Gaussian scores
-whose variances follow the profile's eigenvalues, scaled until the leading direction of the
-simulated matrix carries the share of the variance the profile records. Their scores are Gaussian,
-so they add covariance without adding anything a component analysis driven by non-Gaussianity could
-recover as a source. Set `background = FALSE` to leave them out.
+whose variances follow the profile's eigenvalues, scaled until the leading direction carries the
+share of variance the profile records. Those scores are Gaussian, so they add covariance without
+adding anything a decomposition driven by non-Gaussianity could recover as a source.
 
 `chorale_profile_agreement()` places a simulated matrix beside the real one on the same six
 properties, which is what a claim of realism is bounded to.
 
-```r
-chorale_profile_agreement(chorale_data_profile(sim$modalities[[1]]), profile_rna)
-```
+## Recovery against a withheld pairing
 
-The factor count is part of the validation. Compare a prespecified count with `n_factors = "auto"`
-and report both; do not assume that the planted count is detectable after a realistic observation
-model is applied.
-
-## Tier three: planting curated pathways
-
-`chorale_plant()` makes the shared programmes curated pathways rather than anonymous factors. Each
-planted programme occupies the features that belong to one set in every modality that can express
-it: the genes of the set in a transcriptome or proteome, and the lipid classes the same set acts on
-in a lipidome. Recovery can then be scored on biology, which no real cohort supports, since no real
-cohort records which features belong to a programme.
-
-**The vocabulary a programme is planted from is not the vocabulary it is scored in.** Planting from
-the collection the pathway channel regresses on would make that channel succeed by construction. A
-planting set is admitted only where its overlap with every scoring set falls below `max_jaccard`,
-and the realised overlap travels with the result. `chorale_set_overlap()` reports it directly.
+Where two modalities were measured on the same individuals, the pairing can be withheld and used
+afterwards. `chorale_destroy_pairing()` presents the two modalities under their own sample
+identifiers, encodes them as though disjoint, and only then uses the pairing to ask whether a
+concept scored in one tracks the same concept scored in the other.
 
 ```r
-plant_sets <- chorale_genesets("kegg", db_species = "HS")
-score_sets <- chorale_genesets("reactome", db_species = "MM")
-
-membership <- list(
-  RNA   = chorale_geneset_matrix(entrez_rna,  plant_sets, min_features = 1),
-  PROT  = chorale_geneset_matrix(entrez_prot, plant_sets, min_features = 1),
-  METAB = chorale_metabolite_matrix(lipid_ids, plant_sets,
-                                    mapping = my_lipid_class_table,
-                                    min_features = 1)
-)
-
-planted <- chorale_plant(
-  profiles        = profiles,
-  membership      = membership,
-  plant_sets      = plant_sets,
-  score_sets      = score_sets,
-  n_programmes    = 3,
-  member_fraction = 0.6,
-  leak_fraction   = 0.2,
-  max_jaccard     = 0.4,
-  seed            = 1
-)
-planted$plant
+r <- chorale_destroy_pairing(paired_a, paired_b, design, sets = sets,
+                             spaces = "concept", n_random = 200)
+r$concept_summary
+#>   n_concepts paired_upper_bound recovered_agreement random_baseline
+#> 1          4             0.8827              0.8827          0.2713
+#>   placement_between_bounds fraction_partner_correct
+#> 1                        1                        1
 ```
 
-KEGG is distributed in MSigDB as a human collection and reaches other organisms through orthologs,
-so it is registered under `HS` alone; asking for it mouse-native is refused by name. Reactome is
-registered under both.
+Three quantities frame the result. The **paired upper bound** is the best alignment the pairing
+admits, which is what any method knowing the pairing could reach. The **random baseline** is the
+mean over one-to-one relabellings of the concepts drawn at random. The **recovered agreement** is
+the identity the vocabulary asserts, concept for concept by name, computed without a paired sample
+ever having been seen. A placement of 1 means the identity is the correspondence the pairing shows.
 
-Two dials govern how far a planted signal departs from a clean set indicator. `member_fraction` is
-the share of a set's features that carry the programme, and `leak_fraction` is the share of the
-programme's loading mass placed on features outside the set. The planted truth is recorded as the
-features that actually received loading, so identifier mapping losses are absorbed rather than
-assumed away.
+The agreement is a signed correlation, because a concept score has a fixed orientation: a larger
+score means a larger weighted mean of the features carrying the concept, so two modalities that rank
+the same state in opposite directions have not recovered it. Random alignment is therefore a
+baseline and not a bound. A vocabulary whose names line up while the biology does not places below
+it, and the placement reports that as a negative value rather than clipping it to zero.
 
-Fit the planted data with the **scoring** collection, then score it.
+Per-concept results say where that holds and where it does not.
 
 ```r
-containers <- Map(chorale_load, planted$sim$modalities, planted$sim$col_data)
-fit <- chorale_fit(containers, n_factors = 10, gene_sets = score_sets,
-                   feature_map = feature_map, feature_space = c(METAB = "lipid"),
-                   n_init = 10, n_ambiguity_boot = 19)
-
-scored <- chorale_score_planting(fit, planted, score_sets, overlap = 0.1)
-scored$per_modality
-scored$channel
+r$concept_recovery
+#>   concept self_agreement best_partner best_agreement partner_correct
+#> 1    beta         0.9764         beta         0.9764            TRUE
+#> 2   alpha         0.9739        alpha         0.9739            TRUE
+#> 3   gamma         0.9737        gamma         0.9737            TRUE
+#> 4   delta         0.6067        delta         0.6067            TRUE
 ```
 
-`chorale_score_planting()` reports three quantities, one per question the planting was built to
-answer.
-
-- **Pathway ranking** (`pathway_auc`): the probability that a scoring set overlapping the planted
-  pathway outranks one that does not, in the recovered composition. Chance is 0.5.
-- **Marker precision**: the share of the pure features a factor reports that fall inside the planted
-  set.
-- **Channel specificity** (`channel`): whether the pathway channel reaches significance for planted
-  programmes and stays quiet elsewhere.
-
-## What a generic reference run found
-
-Three synthetic programmes were planted at the production-shaped depths of three generic
-modalities. Programmes alpha and beta reached all three layers; programme gamma reached the first
-two and not modality C, which makes its modality C entry a negative control.
-
-| Programme | Modality A | Modality B | Modality C |
-|---|---|---|---|
-| Programme alpha | 0.53 | 0.84 | 0.55 |
-| Programme beta | 0.29 | 0.93 | 0.69 |
-| Programme gamma | 0.80 | 0.94 | 0.26, not planted |
-
-Recovery tracks how many members of a programme a modality carries. Modality B carried between 33
-and 162 and recovered all three at 0.84 to 0.94. Modality A was reduced to its 2,000 most variable
-features upstream, carried between 5 and 42, and recovered them from 0.29 to 0.80. Modality C
-reaches a programme through its feature classes, at 0.55 and 0.69, and the programme never planted
-there sits at 0.26.
-
-Under a genuine null the joint p-value is conservative rather than uniform: across thirty null
-synthetic datasets, twenty-eight exceeded 0.5 and the false positive rate at the nominal five per
-cent was 0.033.
+The benchmark takes any two modalities measured on the same individuals and any vocabulary, so it is
+a property of the estimator rather than of one collection.
 
 ## Conditions of applicability
 
 Recovery measured under borrowed marginals holds for marginals resembling the profiled ones. A
 modality whose distribution or missingness differs materially requires its own profile.
 
-A pathway reaches a modality only through the identifiers or classes that modality carries. A
+A concept reaches a modality only through the identifiers or classes that modality carries. A
 lipidome resolves at the level of lipid class, not lipid species, and a metabolome with no class
-mapping cannot be planted.
+mapping cannot be scored on a pathway vocabulary.
 
-The Jaccard ceiling separating the planting and scoring vocabularies is a threshold rather than a
-property of the biology. A pathway planted from a set with a near-identical counterpart in the
-scoring collection would be recovered by construction, which the ceiling excludes and the reported
-value documents.
+The effect size a curve is drawn against is a shift in each member feature. A concept score
+aggregates its members, so the same curve read as though the unit were the concept score would
+overstate what is being asked of the data by about the square root of the concept's size.
 
-Correlation outside the planted programmes is reproduced as its eigenspectrum, through directions
+Correlation outside the planted concepts is reproduced as its eigenspectrum, through directions
 drawn at random in feature space. Those directions carry no biological grouping, so a modality whose
 dominant axis has a biological identity is reproduced in the share of variance that axis carries and
 not in which features it uses.
 
-Pure features are rare once the covariance is realistic, so the marker precision is informative for
-the few factors that carry any rather than for all of them.
+Concept-space recovery measured against a withheld pairing is measured where a pairing exists.
+Whether it holds in a collection assembled from separate deposits is what the pairing benchmark
+bounds rather than what it establishes.

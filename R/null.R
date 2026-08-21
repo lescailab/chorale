@@ -8,19 +8,25 @@
 #' genuine shared factor should exceed what permuted labels produce.
 #'
 #' Permuting the modality label pools the samples and reassigns them. This is a
-#' diagnostic for modality-specific structure, not an identification condition
-#' for the phenotype-led correspondence.
+#' description of how much of the result survives that treatment, not a test:
+#' the shuffled collections are not comparable with the fit they would have to
+#' be read against.
 #'
 #' Stability across initialisations is reported because independent component
 #' analysis is non-convex: a factor recovered at one initialisation and not at
 #' another is a draw, not an estimate.
 #'
-#' @param fit A `chorale_fit` object, as returned by [chorale_fit()].
-#' @param containers The modality containers the fit was built from, needed to
-#'   refit under permutation.
-#' @param n_permutations Number of label permutations.
+#' @param fit A fit to calibrate: a `chorale_concept_fit`, where the permutation
+#'   reuses the concept scores, or a `chorale_fit`, where each permutation is a
+#'   complete refit.
+#' @param containers The modality containers the fit was built from. Required
+#'   for a `chorale_fit`, which must be refitted under permutation; optional for
+#'   a `chorale_concept_fit`, where it is needed only by the modality shuffle.
+#' @param n_permutations Number of label permutations. `NULL` for a
+#'   `chorale_concept_fit` reuses the permutations the fit already paid for.
 #' @param n_init Initialisations per refit.
 #' @param seed Integer seed.
+#' @param ... Passed to the method.
 #'
 #' @returns An object of class `chorale_null` holding the permutation nulls,
 #'   the modality-shuffle null, and per-factor stability.
@@ -34,10 +40,23 @@
 #' fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2,
 #'                    n_ambiguity_boot = 19)
 #' chorale_null(fit, containers, n_permutations = 3, n_init = 2)
-chorale_null <- function(fit, containers, n_permutations = 100L,
-                         n_init = 5L, seed = 1L) {
-  if (!inherits(fit, "chorale_fit")) {
-    rlang::abort("`fit` must be a chorale_fit object.")
+chorale_null <- function(fit, containers = NULL, n_permutations = 100L,
+                         n_init = 5L, seed = 1L, ...) {
+  UseMethod("chorale_null")
+}
+
+#' @export
+chorale_null.default <- function(fit, containers = NULL, n_permutations = 100L,
+                                 n_init = 5L, seed = 1L, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit or a chorale_fit object.")
+}
+
+#' @export
+chorale_null.chorale_fit <- function(fit, containers = NULL,
+                                     n_permutations = 100L,
+                                     n_init = 5L, seed = 1L, ...) {
+  if (is.null(containers)) {
+    rlang::abort("`containers` is required to refit a chorale_fit under permutation.")
   }
 
   # The quantity under test is the one the report leads with: the joint
@@ -143,6 +162,25 @@ chorale_null <- function(fit, containers, n_permutations = 100L,
 }
 
 #' Refit after reassigning samples across modalities
+#'
+#' Pooling the samples and dealing them out again asks whether a result is a
+#' property of the biology rather than of the assay it was measured with. It is
+#' reported as a description and not as a test.
+#'
+#' Three differences make the shuffled collections incomparable with the fit.
+#' Pooling keeps only the features every modality shares, so the shuffled fits
+#' run on a smaller feature space than the observed one. The reallocation
+#' preserves neither each modality's sample count nor its phenotype and
+#' covariate composition, so the precision of every estimate changes. And the
+#' observed statistic it would be compared against was computed on the full
+#' assays. A p-value from that comparison would not mean that the observed
+#' result survived a shuffle of the assay labels.
+#'
+#' An inferential form needs the observed statistic refitted on exactly the
+#' common-feature subset, feature spaces that can be pooled, and modality labels
+#' permuted within declared design cells while each modality keeps its original
+#' count in every cell.
+#'
 #' @keywords internal
 #' @noRd
 chorale_modality_shuffle <- function(containers, fit, n_init, seed,
@@ -172,9 +210,9 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed,
 
   observed <- chorale_best_joint(fit)
 
-  # A single reassignment is one draw, not a null. Reassigning repeatedly builds
-  # the distribution of agreement the shuffle reaches by chance, so the observed
-  # agreement can be placed against it with a p-value.
+  # Reassigning repeatedly describes the spread of agreement the shuffle
+  # reaches, which is what the median reports. It is not a null for the
+  # observed statistic, which was computed on a different feature space.
   null <- rep(NA_real_, n_shuffles)
   for (b in seq_len(n_shuffles)) {
     set.seed(seed + b)
@@ -204,12 +242,14 @@ chorale_modality_shuffle <- function(containers, fit, n_init, seed,
                 reason = "every modality shuffle failed to refit"))
   }
   list(
-    applicable = TRUE,
+    applicable = FALSE,
     agreement = round(stats::median(null), 4),
     observed = observed,
-    p_value = (1 + sum(null >= observed)) / (1 + length(null)),
+    p_value = NA_real_,
     n_shuffles = length(null),
-    reason = NA_character_
+    reason = paste0(
+      "descriptive only: pooling restricts the feature space and modality ",
+      "labels are not exchangeable under the fitted design")
   )
 }
 
@@ -234,8 +274,10 @@ print.chorale_null <- function(x, ...) {
   cat("  strongest joint evidence:", round(x$observed_agreement, 3), "\n")
   cat("  phenotype permutation p-value:", signif(x$p_phenotype, 3),
       sprintf("(%d permutations)\n", x$n_permutations))
-  if (isTRUE(x$modality_null$applicable)) {
-    cat("  modality shuffle p-value:", signif(x$modality_null$p_value, 3), "\n")
+  if (is.finite(x$modality_null$agreement)) {
+    cat(sprintf("  modality shuffle: median %.3f across %d shuffles; %s\n",
+                x$modality_null$agreement, x$modality_null$n_shuffles,
+                x$modality_null$reason))
   } else {
     cat("  modality shuffle: not applicable,", x$modality_null$reason, "\n")
   }

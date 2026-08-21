@@ -48,7 +48,12 @@ test_that("the modality shuffle runs where a feature space is shared", {
   containers <- Map(chorale_load, mats, sim$col_data)
   fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
   n <- chorale_null(fit, containers, n_permutations = 2, n_init = 2)
-  expect_true(n$modality_null$applicable)
+  # A shared feature space is what lets the shuffle run at all. What it then
+  # reports is a description, since the pooled collections are not comparable
+  # with the statistic they would be read against.
+  expect_true(is.finite(n$modality_null$agreement))
+  expect_gt(n$modality_null$n_shuffles, 0)
+  expect_true(is.na(n$modality_null$p_value))
 })
 
 test_that("stability records every initialisation", {
@@ -70,7 +75,7 @@ test_that("factor stability measures the factors, not the objective", {
   expect_gt(min(n$stability$subspace_min), 0.5)
 })
 
-test_that("the modality shuffle is a sampled null with a p-value", {
+test_that("the modality shuffle describes the shuffles and reports no p-value", {
   # Two modalities on one shared feature space, so the shuffle is defined and
   # returns a calibrated p-value rather than a single draw.
   set.seed(1)
@@ -89,9 +94,12 @@ test_that("the modality shuffle is a sampled null with a p-value", {
   containers <- list(a = mk("a"), b = mk("b"))
   fit <- chorale_fit(containers, n_factors = c(3, 3), n_init = 2)
   n <- chorale_null(fit, containers, n_permutations = 2, n_init = 2)
-  skip_if(!isTRUE(n$modality_null$applicable))
-  expect_true(is.finite(n$modality_null$p_value))
-  expect_gte(n$modality_null$p_value, 0)
-  expect_lte(n$modality_null$p_value, 1)
+  skip_if(!is.finite(n$modality_null$agreement))
+  # The shuffled collections run on the common features alone and do not keep
+  # each modality's sample composition, so they describe rather than test.
+  expect_false(n$modality_null$applicable)
+  expect_true(is.na(n$modality_null$p_value))
+  expect_true(is.finite(n$modality_null$agreement))
   expect_gt(n$modality_null$n_shuffles, 1)
+  expect_match(n$modality_null$reason, "descriptive only")
 })
