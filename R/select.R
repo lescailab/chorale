@@ -157,7 +157,7 @@ chorale_empty_selection <- function() {
 
 #' One factorisation from one initialisation
 #'
-#' [chorale_ica()] runs many initialisations and selects among them, which is
+#' `chorale_ica()` runs many initialisations and selects among them, which is
 #' the wrong unit here: selection compares single runs, so it needs one run at a
 #' time.
 #'

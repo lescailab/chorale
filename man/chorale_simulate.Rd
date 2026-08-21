@@ -39,8 +39,8 @@ common to every modality.}
 \item{n_strains}{Integer number of strains in the genetic panel. Ignored
 where \code{profile} supplies the design.}
 
-\item{n_per_cell}{Integer number of animals per design cell, per modality.
-Samples are drawn independently per modality, so no animal appears in more
+\item{n_per_cell}{Integer number of samples per design cell, per modality.
+Samples are drawn independently per modality, so no individual appears in more
 than one modality. Ignored where \code{profile} supplies the design.}
 
 \item{noise_sd}{Standard deviation of the additive Gaussian measurement
@@ -108,7 +108,7 @@ A shared factor is what the estimator should recover as one cross-modality
 programme. Its correspondence across modalities is carried by its
 \strong{design signature}, one weight per design contrast, which is the same in
 every modality; its remaining, design-independent variation is drawn
-independently per modality, since the animals are disjoint. Matching two
+independently per modality, since the individuals are disjoint. Matching two
 modalities on their design response is therefore what the truth rewards, and
 the signature is the answer a recovered assignment is scored against. Each
 shared factor is given a distinct dominant contrast, so the factors' design
@@ -119,7 +119,7 @@ Supplying \code{profile} replaces the parametric observation model with the
 marginals of real data. The latent structure is unchanged, and each simulated
 feature is mapped onto the empirical distribution of a real feature through
 its quantile grid, carrying that feature's missingness with it. The design is
-drawn from the cells the real cohort populated, so a cell no animal occupied
+drawn from the cells the real cohort populated, so a cell no sample occupied
 stays empty. Realism is therefore inherited from a
 \code{\link[=chorale_data_profile]{chorale_data_profile()}} rather than asserted by a distributional choice, and
 the map is monotone per feature, so the sign and the ordering of a planted

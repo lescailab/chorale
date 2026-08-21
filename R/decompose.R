@@ -141,7 +141,10 @@ chorale_feature_space <- function(feature_space, modalities) {
 #' @param x A samples-by-features numeric matrix, centred and scaled.
 #' @param n_perm Permutations forming the null.
 #' @param quantile Quantile of the null eigenvalues a component must exceed.
-#' @param max_factors Upper bound on the count returned.
+#' @param max_factors Optional further upper bound on the count returned. The
+#'   count is capped at one component per five samples whether or not this is
+#'   supplied, so a modality's own size sets the ceiling and no default number
+#'   stands between the data and the answer.
 #' @param seed Integer seed.
 #'
 #' @returns An integer count, at least two.
@@ -153,7 +156,7 @@ chorale_feature_space <- function(feature_space, modalities) {
 #' x <- scale(t(sim$modalities[[1]]))
 #' chorale_n_factors(x, n_perm = 20)
 chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
-                              max_factors = 20L, seed = 1L) {
+                              max_factors = NULL, seed = 1L) {
   x <- as.matrix(x)
   x[!is.finite(x)] <- 0
   n <- nrow(x)
@@ -170,8 +173,51 @@ chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
   k <- sum(observed > threshold[seq_along(observed)], na.rm = TRUE)
 
   # A modality cannot support more components than a fifth of its samples
-  # without the recovered axes describing individual animals.
-  as.integer(max(2L, min(k, max_factors, floor(n / 5))))
+  # without the recovered axes describing individual samples.
+  bound <- c(k, floor(n / 5))
+  if (!is.null(max_factors) && !is.na(max_factors)) {
+    bound <- c(bound, as.integer(max_factors))
+  }
+  as.integer(max(2L, min(bound)))
+}
+
+#' The same matrix, given to the factorisation in the smaller basis
+#'
+#' `fastICA` transposes its input and forms a feature-by-feature covariance
+#' before it whitens. With many more features than samples that matrix is mostly
+#' structural zeros: a modality measured on `n` samples carries at most `n`
+#' independent directions however many features it holds, so a covariance over
+#' tens of thousands of features built from a few hundred samples spends its
+#' cost decomposing an object of rank at most `n`.
+#'
+#' Passing the samples-by-components representation instead leaves the whitened
+#' matrix the factorisation actually iterates on unchanged. Writing the input as
+#' `U D V'`, whitening on the feature side yields `sqrt(n) U'` truncated to the
+#' requested components; whitening `U D` yields the same `sqrt(n) U'`, because
+#' its covariance is already diagonal. The two paths therefore reach the same
+#' sources from the same initialisation, and the loadings are regressed back
+#' onto the original features either way.
+#'
+#' Column centring is preserved rather than assumed: `fastICA` centres its
+#' input, and a column-centred matrix has column-centred scores, so the
+#' reduction is applied to the centred matrix.
+#'
+#' @param x A samples-by-features numeric matrix.
+#'
+#' @returns `x` where it has no more features than samples, and otherwise a
+#'   samples-by-`min(n, p)` matrix spanning the same row space.
+#' @keywords internal
+#' @noRd
+chorale_ica_basis <- function(x) {
+  n <- nrow(x)
+  p <- ncol(x)
+  if (p <= n) return(x)
+  centred <- scale(x, center = TRUE, scale = FALSE)
+  centred[!is.finite(centred)] <- 0
+  s <- svd(centred, nu = min(n, p), nv = 0)
+  z <- s$u %*% diag(s$d, nrow = length(s$d))
+  rownames(z) <- rownames(x)
+  z
 }
 
 #' Recover latent components within one modality
@@ -192,9 +238,13 @@ chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
 #'   initialisation.
 #' @keywords internal
 #' @noRd
+
 chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
                         consensus = TRUE) {
   rlang::check_installed("fastICA")
+  # The factorisation is run in the smaller basis; the loadings below are
+  # regressed onto the original features, so nothing downstream sees it.
+  basis <- chorale_ica_basis(x)
   best <- NULL
   best_obj <- -Inf
   obj <- rep(NA_real_, n_init)
@@ -203,7 +253,7 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
   for (i in seq_len(n_init)) {
     set.seed(seed + i)
     fit <- try(
-      fastICA::fastICA(x, n.comp = n_factors, method = "C",
+      fastICA::fastICA(basis, n.comp = n_factors, method = "C",
                        maxit = 500, tol = 1e-5, verbose = FALSE),
       silent = TRUE
     )

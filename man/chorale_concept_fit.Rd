@@ -63,7 +63,7 @@ tested on. The vocabulary is fixed before any of it, so which concepts are
 tested does not depend on which of them turn out to be interesting.
 
 What connects the modalities is the vocabulary, not the design. Two
-modalities measured on different animals share no sample and need share no
+modalities measured on different individuals share no sample and need share no
 covariate beyond the phenotype: they meet because both are scored on the same
 named concepts. The design is what supplies the evidence, one modality at a
 time, that a concept moves with the disease.

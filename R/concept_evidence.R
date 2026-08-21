@@ -408,8 +408,7 @@ chorale_anchor_terms <- function(spec, anchor) {
 #' @param scores A samples-by-concepts matrix.
 #' @param design The design for those samples.
 #' @param spec The resolved design signature.
-#' @param blocks Resampling blocks, as returned by
-#'   [chorale_exchangeability_blocks()].
+#' @param blocks Resampling blocks, one label per sample.
 #' @param seed Integer seed.
 #' @param anchor The covariate under test, which is the one the reduced model
 #'   leaves out.

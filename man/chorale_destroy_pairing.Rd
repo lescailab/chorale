@@ -61,7 +61,8 @@ is then compared with the pairing that was withheld.
 The vocabulary asserts that a concept in one modality is the same concept in
 the other, and it asserts it without seeing a single paired sample. The
 withheld pairing is what can check that: a concept's score in one modality is
-compared with its score in the other across the animals both were measured on.
+compared with its score in the other across the individuals both were
+measured on.
 The comparison is signed, because a concept score has a fixed orientation and
 two modalities ranking the same state in opposite directions have not
 recovered it.
@@ -78,7 +79,7 @@ placement reports that as a negative value rather than clipping it.
 }
 \examples{
 fx <- chorale_concept_example(n_samples = 40, seed = 1)
-# Give the two modalities the same animals, so a pairing exists to withhold.
+# Give the two modalities the same individuals, so a pairing exists to withhold.
 a <- SummarizedExperiment::assay(fx$containers$A)
 b <- SummarizedExperiment::assay(fx$containers$B)
 colnames(b) <- colnames(a)

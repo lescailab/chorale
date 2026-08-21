@@ -18,7 +18,7 @@
 #'     threshold implied by its shape?}
 #'   \item{anchor richness}{How many design strata are populated, and how many
 #'     of those are shared across the modalities? The design is what stands in
-#'     for matched individuals: no animal appears in two modalities, so the
+#'     for matched individuals: no individual appears in two modalities, so the
 #'     comparison is anchored on the strata the modalities have in common.}
 #' }
 #'
@@ -267,7 +267,7 @@ chorale_gate_ica <- function(n_init = 20L, consensus = TRUE) {
 #' @keywords internal
 #' @noRd
 chorale_gate_detectability <- function(xs, n_perm = 200L, quantile = 0.95,
-                                       max_factors = 20L, seed = 1L) {
+                                       max_factors = NULL, seed = 1L) {
   rows <- lapply(names(xs), function(m) {
     x <- xs[[m]]
     n <- nrow(x)

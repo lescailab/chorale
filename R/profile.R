@@ -171,7 +171,7 @@ chorale_bin_summary <- function(bin, value, name) {
 #' Observed design cells and their occupancy
 #'
 #' The margins of a real design, as the cells that were populated and how often.
-#' Cells no animal occupies are absent, so a simulation drawn from this table
+#' Cells no sample occupies are absent, so a simulation drawn from this table
 #' leaves them empty rather than filling a balanced grid.
 #'
 #' @keywords internal

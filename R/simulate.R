@@ -11,7 +11,7 @@
 #' programme. Its correspondence across modalities is carried by its
 #' **design signature**, one weight per design contrast, which is the same in
 #' every modality; its remaining, design-independent variation is drawn
-#' independently per modality, since the animals are disjoint. Matching two
+#' independently per modality, since the individuals are disjoint. Matching two
 #' modalities on their design response is therefore what the truth rewards, and
 #' the signature is the answer a recovered assignment is scored against. Each
 #' shared factor is given a distinct dominant contrast, so the factors' design
@@ -22,7 +22,7 @@
 #' marginals of real data. The latent structure is unchanged, and each simulated
 #' feature is mapped onto the empirical distribution of a real feature through
 #' its quantile grid, carrying that feature's missingness with it. The design is
-#' drawn from the cells the real cohort populated, so a cell no animal occupied
+#' drawn from the cells the real cohort populated, so a cell no sample occupied
 #' stays empty. Realism is therefore inherited from a
 #' [chorale_data_profile()] rather than asserted by a distributional choice, and
 #' the map is monotone per feature, so the sign and the ordering of a planted
@@ -38,8 +38,8 @@
 #'   common to every modality.
 #' @param n_strains Integer number of strains in the genetic panel. Ignored
 #'   where `profile` supplies the design.
-#' @param n_per_cell Integer number of animals per design cell, per modality.
-#'   Samples are drawn independently per modality, so no animal appears in more
+#' @param n_per_cell Integer number of samples per design cell, per modality.
+#'   Samples are drawn independently per modality, so no individual appears in more
 #'   than one modality. Ignored where `profile` supplies the design.
 #' @param noise_sd Standard deviation of the additive Gaussian measurement
 #'   noise.

@@ -14,7 +14,7 @@ test_that("the correspondence the vocabulary asserts is recovered", {
 test_that("a concept the modalities rank in opposite directions is not recovered", {
   p <- paired_concept_data()
   # The same concept, measured upside down in the second modality. Its score
-  # ranks the same animals in the opposite order, which is not recovery.
+  # ranks the same individuals in the opposite order, which is not recovery.
   flipped <- p$b
   flipped[p$sets$planted, ] <- -flipped[p$sets$planted, ]
   upright <- chorale_destroy_pairing(p$a, p$b, p$design, sets = p$sets, n_random = 100,

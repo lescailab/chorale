@@ -49,7 +49,9 @@
 #'   for a count to be admissible.
 #' @param n_factors_quantile Quantile of the permuted eigenvalues a component
 #'   must exceed when the factor count is chosen from the data.
-#' @param max_factors Upper bound on a factor count chosen from the data.
+#' @param max_factors Optional further upper bound on a factor count chosen
+#'   from the data. `NULL` leaves the ceiling to the modality's sample count,
+#'   which [chorale_n_factors()] caps at one component per five samples.
 #' @param n_grid Quantiles representing each marginal when bounding a coupling.
 #' @param phenotype_column Name of the mandatory phenotype column shared by all
 #'   modalities.
@@ -100,7 +102,7 @@ chorale_control <- function(alpha = 0.05,
                             subsample_fraction = 0.8,
                             reproducibility = 0.75,
                             n_factors_quantile = 0.95,
-                            max_factors = 20L,
+                            max_factors = NULL,
                             n_grid = 200L,
                             phenotype_column = "phenotype",
                             phenotype_reference = "control",
@@ -127,7 +129,8 @@ chorale_control <- function(alpha = 0.05,
     subsample_fraction = subsample_fraction,
     reproducibility = reproducibility,
     n_factors_quantile = n_factors_quantile,
-    max_factors = as.integer(max_factors), n_grid = as.integer(n_grid),
+    max_factors = if (is.null(max_factors)) NULL else as.integer(max_factors),
+    n_grid = as.integer(n_grid),
     phenotype_column = as.character(phenotype_column),
     phenotype_reference = as.character(phenotype_reference),
     profile_covariates = profile_covariates,
@@ -167,6 +170,13 @@ chorale_control <- function(alpha = 0.05,
   if (length(out$n_cores) != 1L || is.na(out$n_cores) || out$n_cores < 1L) {
     rlang::abort("`n_cores` must be a positive integer.")
   }
+  if (!is.null(out$max_factors) &&
+      (length(out$max_factors) != 1L || is.na(out$max_factors) ||
+       out$max_factors < 1L)) {
+    rlang::abort(paste0(
+      "`max_factors` must be a positive integer or NULL. NULL leaves the ",
+      "ceiling to the sample count of each modality."))
+  }
   # A threshold the permutation count cannot reach can never be met, so a run
   # configured that way would report nothing for a reason invisible in its
   # output.
@@ -185,7 +195,10 @@ chorale_control <- function(alpha = 0.05,
 print.chorale_control <- function(x, ...) {
   cat("<chorale_control>\n")
   for (nm in names(x)) {
-    cat(sprintf("  %-24s %s\n", nm, format(x[[nm]])))
+    # A setting with no value is still a decision the run took, so it is shown
+    # rather than dropped from the record.
+    value <- if (length(x[[nm]]) == 0) "unset" else format(x[[nm]])
+    cat(sprintf("  %-24s %s\n", nm, paste(value, collapse = ", ")))
   }
   cat("  smallest attainable p-value:", signif(1 / (x$n_perm + 1), 3), "\n")
   invisible(x)

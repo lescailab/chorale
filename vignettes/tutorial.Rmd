@@ -252,7 +252,7 @@ fit$evidence$per_modality[, c("concept", "modality", "n_features", "effect",
 
 The effect is in standard deviations of the concept score, adjusted for the covariates the
 modalities share. Cases sit about 1.9 standard deviations above controls on sphingolipid metabolism
-in each of the three cohorts, which were measured on different animals and on three different
+in each of the three cohorts, which were measured on different individuals and on three different
 platforms.
 
 ## Step 5. Separate a concept from its neighbourhood

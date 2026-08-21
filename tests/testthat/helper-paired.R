@@ -1,5 +1,5 @@
-# Two modalities measured on the same animals, where a named concept is driven
-# by one latent state per animal in both of them. The pairing is what the
+# Two modalities measured on the same individuals, where a named concept is
+# driven by one latent state per individual in both of them. The pairing is what the
 # benchmark withholds, so it has to exist before it can be destroyed.
 paired_concept_data <- function(n_samples = 60L, n_features = 90L,
                                 concept_effect = 1, phenotype_effect = 0.5,

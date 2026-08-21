@@ -11,7 +11,7 @@
 #' tested does not depend on which of them turn out to be interesting.
 #'
 #' What connects the modalities is the vocabulary, not the design. Two
-#' modalities measured on different animals share no sample and need share no
+#' modalities measured on different individuals share no sample and need share no
 #' covariate beyond the phenotype: they meet because both are scored on the same
 #' named concepts. The design is what supplies the evidence, one modality at a
 #' time, that a concept moves with the disease.
@@ -159,7 +159,7 @@ chorale_concept_example <- function(n_samples = 60L, n_features = 90L,
 
   containers <- list()
   for (i in seq_len(n_modalities)) {
-    # Disjoint samples: the modalities share no animal, which is the situation
+    # Disjoint samples: the modalities share no individual, which is the situation
     # the estimator exists for.
     sample_id <- sprintf("m%d_s%03d", i, seq_len(n_samples))
     phenotype <- rep(c("control", "case"), length.out = n_samples)

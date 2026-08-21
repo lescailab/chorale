@@ -23,7 +23,7 @@ chorale_control(
   subsample_fraction = 0.8,
   reproducibility = 0.75,
   n_factors_quantile = 0.95,
-  max_factors = 20L,
+  max_factors = NULL,
   n_grid = 200L,
   phenotype_column = "phenotype",
   phenotype_reference = "control",
@@ -91,7 +91,9 @@ for a count to be admissible.}
 \item{n_factors_quantile}{Quantile of the permuted eigenvalues a component
 must exceed when the factor count is chosen from the data.}
 
-\item{max_factors}{Upper bound on a factor count chosen from the data.}
+\item{max_factors}{Optional further upper bound on a factor count chosen
+from the data. \code{NULL} leaves the ceiling to the modality's sample count,
+which \code{\link[=chorale_n_factors]{chorale_n_factors()}} caps at one component per five samples.}
 
 \item{n_grid}{Quantiles representing each marginal when bounding a coupling.}
 

@@ -18,7 +18,7 @@ individuals, and expresses that state in named biological terms.
 ## The problem
 
 Most public omics data were not deposited as one study. A transcriptome comes from one set of
-animals, a proteome from another, a metabolome from a third. No individual appears twice, so there
+individuals, a proteome from another, a metabolome from a third. No individual appears twice, so there
 is no row that both matrices describe. Standard integration needs one of three things: the same
 individuals in both modalities, the same features in both, or a translation learned from paired
 examples. A collection assembled from separate deposits offers none of them.

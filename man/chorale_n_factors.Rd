@@ -8,7 +8,7 @@ chorale_n_factors(
   x,
   n_perm = 100L,
   quantile = 0.95,
-  max_factors = 20L,
+  max_factors = NULL,
   seed = 1L
 )
 }
@@ -19,7 +19,10 @@ chorale_n_factors(
 
 \item{quantile}{Quantile of the null eigenvalues a component must exceed.}
 
-\item{max_factors}{Upper bound on the count returned.}
+\item{max_factors}{Optional further upper bound on the count returned. The
+count is capped at one component per five samples whether or not this is
+supplied, so a modality's own size sets the ceiling and no default number
+stands between the data and the answer.}
 
 \item{seed}{Integer seed.}
 }
