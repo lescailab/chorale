@@ -66,10 +66,12 @@ Nothing here reads the design. Selection uses the assay alone, so the count
 cannot have been chosen to suit the contrast the fit is later asked about.
 }
 \examples{
-sim <- chorale_simulate(n_modalities = 1, n_features = 60,
-                        n_shared_factors = 2, n_private_factors = 0,
-                        n_strains = 4, n_per_cell = 4, seed = 1)
-x <- scale(t(sim$modalities[[1]]))
+# Two heavy-tailed sources in noise: beyond them there is nothing to recover
+# reproducibly, which is where the selection stops.
+set.seed(1)
+sources <- matrix(stats::rt(120, df = 3), nrow = 60, ncol = 2)
+x <- scale(sources \%*\% matrix(stats::rnorm(80), nrow = 2) +
+             matrix(stats::rnorm(60 * 40, sd = 2), nrow = 60))
 sel <- chorale_select_factors(x, max_factors = 3, n_init = 3,
                               n_subsample = 3)
 attr(sel, "selected")
