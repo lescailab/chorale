@@ -12,6 +12,7 @@
 #'
 #' @returns A named list, one entry per usable covariate: `NA_character_` for a
 #'   continuous covariate, otherwise the shared levels with the reference first.
+#'   A covariate that cannot be made comparable has no entry.
 #' @keywords internal
 #' @noRd
 chorale_profile_levels <- function(designs, covariates) {
@@ -19,10 +20,9 @@ chorale_profile_levels <- function(designs, covariates) {
   for (cv in covariates) {
     if (!all(vapply(designs, function(d) cv %in% colnames(d), logical(1)))) next
     vals <- lapply(designs, function(d) d[[cv]])
-    continuous <- all(vapply(vals, function(v) {
-      is.numeric(v) && length(unique(stats::na.omit(v))) > 2
-    }, logical(1)))
-    if (continuous) {
+    kind <- chorale_covariate_kind(vals)
+    if (is.na(kind)) next
+    if (identical(kind, "continuous")) {
       out[[cv]] <- NA_character_
       next
     }
@@ -34,6 +34,37 @@ chorale_profile_levels <- function(designs, covariates) {
     out[[cv]] <- lv
   }
   out
+}
+
+
+#' How a covariate can be compared across modalities
+#'
+#' One decision, used wherever a covariate is admitted and wherever its terms
+#' are built, so the two cannot disagree about the same column.
+#'
+#' A covariate that is numeric in every modality is continuous and contributes
+#' one term, whatever how many distinct values any one modality happens to
+#' realise. Deciding otherwise would send it down the categorical path, where
+#' levels are matched as text: two modalities recording the same age as `6` and
+#' `6.0` would then share no level, and a covariate every modality measures on
+#' the same scale would be discarded for a difference of formatting.
+#'
+#' A covariate that is categorical in every modality contributes one term per
+#' shared level beyond a reference. A covariate that is numeric in some
+#' modalities and categorical in others cannot be compared at all.
+#'
+#' @param vals A list holding the covariate as each modality records it.
+#' @returns `"continuous"`, `"categorical"`, or `NA_character_` where the
+#'   modalities disagree about its type.
+#' @keywords internal
+#' @noRd
+chorale_covariate_kind <- function(vals) {
+  if (!length(vals)) return(NA_character_)
+  numeric_all <- all(vapply(vals, is.numeric, logical(1)))
+  categorical_all <- all(vapply(vals, function(v) !is.numeric(v), logical(1)))
+  if (numeric_all) return("continuous")
+  if (categorical_all) return("categorical")
+  NA_character_
 }
 
 #' Column names a set of profile terms produces

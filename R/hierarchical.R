@@ -71,9 +71,10 @@ chorale_resolve_signature <- function(designs, phenotype_column = "phenotype",
         stringsAsFactors = FALSE)
       next
     }
-    numeric_all <- all(vapply(vals, is.numeric, logical(1)))
-    categorical_all <- all(vapply(vals, function(v) !is.numeric(v), logical(1)))
-    if (!numeric_all && !categorical_all) {
+    kind <- chorale_covariate_kind(vals)
+    numeric_all <- identical(kind, "continuous")
+    categorical_all <- identical(kind, "categorical")
+    if (is.na(kind)) {
       excluded[[length(excluded) + 1L]] <- data.frame(
         covariate = cv, reason = "incompatible types", detail = "",
         stringsAsFactors = FALSE)
@@ -117,6 +118,25 @@ chorale_resolve_signature <- function(designs, phenotype_column = "phenotype",
   }
 
   levels <- chorale_profile_levels(designs, shared)
+
+  # A covariate is only retained where its terms could be built. Admitting one
+  # here and failing to resolve its levels would leave a covariate carried into
+  # the model matrix with nothing to build a block from.
+  unresolved <- setdiff(shared, names(levels))
+  if (length(unresolved)) {
+    if (phenotype_column %in% unresolved) {
+      rlang::abort(
+        paste0("`", phenotype_column, "` has no comparable terms across the ",
+               "modalities; it must be categorical with at least two shared ",
+               "levels."),
+        class = "chorale_invalid_phenotype")
+    }
+    excluded[[length(excluded) + 1L]] <- data.frame(
+      covariate = unresolved, reason = "no comparable terms across modalities",
+      detail = "", stringsAsFactors = FALSE)
+    shared <- setdiff(shared, unresolved)
+  }
+
   phenotype_levels <- levels[[phenotype_column]]
   if (is.null(phenotype_levels) || anyNA(phenotype_levels)) {
     rlang::abort("The mandatory phenotype must be categorical.",
@@ -177,6 +197,13 @@ chorale_resolve_signature <- function(designs, phenotype_column = "phenotype",
 #' @noRd
 chorale_signature_matrix <- function(design, spec, include = spec$covariates) {
   n <- nrow(design)
+  missing_levels <- setdiff(intersect(spec$covariates, include), names(spec$levels))
+  if (length(missing_levels)) {
+    rlang::abort(
+      paste0("No terms were resolved for: ", paste(missing_levels, collapse = ", "),
+             ". A covariate carried in the signature must have an entry in its levels."),
+      class = "chorale_unresolved_covariate")
+  }
   blocks <- list()
   term_covariate <- character()
   for (cv in intersect(spec$covariates, include)) {
