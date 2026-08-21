@@ -14,33 +14,49 @@ chorale_concept_specificity(
 \arguments{
 \item{fit}{A \code{chorale_concept_fit}.}
 
-\item{covariates}{Nuisance covariates to substitute for the phenotype.
+\item{covariates}{Nuisance covariates to test in the phenotype's place.
 \code{NULL} uses every covariate the modalities share, which is what the
-evidence was adjusted for.}
+phenotype effect was adjusted for.}
 
-\item{n_permutations}{Permutations calibrating each substitution. \code{NULL}
-uses the count the fit was calibrated with.}
+\item{n_permutations}{Permutations calibrating each anchor. \code{NULL} uses the
+count the fit was calibrated with.}
 
 \item{seed}{Integer seed.}
 }
 \value{
-A data frame with one row per substituted covariate, carrying the
-strongest statistic the vocabulary reaches with that covariate in the
-phenotype's place, beside the observed value under the phenotype, and
-whether the substitution reached at least as far.
+A data frame with one row per anchor, carrying the number of terms
+it contributes, the strongest statistic it reaches over the vocabulary, the
+family-wise p-value of that statistic, the same two quantities for the
+phenotype, and whether the anchor reaches at least as far as the phenotype
+does.
 }
 \description{
-A concept that answers to any strong contrast is not telling you about the
-disease. Each nuisance covariate is put in the phenotype's place and the
-whole vocabulary is tested again, so a concept's phenotype evidence can be
-read against what the same procedure recovers when something else drives it.
-A vocabulary whose evidence under the phenotype is no stronger than under
-cohort or sex is reporting cohort structure.
+A vocabulary that answers to any strong contrast is not telling you about the
+disease. Each nuisance covariate is tested in the phenotype's place, over the
+same vocabulary and against the same kind of null, so the phenotype result can
+be read against what the procedure recovers when something else drives it. A
+vocabulary whose evidence under the phenotype is no stronger than under sex or
+age is reporting cohort structure.
 }
 \details{
+The covariate is tested on the terms it actually contributes to the model: a
+categorical covariate on its contrasts, a continuous one on its standardised
+slope. Recoding a covariate into the phenotype column instead would turn a
+continuous covariate into a contrast with one level per sample, which leaves
+no residual degrees of freedom, and the resulting failure to estimate would
+read as evidence that the vocabulary is specific to the phenotype.
+
+Anchors are compared on the family-wise p-value rather than on the largest
+statistic. A covariate with four levels contributes three contrasts and
+therefore three times as many chances to reach a large maximum, so raw
+statistics favour it for a reason that has nothing to do with the biology.
+The family-wise p-value is taken against the maximum over that covariate's
+own family under permutation, which is what puts anchors of different sizes on
+one scale.
+
 The comparison is inexpensive because the encoding does not depend on the
-design. Concept scores are computed once and every substitution reuses them,
-so substituting a covariate costs the permutations and nothing else.
+design. Concept scores are computed once and every anchor reuses them, so an
+anchor costs the permutations and nothing else.
 }
 \examples{
 fx <- chorale_concept_example(seed = 1)

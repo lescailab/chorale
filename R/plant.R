@@ -1,12 +1,12 @@
-#' Plant named pathways as the shared programmes of a simulation
+#' Plant named concepts in a simulated collection
 #'
-#' Simulated data in which the shared programmes are curated pathways rather
-#' than anonymous factors. Each planted programme occupies the features that
-#' belong to one set in every modality that can express it: the genes of the
-#' set in a transcriptome or proteome, and the lipid classes the same set acts
-#' on in a lipidome. Recovery can then be scored on biology, which no real
-#' cohort supports, since no real cohort records which features belong to a
-#' programme.
+#' Simulated data in which the shared structure is named concepts rather than
+#' anonymous factors. Each planted concept occupies the features that belong to
+#' it in every modality that can express it: the genes of the set in a
+#' transcriptome or proteome, and the lipid classes the same set acts on in a
+#' lipidome. Recovery can then be scored on biology, which no real cohort
+#' supports, since no real cohort records which features take part in a
+#' concept.
 #'
 #' A concept is planted and recovered by name, so the planting and scoring
 #' vocabularies are the same one. The question is not whether a concept\'s
@@ -16,7 +16,7 @@
 #'
 #' Two dials govern how far a planted signal departs from a clean set
 #' indicator. `member_fraction` is the share of a set's features that carry the
-#' programme, and `leak_fraction` is the share of the programme's loading mass
+#' concept, and `leak_fraction` is the share of the concept's loading mass
 #' placed on features outside the set. A planted truth is therefore recorded as
 #' the features that actually received loading, not as the nominal pathway, and
 #' identifier mapping losses are absorbed the same way.
@@ -32,32 +32,33 @@
 #' @param score_sets The collection recovery is scored in, which is the planting
 #'   collection itself. The realised overlap between planted sets travels with
 #'   the result.
-#' @param n_programmes Number of pathways to plant.
+#' @param n_concepts Number of concepts to plant.
 #' @param n_private_factors Modality-private factors carrying no pathway and no
 #'   cross-modality partner.
 #' @param min_modalities Modalities a set must reach to be plantable.
 #' @param min_features Features a set must match in a modality to reach it.
 #' @param member_fraction Share of a set's features in a modality that carry the
-#'   programme.
-#' @param leak_fraction Share of the programme's loading mass placed on features
+#'   concept.
+#' @param leak_fraction Share of the concept's loading mass placed on features
 #'   outside the set.
-#' @param n_markers Members per programme made pure, so the pure features of a
-#'   recovered factor can be checked against the pathway.
+#' @param n_markers Members per concept made pure, so the pure features of a
+#'   recovered dimension can be checked against the concept.
 #' @param background_sd Standard deviation of the loadings of features carrying
-#'   no programme.
+#'   no concept.
 #' @param seed Integer seed.
 #' @param ... Passed to [chorale_simulate()], for example `effect_size` or
 #'   `noise_sd`.
 #'
 #' @returns A list with `sim`, the [chorale_simulate()] output; `plant`, one row
-#'   per programme and modality recording the set, its size, the features that
+#'   per concept and modality recording the set, its size, the features that
 #'   received loading and the markers among them; `sets`, the planted sets in
-#'   their planting vocabulary; and `concepts`, their names.
+#'   their planting vocabulary; `concepts`, their names; and `planted`, the label
+#'   each was given in the simulation against the set it was planted from.
 #' @export
 #' @examplesIf FALSE
 #' plant <- chorale_plant(profiles, membership, kegg, reactome)
 chorale_plant <- function(profiles, membership, plant_sets, score_sets,
-                          n_programmes = 3L,
+                          n_concepts = 3L,
                           n_private_factors = 2L,
                           min_modalities = 2L,
                           min_features = 10L,
@@ -105,16 +106,16 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   candidates$max_jaccard <- overlap$max_jaccard[match(candidates$set,
                                                       overlap$set)]
 
-  # The widest programmes first, since a programme reaching every modality is
+  # The widest concepts first, since a concept reaching every modality is
   # what the integration is being asked to recover, and among those the ones
   # matching most features, which carry the clearest planted truth.
   candidates <- candidates[order(-candidates$n_modalities,
                                  -candidates$min_features), , drop = FALSE]
-  chosen <- utils::head(candidates, as.integer(n_programmes))
-  if (nrow(chosen) < n_programmes) {
+  chosen <- utils::head(candidates, as.integer(n_concepts))
+  if (nrow(chosen) < n_concepts) {
     rlang::warn(paste0("Only ", nrow(chosen), " sets are plantable."))
   }
-  n_programmes <- nrow(chosen)
+  n_concepts <- nrow(chosen)
 
   old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
     get(".Random.seed", envir = .GlobalEnv)
@@ -140,12 +141,12 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   })
   names(built) <- names(profiles)
 
-  # Two programmes with the same design response are one programme as far as
-  # the design channel can tell, so the planted signatures are spread over the
-  # terms the designs share rather than each taking one term in turn.
+  # Two concepts with the same design response are one concept as far as the
+  # design can tell, so the planted signatures are spread over the terms the
+  # designs share rather than each taking one term in turn.
   dots <- list(...)
   if (is.null(dots$signature)) {
-    dots$signature <- chorale_spread_signature(n_programmes,
+    dots$signature <- chorale_spread_signature(n_concepts,
                                                chorale_signature_terms(unname(profiles)))
   }
   if (is.null(dots$effect_size)) dots$effect_size <- 3
@@ -153,7 +154,7 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   sim <- do.call(chorale_simulate, c(list(
     n_modalities = length(profiles),
     n_features = NULL,
-    n_shared_factors = n_programmes,
+    n_shared_factors = n_concepts,
     n_private_factors = n_private_factors,
     profile = unname(profiles),
     loadings = lapply(built, function(b) b$loadings),
@@ -173,9 +174,9 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   rows <- list()
   for (m in names(profiles)) {
     b <- built[[m]]
-    for (k in seq_len(n_programmes)) {
+    for (k in seq_len(n_concepts)) {
       rows[[length(rows) + 1L]] <- data.frame(
-        programme = paste0("shared_", k),
+        concept = paste0("planted_", k),
         set = chosen$set[k],
         modality = m,
         n_members = if (chosen$set[k] %in% colnames(membership[[m]])) {
@@ -199,7 +200,7 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   list(sim = sim, plant = plant,
        sets = plant_sets[chosen$set],
        concepts = chosen$set,
-       programmes = stats::setNames(chosen$set, paste0("shared_", seq_len(n_programmes))))
+       planted = stats::setNames(chosen$set, paste0("planted_", seq_len(n_concepts))))
 }
 
 #' Sets reaching enough modalities to be planted
@@ -361,24 +362,24 @@ chorale_rank_auc <- function(score, is_truth) {
 
 #' Design signatures spread over the terms the designs share
 #'
-#' Programmes are told apart on the design by the direction of their response,
-#' so planting several of them needs directions that differ. Where the shared
-#' terms are few, giving each programme a term of its own would repeat a
-#' direction; spreading the programmes evenly over the space the terms span
-#' keeps every pair distinguishable however few terms there are.
+#' Concepts are told apart on the design by the direction of their response, so
+#' planting several of them needs directions that differ. Where the shared terms
+#' are few, giving each concept a term of its own would repeat a direction;
+#' spreading them evenly over the space the terms span keeps every pair
+#' distinguishable however few terms there are.
 #'
 #' @keywords internal
 #' @noRd
-chorale_spread_signature <- function(n_programmes, terms) {
+chorale_spread_signature <- function(n_concepts, terms) {
   n <- length(terms)
-  sig <- matrix(0, nrow = n_programmes, ncol = n,
+  sig <- matrix(0, nrow = n_concepts, ncol = n,
                 dimnames = list(NULL, terms))
   if (n == 1) {
     sig[, 1] <- 1
     return(sig)
   }
-  angles <- seq(0, pi, length.out = n_programmes + 1L)[seq_len(n_programmes)]
-  for (k in seq_len(n_programmes)) {
+  angles <- seq(0, pi, length.out = n_concepts + 1L)[seq_len(n_concepts)]
+  for (k in seq_len(n_concepts)) {
     partner <- ((k - 1L) %% (n - 1L)) + 2L
     sig[k, 1] <- cos(angles[k])
     sig[k, partner] <- sin(angles[k])

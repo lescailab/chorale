@@ -16,7 +16,7 @@ test_that("planting places each set on the features that belong to it", {
   score_sets <- list(other = as.character(200:260))
 
   planted <- chorale_plant(profiles, membership, plant_sets, score_sets,
-                           n_programmes = 2L, n_private_factors = 1L,
+                           n_concepts = 2L, n_private_factors = 1L,
                            min_features = 5L, seed = 1L)
 
   expect_length(planted$sim$modalities, 2)
@@ -41,7 +41,7 @@ test_that("a set overlapping the scoring vocabulary is refused", {
                      mirror_b = as.character(21:40))
   expect_error(
     chorale_plant(profiles, membership, plant_sets, score_sets,
-                  n_programmes = 1L, min_features = 5L, max_jaccard = 0.4),
+                  n_concepts = 1L, min_features = 5L, max_jaccard = 0.4),
     "max_jaccard"
   )
 })
@@ -53,7 +53,7 @@ test_that("planting refuses membership that does not match the profile", {
   rownames(membership$A) <- rev(rownames(membership$A))
   expect_error(
     chorale_plant(profiles, membership, list(set_a = as.character(1:20)),
-                  list(other = as.character(1:5)), n_programmes = 1L),
+                  list(other = as.character(1:5)), n_concepts = 1L),
     "feature identifiers"
   )
 })
@@ -64,7 +64,7 @@ test_that("the ranking statistic is a probability that truth outranks the rest",
   expect_true(is.na(chorale_rank_auc(c(1, 2, 3), c(FALSE, FALSE, FALSE))))
 })
 
-test_that("planted signatures give every programme a different design response", {
+test_that("planted signatures give every concept a different design response", {
   sig <- chorale_spread_signature(3, c("phenotype", "sex"))
   expect_equal(dim(sig), c(3, 2))
   unit <- sig / sqrt(rowSums(sig^2))

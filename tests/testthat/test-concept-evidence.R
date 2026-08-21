@@ -167,7 +167,7 @@ test_that("printing reports what was supported", {
   expect_output(print(fit$evidence), "concepts tested: 3")
 })
 
-test_that("a nuisance covariate in the phenotype's place is a comparison, not a refit", {
+test_that("a nuisance covariate is a comparison, not a refit", {
   fx <- chorale_concept_example(seed = 13)
   fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
                              n_permutations = 199)
@@ -176,14 +176,69 @@ test_that("a nuisance covariate in the phenotype's place is a comparison, not a 
   spec <- chorale_concept_specificity(fit, covariates = "sex",
                                       n_permutations = 199)
 
-  # The encoding does not depend on the design, so substituting a covariate
+  # The encoding does not depend on the design, so testing another anchor
   # costs the permutations and nothing else.
   expect_identical(before, fit$encoding$encodings$A$concept_scores)
   expect_equal(spec$anchor, "sex")
+  expect_equal(spec$n_terms, 1L)
   expect_true(is.finite(spec$statistic))
-  expect_equal(spec$observed_phenotype, round(chorale_best_concept(fit$evidence), 4))
+  expect_true(is.finite(spec$p_value))
   # The planted concept answers to the phenotype, not to sex.
   expect_false(spec$reaches_phenotype)
+  expect_lt(spec$phenotype_p, spec$p_value)
+})
+
+test_that("a continuous covariate is tested on its slope, not recoded", {
+  # A continuous covariate recoded into the phenotype column would take one
+  # level per sample, leaving no residual degrees of freedom. The failure to
+  # estimate would then read as evidence that the vocabulary is specific.
+  fx <- confounded_collection(n_samples = 40L, n_features = 60L, seed = 21)
+  fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 0,
+                             n_permutations = 199)
+  expect_true("age" %in% fit$evidence$spec$covariates)
+
+  spec <- chorale_concept_specificity(fit, covariates = "age",
+                                      n_permutations = 199)
+
+  expect_equal(spec$n_terms, 1L)
+  expect_true(is.na(spec$reason))
+  expect_true(is.finite(spec$statistic))
+  expect_gt(spec$statistic, 0)
+  # `age` is what drives a concept in this collection and the phenotype is not,
+  # so the anchor reaches further than the phenotype does.
+  expect_true(spec$reaches_phenotype)
+})
+
+test_that("anchors of different size are compared on calibrated evidence", {
+  set.seed(31)
+  ids <- sprintf("feature_%04d", seq_len(60))
+  sets <- list(planted = ids[1:20], quiet = ids[26:45])
+  mk <- function(tag) {
+    n <- 48L
+    sample_id <- sprintf("%s_%03d", tag, seq_len(n))
+    phenotype <- rep(c("control", "case"), length.out = n)
+    # Four levels, so this anchor contributes three contrasts against the
+    # phenotype's one, and is unrelated to anything in the assay.
+    site <- rep(paste0("site_", 1:4), each = n / 4L)
+    x <- matrix(stats::rnorm(60 * n), nrow = 60,
+                dimnames = list(ids, sample_id))
+    x[sets$planted, phenotype == "case"] <-
+      x[sets$planted, phenotype == "case"] + 1
+    chorale_load(x, data.frame(sample_id = sample_id, phenotype = phenotype,
+                               site = site, stringsAsFactors = FALSE))
+  }
+  containers <- list(A = mk("a"), B = mk("b"))
+  fit <- chorale_concept_fit(containers, sets, n_free = 0,
+                             n_permutations = 199)
+
+  spec <- chorale_concept_specificity(fit, covariates = "site",
+                                      n_permutations = 199)
+
+  # Three contrasts give three times as many chances at a large maximum, so the
+  # comparison is on the family-wise p-value rather than on the statistic.
+  expect_equal(spec$n_terms, 3L)
+  expect_false(spec$reaches_phenotype)
+  expect_gt(spec$p_value, spec$phenotype_p)
 })
 
 test_that("a covariate that cannot stand in is reported with its reason", {
@@ -193,6 +248,7 @@ test_that("a covariate that cannot stand in is reported with its reason", {
   spec <- chorale_concept_specificity(fit, covariates = "not_a_column",
                                       n_permutations = 99)
   expect_true(is.na(spec$statistic))
-  expect_match(spec$reason, "absent or constant")
+  expect_true(is.na(spec$reaches_phenotype))
+  expect_match(spec$reason, "comparable terms")
   expect_error(chorale_concept_specificity(list()), "chorale_concept_fit")
 })

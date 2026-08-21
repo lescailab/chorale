@@ -37,6 +37,10 @@
 #'   neighbours for the attribution check.
 #' @param control A [chorale_control()] object.
 #' @param seed Integer seed.
+#' @param anchor The design covariate whose effect is tested. `NULL`, the
+#'   default, tests the phenotype. Naming another covariate tests the vocabulary
+#'   against that contrast instead, which is what
+#'   [chorale_concept_specificity()] compares the phenotype with.
 #' @param ... Named overrides applied to `control`.
 #'
 #' @returns An object of class `chorale_concept_evidence` with `per_modality`,
@@ -64,7 +68,7 @@
 chorale_concept_evidence <- function(encoding, n_permutations = 999L,
                                      min_overlap = 0.1,
                                      control = chorale_control(),
-                                     seed = 1L, ...) {
+                                     seed = 1L, anchor = NULL, ...) {
   if (!inherits(encoding, "chorale_encode")) {
     rlang::abort("`encoding` must be a chorale_encode object.")
   }
@@ -77,19 +81,20 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
     phenotype_column = control$phenotype_column,
     phenotype_reference = control$phenotype_reference,
     profile_covariates = control$profile_covariates)
-  terms <- chorale_profile_terms(spec$levels)
-  phenotype_terms <- terms[startsWith(terms,
-                                      paste0(spec$phenotype, "="))]
-  if (length(phenotype_terms) == 0) {
-    rlang::abort("The phenotype contributes no term to compare concepts on.")
+  anchor <- anchor %||% spec$phenotype
+  anchor_terms <- chorale_anchor_terms(spec, anchor)
+  if (length(anchor_terms) == 0) {
+    rlang::abort(paste0("`", anchor,
+                        "` contributes no term to compare concepts on."),
+                 class = "chorale_unusable_anchor")
   }
 
-  observed <- chorale_concept_effects(encoding, spec, phenotype_terms,
+  observed <- chorale_concept_effects(encoding, spec, anchor_terms,
                                       min_overlap = min_overlap)
   if (nrow(observed$joint) == 0) {
     return(structure(
       list(per_modality = observed$per_modality, joint = observed$joint,
-           spec = spec, null = numeric(), n_permutations = 0L,
+           spec = spec, anchor = anchor, null = numeric(), n_permutations = 0L,
            alpha = control$alpha),
       class = "chorale_concept_evidence"))
   }
@@ -106,10 +111,10 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
   for (b in seq_len(n_permutations)) {
     permuted_scores <- Map(function(m, d, block, i) {
       chorale_freedman_lane_scores(
-        encoding$encodings[[m]]$concept_scores, d, spec,
+        encoding$encodings[[m]]$concept_scores, d, spec, anchor = anchor,
         blocks = block, seed = seed + 1000L * b + i)
     }, encoding$modalities, designs, blocks, seq_along(designs))
-    e <- chorale_concept_effects(encoding, spec, phenotype_terms,
+    e <- chorale_concept_effects(encoding, spec, anchor_terms,
                                  designs = designs,
                                  scores_by_modality = permuted_scores,
                                  attribution = FALSE)
@@ -139,6 +144,7 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
       per_modality = observed$per_modality,
       joint = joint,
       spec = spec,
+      anchor = anchor,
       null = null_max,
       n_permutations = as.integer(n_permutations),
       alpha = control$alpha,
@@ -365,6 +371,24 @@ chorale_exchangeability_blocks <- function(design, columns = NULL) {
   do.call(paste, c(parts, sep = "|"))
 }
 
+#' The terms a covariate contributes to the model
+#'
+#' A categorical covariate contributes one contrast per level beyond its
+#' reference; a continuous one contributes a single standardised slope named for
+#' the covariate itself. Reading the terms from the resolved signature is what
+#' lets a continuous covariate be tested at all: turning one into a categorical
+#' contrast would give a level per sample and leave no residual degrees of
+#' freedom, and the model would fail rather than report a small effect.
+#'
+#' @keywords internal
+#' @noRd
+chorale_anchor_terms <- function(spec, anchor) {
+  if (!anchor %in% names(spec$levels)) return(character())
+  lv <- spec$levels[[anchor]]
+  if (length(lv) == 1L && is.na(lv)) return(anchor)
+  paste0(anchor, "=", lv[-1L])
+}
+
 #' Rebuild a score under the null that the phenotype has no adjusted effect
 #'
 #' The quantity under test is the phenotype coefficient of a model that also
@@ -387,13 +411,16 @@ chorale_exchangeability_blocks <- function(design, columns = NULL) {
 #' @param blocks Resampling blocks, as returned by
 #'   [chorale_exchangeability_blocks()].
 #' @param seed Integer seed.
+#' @param anchor The covariate under test, which is the one the reduced model
+#'   leaves out.
 #'
 #' @returns A matrix of the same shape as `scores`.
 #' @keywords internal
 #' @noRd
-chorale_freedman_lane_scores <- function(scores, design, spec, blocks, seed) {
+chorale_freedman_lane_scores <- function(scores, design, spec, blocks, seed,
+                                        anchor = spec$phenotype) {
   design <- design[match(rownames(scores), design$sample_id), , drop = FALSE]
-  reduced <- setdiff(spec$covariates, spec$phenotype)
+  reduced <- setdiff(spec$covariates, anchor)
   mm <- chorale_signature_matrix(
     design, list(covariates = spec$covariates, levels = spec$levels),
     include = reduced)
@@ -477,29 +504,45 @@ print.chorale_concept_evidence <- function(x, ...) {
 
 #' Compare the phenotype with what a nuisance covariate reaches
 #'
-#' A concept that answers to any strong contrast is not telling you about the
-#' disease. Each nuisance covariate is put in the phenotype's place and the
-#' whole vocabulary is tested again, so a concept's phenotype evidence can be
-#' read against what the same procedure recovers when something else drives it.
-#' A vocabulary whose evidence under the phenotype is no stronger than under
-#' cohort or sex is reporting cohort structure.
+#' A vocabulary that answers to any strong contrast is not telling you about the
+#' disease. Each nuisance covariate is tested in the phenotype's place, over the
+#' same vocabulary and against the same kind of null, so the phenotype result can
+#' be read against what the procedure recovers when something else drives it. A
+#' vocabulary whose evidence under the phenotype is no stronger than under sex or
+#' age is reporting cohort structure.
+#'
+#' The covariate is tested on the terms it actually contributes to the model: a
+#' categorical covariate on its contrasts, a continuous one on its standardised
+#' slope. Recoding a covariate into the phenotype column instead would turn a
+#' continuous covariate into a contrast with one level per sample, which leaves
+#' no residual degrees of freedom, and the resulting failure to estimate would
+#' read as evidence that the vocabulary is specific to the phenotype.
+#'
+#' Anchors are compared on the family-wise p-value rather than on the largest
+#' statistic. A covariate with four levels contributes three contrasts and
+#' therefore three times as many chances to reach a large maximum, so raw
+#' statistics favour it for a reason that has nothing to do with the biology.
+#' The family-wise p-value is taken against the maximum over that covariate's
+#' own family under permutation, which is what puts anchors of different sizes on
+#' one scale.
 #'
 #' The comparison is inexpensive because the encoding does not depend on the
-#' design. Concept scores are computed once and every substitution reuses them,
-#' so substituting a covariate costs the permutations and nothing else.
+#' design. Concept scores are computed once and every anchor reuses them, so an
+#' anchor costs the permutations and nothing else.
 #'
 #' @param fit A `chorale_concept_fit`.
-#' @param covariates Nuisance covariates to substitute for the phenotype.
+#' @param covariates Nuisance covariates to test in the phenotype's place.
 #'   `NULL` uses every covariate the modalities share, which is what the
-#'   evidence was adjusted for.
-#' @param n_permutations Permutations calibrating each substitution. `NULL`
-#'   uses the count the fit was calibrated with.
+#'   phenotype effect was adjusted for.
+#' @param n_permutations Permutations calibrating each anchor. `NULL` uses the
+#'   count the fit was calibrated with.
 #' @param seed Integer seed.
 #'
-#' @returns A data frame with one row per substituted covariate, carrying the
-#'   strongest statistic the vocabulary reaches with that covariate in the
-#'   phenotype's place, beside the observed value under the phenotype, and
-#'   whether the substitution reached at least as far.
+#' @returns A data frame with one row per anchor, carrying the number of terms
+#'   it contributes, the strongest statistic it reaches over the vocabulary, the
+#'   family-wise p-value of that statistic, the same two quantities for the
+#'   phenotype, and whether the anchor reaches at least as far as the phenotype
+#'   does.
 #' @export
 #' @examples
 #' fx <- chorale_concept_example(seed = 1)
@@ -511,70 +554,87 @@ chorale_concept_specificity <- function(fit, covariates = NULL,
   if (!inherits(fit, "chorale_concept_fit")) {
     rlang::abort("`fit` must be a chorale_concept_fit object.")
   }
-  observed <- chorale_best_concept(fit$evidence)
   n_perm <- n_permutations %||% fit$evidence$n_permutations
-  phenotype <- fit$control$phenotype_column
-  covariates <- covariates %||% setdiff(fit$evidence$spec$covariates, phenotype)
+  spec <- fit$evidence$spec
+  phenotype <- spec$phenotype
+  covariates <- covariates %||% setdiff(spec$covariates, phenotype)
+
+  # The phenotype is re-read against the same permutation count, so the two
+  # sides of the comparison are calibrated the same way.
+  reference <- if (identical(n_perm, fit$evidence$n_permutations)) {
+    fit$evidence
+  } else {
+    chorale_concept_evidence(fit$encoding, n_permutations = n_perm,
+                             control = fit$control, seed = seed)
+  }
+  phenotype_row <- chorale_anchor_summary(reference)
+
   if (length(covariates) == 0) {
-    return(data.frame(anchor = character(), statistic = numeric(),
-                      observed_phenotype = numeric(),
-                      reaches_phenotype = logical(), reason = character(),
-                      stringsAsFactors = FALSE))
+    return(chorale_empty_specificity())
   }
 
   rows <- lapply(covariates, function(cv) {
-    swapped <- fit$encoding
-    usable <- TRUE
-    for (m in fit$modalities) {
-      d <- swapped$designs[[m]]
-      if (!cv %in% colnames(d) ||
-          length(unique(stats::na.omit(d[[cv]]))) < 2) {
-        usable <- FALSE
-        break
-      }
-      # The covariate takes the phenotype's place, so the vocabulary is tested
-      # on it and on nothing else that distinguishes the design.
-      d[[phenotype]] <- as.character(d[[cv]])
-      swapped$designs[[m]] <- d
+    empty <- function(reason) {
+      data.frame(anchor = cv, n_terms = NA_integer_, statistic = NA_real_,
+                 p_value = NA_real_,
+                 phenotype_statistic = phenotype_row$statistic,
+                 phenotype_p = phenotype_row$p_value,
+                 reaches_phenotype = NA, reason = reason,
+                 stringsAsFactors = FALSE)
     }
-    if (!usable) {
-      return(data.frame(anchor = cv, statistic = NA_real_,
-                        observed_phenotype = round(observed, 4),
-                        reaches_phenotype = NA,
-                        reason = "covariate absent or constant",
-                        stringsAsFactors = FALSE))
+    terms <- chorale_anchor_terms(spec, cv)
+    if (length(terms) == 0) {
+      return(empty(paste0(
+        "not a covariate the modalities share on comparable terms")))
     }
-    # The declared phenotype reference is a level of the phenotype, not of the
-    # covariate standing in for it, so the substitution names its own.
-    levels_shared <- Reduce(intersect, lapply(swapped$designs, function(d) {
-      unique(as.character(stats::na.omit(d[[phenotype]])))
-    }))
-    if (length(levels_shared) < 2) {
-      return(data.frame(anchor = cv, statistic = NA_real_,
-                        observed_phenotype = round(observed, 4),
-                        reaches_phenotype = NA,
-                        reason = "fewer than two levels shared by the modalities",
-                        stringsAsFactors = FALSE))
+    ev <- try(chorale_concept_evidence(fit$encoding, n_permutations = n_perm,
+                                       control = fit$control, seed = seed,
+                                       anchor = cv), silent = TRUE)
+    if (inherits(ev, "try-error")) {
+      return(empty("the contrast could not be estimated"))
     }
-    swapped$control <- chorale_merge_control(
-      fit$control, list(phenotype_reference = sort(levels_shared)[1]))
-    ev <- try(chorale_concept_evidence(swapped, n_permutations = n_perm,
-                                       control = swapped$control, seed = seed),
-              silent = TRUE)
-    value <- if (inherits(ev, "try-error")) NA_real_ else chorale_best_concept(ev)
+    got <- chorale_anchor_summary(ev)
+    if (!is.finite(got$statistic)) {
+      return(empty("no concept could be tested on this contrast"))
+    }
     data.frame(
       anchor = cv,
-      statistic = round(value, 4),
-      observed_phenotype = round(observed, 4),
-      reaches_phenotype = isTRUE(value >= observed),
-      reason = if (inherits(ev, "try-error")) {
-        "the substituted contrast could not be estimated"
-      } else {
-        NA_character_
-      },
+      n_terms = length(terms),
+      statistic = got$statistic,
+      p_value = got$p_value,
+      phenotype_statistic = phenotype_row$statistic,
+      phenotype_p = phenotype_row$p_value,
+      # An anchor reaches the phenotype when its calibrated evidence is at
+      # least as strong, which is a comparison of p-values rather than of
+      # statistics drawn from families of different size.
+      reaches_phenotype = isTRUE(got$p_value <= phenotype_row$p_value),
+      reason = NA_character_,
       stringsAsFactors = FALSE)
   })
   out <- do.call(rbind, rows)
+  out <- out[order(out$p_value, -out$statistic), , drop = FALSE]
   rownames(out) <- NULL
   out
+}
+
+#' The strongest evidence an anchor reaches, and how calibrated it is
+#' @keywords internal
+#' @noRd
+chorale_anchor_summary <- function(evidence) {
+  j <- evidence$joint
+  if (is.null(j) || nrow(j) == 0) {
+    return(list(statistic = NA_real_, p_value = NA_real_))
+  }
+  at <- which.max(abs(j$joint_z))
+  list(statistic = round(abs(j$joint_z[at]), 4),
+       p_value = j$p_family[at])
+}
+
+#' @keywords internal
+#' @noRd
+chorale_empty_specificity <- function() {
+  data.frame(anchor = character(), n_terms = integer(), statistic = numeric(),
+             p_value = numeric(), phenotype_statistic = numeric(),
+             phenotype_p = numeric(), reaches_phenotype = logical(),
+             reason = character(), stringsAsFactors = FALSE)
 }

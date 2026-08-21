@@ -2,14 +2,14 @@
 % Please edit documentation in R/plant.R
 \name{chorale_plant}
 \alias{chorale_plant}
-\title{Plant named pathways as the shared programmes of a simulation}
+\title{Plant named concepts in a simulated collection}
 \usage{
 chorale_plant(
   profiles,
   membership,
   plant_sets,
   score_sets,
-  n_programmes = 3L,
+  n_concepts = 3L,
   n_private_factors = 2L,
   min_modalities = 2L,
   min_features = 10L,
@@ -37,7 +37,7 @@ identifiers, as returned by \code{\link[=chorale_genesets]{chorale_genesets()}}.
 collection itself. The realised overlap between planted sets travels with
 the result.}
 
-\item{n_programmes}{Number of pathways to plant.}
+\item{n_concepts}{Number of concepts to plant.}
 
 \item{n_private_factors}{Modality-private factors carrying no pathway and no
 cross-modality partner.}
@@ -47,16 +47,16 @@ cross-modality partner.}
 \item{min_features}{Features a set must match in a modality to reach it.}
 
 \item{member_fraction}{Share of a set's features in a modality that carry the
-programme.}
+concept.}
 
-\item{leak_fraction}{Share of the programme's loading mass placed on features
+\item{leak_fraction}{Share of the concept's loading mass placed on features
 outside the set.}
 
-\item{n_markers}{Members per programme made pure, so the pure features of a
-recovered factor can be checked against the pathway.}
+\item{n_markers}{Members per concept made pure, so the pure features of a
+recovered dimension can be checked against the concept.}
 
 \item{background_sd}{Standard deviation of the loadings of features carrying
-no programme.}
+no concept.}
 
 \item{seed}{Integer seed.}
 
@@ -65,18 +65,19 @@ no programme.}
 }
 \value{
 A list with \code{sim}, the \code{\link[=chorale_simulate]{chorale_simulate()}} output; \code{plant}, one row
-per programme and modality recording the set, its size, the features that
+per concept and modality recording the set, its size, the features that
 received loading and the markers among them; \code{sets}, the planted sets in
-their planting vocabulary; and \code{concepts}, their names.
+their planting vocabulary; \code{concepts}, their names; and \code{planted}, the label
+each was given in the simulation against the set it was planted from.
 }
 \description{
-Simulated data in which the shared programmes are curated pathways rather
-than anonymous factors. Each planted programme occupies the features that
-belong to one set in every modality that can express it: the genes of the
-set in a transcriptome or proteome, and the lipid classes the same set acts
-on in a lipidome. Recovery can then be scored on biology, which no real
-cohort supports, since no real cohort records which features belong to a
-programme.
+Simulated data in which the shared structure is named concepts rather than
+anonymous factors. Each planted concept occupies the features that belong to
+it in every modality that can express it: the genes of the set in a
+transcriptome or proteome, and the lipid classes the same set acts on in a
+lipidome. Recovery can then be scored on biology, which no real cohort
+supports, since no real cohort records which features take part in a
+concept.
 }
 \details{
 A concept is planted and recovered by name, so the planting and scoring
@@ -87,7 +88,7 @@ concepts that were not planted stay quiet.
 
 Two dials govern how far a planted signal departs from a clean set
 indicator. \code{member_fraction} is the share of a set's features that carry the
-programme, and \code{leak_fraction} is the share of the programme's loading mass
+concept, and \code{leak_fraction} is the share of the concept's loading mass
 placed on features outside the set. A planted truth is therefore recorded as
 the features that actually received loading, not as the nominal pathway, and
 identifier mapping losses are absorbed the same way.

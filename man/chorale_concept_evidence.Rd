@@ -10,6 +10,7 @@ chorale_concept_evidence(
   min_overlap = 0.1,
   control = chorale_control(),
   seed = 1L,
+  anchor = NULL,
   ...
 )
 }
@@ -25,6 +26,11 @@ neighbours for the attribution check.}
 \item{control}{A \code{\link[=chorale_control]{chorale_control()}} object.}
 
 \item{seed}{Integer seed.}
+
+\item{anchor}{The design covariate whose effect is tested. \code{NULL}, the
+default, tests the phenotype. Naming another covariate tests the vocabulary
+against that contrast instead, which is what
+\code{\link[=chorale_concept_specificity]{chorale_concept_specificity()}} compares the phenotype with.}
 
 \item{...}{Named overrides applied to \code{control}.}
 }

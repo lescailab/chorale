@@ -38,7 +38,7 @@ test_that("planting and scoring share one vocabulary", {
   # A concept is planted and recovered by name, so planting from the collection
   # recovery is scored in is the point rather than something to refuse.
   planted <- chorale_plant(profiles, membership, vocabulary, vocabulary,
-                           n_programmes = 2L, min_features = 5L)
+                           n_concepts = 2L, min_features = 5L)
   expect_length(planted$concepts, 2L)
   expect_true(all(planted$concepts %in% names(vocabulary)))
   expect_setequal(names(planted$sets), planted$concepts)
@@ -51,7 +51,7 @@ test_that("a planting from chorale_plant names the concepts it planted", {
   vocabulary <- list(set_a = as.character(1:20), set_b = as.character(21:40),
                      set_c = as.character(41:60))
   planted <- chorale_plant(profiles, membership, vocabulary, vocabulary,
-                           n_programmes = 2L, min_features = 5L)
+                           n_concepts = 2L, min_features = 5L)
   expect_equal(chorale_planted_names(planted), planted$concepts)
   expect_error(chorale_score_concepts(list(), "a"), "chorale_concept_fit")
 })

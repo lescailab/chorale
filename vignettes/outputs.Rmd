@@ -131,6 +131,16 @@ A control that could not be computed is named with its reason rather than passed
 `smallest_attainable_p` before quoting a p-value is what stops a control being read against a
 threshold it could never reach.
 
+`chorale_concept_specificity()` runs a fourth check, separately, because it produces a table rather
+than a row. Each covariate the modalities share is tested in the phenotype's place, over the same
+vocabulary and against the same null, so the phenotype result can be read against what the procedure
+recovers when something else drives it. A covariate is tested on the terms it contributes to the
+model, a contrast per level for a categorical one and a standardised slope for a continuous one, and
+anchors are compared on the family-wise p-value rather than the largest statistic: a covariate with
+four levels contributes three contrasts and therefore three times as many chances at a large
+maximum. A vocabulary whose evidence under the phenotype is no stronger than under sex or age is
+reporting cohort structure.
+
 ## `fit.rds`: the whole result
 
 The fitted object, written with `saveRDS()` and reloaded with `readRDS()`. It carries the concept
