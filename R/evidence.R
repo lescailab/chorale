@@ -85,10 +85,12 @@ chorale_fdr <- function(fit, alpha = 0.05, associations = NULL) {
 #' statistic exists, so the comparison rests on the single-modality column
 #' alone.
 #'
-#' @param fit A `chorale_fit` object.
+#' @param fit A fit to report on: a `chorale_concept_fit` or a `chorale_fit`.
 #' @param programmes Output of [chorale_programmes()]; taken from `fit` if
-#'   absent.
+#'   absent. Applies to a `chorale_fit` only.
 #' @param associations A precomputed table of factor-covariate associations.
+#'   Applies to a `chorale_fit` only.
+#' @param ... Passed to the method.
 #'
 #' @returns A data frame with one row per programme carrying `joint_p`, the
 #'   `best_single_p` among its members, the `margin` between them on the
@@ -105,10 +107,19 @@ chorale_fdr <- function(fit, alpha = 0.05, associations = NULL) {
 #' fit <- chorale_fit(containers, n_factors = c(3, 3, 3), n_init = 2,
 #'                    n_ambiguity_boot = 19)
 #' chorale_added_value(fit)
-chorale_added_value <- function(fit, programmes = NULL, associations = NULL) {
-  if (!inherits(fit, "chorale_fit")) {
-    rlang::abort("`fit` must be a chorale_fit object.")
-  }
+chorale_added_value <- function(fit, ...) {
+  UseMethod("chorale_added_value")
+}
+
+#' @export
+chorale_added_value.default <- function(fit, ...) {
+  rlang::abort("`fit` must be a chorale_concept_fit or a chorale_fit object.")
+}
+
+#' @rdname chorale_added_value
+#' @export
+chorale_added_value.chorale_fit <- function(fit, programmes = NULL,
+                                            associations = NULL, ...) {
   if (is.null(programmes)) programmes <- chorale_programmes(fit)
   if (nrow(programmes) == 0) return(data.frame())
 
