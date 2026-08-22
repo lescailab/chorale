@@ -14,13 +14,13 @@ vignette: >
 
 <div class="note">
 <span class="lab">What this produces</span>
-<p>Collections in which named concepts are known to separate cases from controls, a score for how
-much of that planting the estimator gave back, and a placement of concept-space recovery between the
-best any method could reach and alignment at random.</p>
+<p>Collections in which named concepts are known to separate cases from controls. With them: a
+score for how much of that planting the estimator gave back, and a placement of concept-space
+recovery between the best any method could reach and alignment at random.</p>
 </div>
 
 The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
-named biological concepts: a concept is a set of features that belong together for a stated
+named biological concepts. A concept is a set of features that belong together for a stated
 biological reason, and every modality is scored on the same concepts. A validation therefore has to
 answer two questions that no real cohort can. Are the concepts that take part in the disease the
 ones that get called? And does a concept scored in one modality track the same concept scored in
@@ -111,15 +111,15 @@ the level it was called at throughout, and at a shift of zero the ranking sits a
 what a calibrated null looks like from this side.
 
 **Effect size** asks how strong a concept's separation of cases from controls has to be. The unit is
-the shift in each member feature, not in the concept score, and the difference matters: a concept
+the shift in each member feature, not in the concept score, and the difference matters. A concept
 score is a mean over its members, so a shift of \(d\) in each of \(m\) members that are otherwise
 independent moves the score by about \(d\sqrt{m}\). Concept scoring aggregates, which is why
 per-feature effects far below the threshold of a per-feature test are recovered.
 
 **Sample size** asks whether bulk cohorts are large enough. **Vocabulary coverage** asks how far the
-vocabulary has to reach into a modality's measured features, which is the question raised by a
-modality whose annotation is incomplete: a concept defined on fifty features but measured on twelve
-is scored on the twelve.
+vocabulary has to reach into a modality's measured features, which is the question an incomplete
+annotation raises. A concept defined on fifty features but measured on twelve is scored on the
+twelve.
 
 A regime the estimator cannot be run in is reported with its reason rather than as an empty cell. A
 coverage low enough that no concept reaches the minimum number of features leaves nothing to score,
@@ -139,8 +139,8 @@ profile <- chorale_data_profile(assay = my_matrix, col_data = my_design,
 
 Passing the profile to `chorale_simulate()` replaces the observation model with it and leaves the
 latent structure untouched. Each simulated feature is read through a real feature's quantile grid,
-so the values that come out have the distribution a real feature had, and the map is monotone, so
-the sign and the ordering of a planted design response survive it. The design is drawn from the
+so the values that come out have the distribution a real feature had. The map is monotone, so the
+sign and the ordering of a planted design response survive it. The design is drawn from the
 cells the real cohort populated, so a cell no sample occupied stays empty.
 
 Correlation enters separately, as directions drawn at random in feature space with Gaussian scores
@@ -174,7 +174,7 @@ mean over one-to-one relabellings of the concepts drawn at random. The **recover
 the identity the vocabulary asserts, concept for concept by name, computed without a paired sample
 ever having been seen. A placement of 1 means the identity is the correspondence the pairing shows.
 
-The agreement is a signed correlation, because a concept score has a fixed orientation: a larger
+The agreement is a signed correlation, because a concept score has a fixed orientation. A larger
 score means a larger weighted mean of the features carrying the concept, so two modalities that rank
 the same state in opposite directions have not recovered it. Random alignment is therefore a
 baseline and not a bound. A vocabulary whose names line up while the biology does not places below

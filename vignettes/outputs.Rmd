@@ -16,7 +16,7 @@ vignette: >
 same values as the tables and states which controls were run, so it is the place to start.
 
 The modalities were measured on different individuals, so what connects them is a fixed vocabulary
-of named biological concepts: a concept is a set of features that belong together for a stated
+of named biological concepts. A concept is a set of features that belong together for a stated
 biological reason, and every modality is scored on the same concepts. Every table below is organised
 by concept for that reason.
 
@@ -79,6 +79,11 @@ are reporting the same signal twice.
 
 `concept_variance.tsv` gives the share each concept carries on its own, in each modality.
 
+A concept share of one, with `n_free` and `free_ceiling` both zero, says the vocabulary spans that
+modality's sample space. The concept scores then reproduce the assay exactly and nothing is left to
+decompose, so the modality has no free channel in that run. Scoring the same collection on a
+vocabulary smaller than the modality's sample count is what makes the question answerable.
+
 ## `free_dimensions.tsv`: what the vocabulary cannot name
 
 A fixed vocabulary bounds what the concept channel can express. Coordinated variation outside it is
@@ -118,11 +123,11 @@ One row per control, with the smallest p-value that control can attain beside it
 | Modality shuffle | The assignment of samples to modalities, after pooling | Always, as a test. It is reported as a description. |
 | Initialisation stability | Nothing; it reports how reproducibly the free dimensions were recovered | Where no free dimensions were fitted. |
 
-The modality shuffle carries a median statistic and no p-value. Pooling keeps only the features the
-modalities share, so the shuffled collections are scored on a smaller feature space and often on a
-smaller vocabulary than the fit; the reallocation preserves neither each modality's sample count nor
-its phenotype and covariate composition; and the statistic it would be read against was computed on
-the full assays. The median across shuffles describes how much of the result survives that
+The modality shuffle carries a median statistic and no p-value. Three differences separate a shuffled
+collection from the fit it would be read against. Pooling keeps only the features the modalities
+share, so the shuffled collections are scored on a smaller feature space and often on a smaller
+vocabulary. The reallocation preserves neither each modality's sample count nor its phenotype and
+covariate composition. The observed statistic was computed on the full assays. The median across shuffles describes how much of the result survives that
 treatment, and nothing about it is an error rate. An inferential form needs the observed statistic
 refitted on the common features alone, feature spaces that can be pooled, and modality labels
 permuted within declared design cells with each modality keeping its count in every cell.
@@ -135,9 +140,9 @@ threshold it could never reach.
 than a row. Each covariate the modalities share is tested in the phenotype's place, over the same
 vocabulary and against the same null, so the phenotype result can be read against what the procedure
 recovers when something else drives it. A covariate is tested on the terms it contributes to the
-model, a contrast per level for a categorical one and a standardised slope for a continuous one, and
-anchors are compared on the family-wise p-value rather than the largest statistic: a covariate with
-four levels contributes three contrasts and therefore three times as many chances at a large
+model: a contrast per level for a categorical covariate, a standardised slope for a continuous one.
+Anchors are compared on the family-wise p-value rather than on the largest statistic. A covariate
+with four levels contributes three contrasts, and so three times as many chances at a large
 maximum. A vocabulary whose evidence under the phenotype is no stronger than under sex or age is
 reporting cohort structure.
 

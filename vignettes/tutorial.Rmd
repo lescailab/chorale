@@ -14,8 +14,8 @@ vignette: >
 
 <div class="note">
 <span class="lab">What this produces</span>
-<p>One named biological concept recovered across three cohorts that share no individual, with the
-effect it has in each modality, a p-value that accounts for the whole vocabulary, a statement of
+<p>One named biological concept recovered across three cohorts that share no individual. With it:
+the effect the concept has in each modality, a p-value that accounts for the whole vocabulary,
 whether more than one modality was needed, a table of coordinated variation the vocabulary cannot
 name, and a set of controls.</p>
 </div>
@@ -35,7 +35,7 @@ shorthand names. Neither is needed for this tutorial.
 ## Step 1. Three cohorts with no individual in common
 
 The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
-named biological concepts: a concept is a set of features that belong together for a stated
+named biological concepts. A concept is a set of features that belong together for a stated
 biological reason, and every modality is scored on the same concepts. The collection below is built
 so that one named concept, sphingolipid metabolism, really does separate cases from controls in all
 three cohorts.
@@ -198,19 +198,41 @@ dimensions hold the largest coordinated directions left over.
 ### Choosing the number of free dimensions
 
 `n_free = "auto"`, the default, selects the count by reproducibility. The decomposition is run
-repeatedly at each candidate count, from different initialisations and on subsamples of the samples,
-components are matched one to one, and the largest count at which the weakest component still clears
-a declared threshold is taken. Parallel analysis supplies the upper bound.
+repeatedly at each candidate count, from different initialisations and on subsamples of the samples.
+Components are matched one to one, and the largest count at which the weakest component still clears
+a declared threshold is taken. Two rules bound the search: parallel analysis on the residual, and a
+cap of one component per five samples.
 
 ```r
 auto <- chorale_encode(containers, concepts, n_free = "auto", n_init = 10)
 auto$encodings$RNA$selection
+#>   n_factors init_weakest init_typical subsample_weakest subsample_typical
+#> 1         1       1.0000       1.0000            0.9573            0.9573
+#> 2         2       0.8952       0.9222            0.6317            0.7367
+#> 3         3       0.9963       0.9965            0.6691            0.7610
+#> 4         4       1.0000       1.0000            0.6395            0.6771
+#> 5         5       0.8475       0.8951            0.5991            0.6451
+#> 6         6       0.6927       0.8603            0.5056            0.6149
+#> 7         7       0.8985       0.9597            0.5396            0.6066
+#>   weakest admissible
+#> 1  0.9573       TRUE
+#> 2  0.6317      FALSE
+#> 3  0.6691      FALSE
+#> 4  0.6395      FALSE
+#> 5  0.5991      FALSE
+#> 6  0.5056      FALSE
+#> 7  0.5396      FALSE
 ```
 
-The table it returns carries one row per candidate count, with the weakest matched correlation
-across initialisations and across subsamples, and whether that count is admissible. Reading it
-matters more than the number: a count whose weakest component reproduces at 0.98 across subsamples
-is a different object from one that reproduces at 0.6.
+One row per candidate count, with the weakest matched correlation across initialisations and across
+subsamples, and whether that count is admissible. Here only one dimension reproduces: components
+hold up across restarts at every count, reaching 1.0000 at four, but fall to 0.63 across subsamples
+from two upward. That gap is the point of running both comparisons. Instability across restarts is a
+property of the optimiser; instability across subsamples means the component rests on which samples
+were drawn and would not survive a replication.
+
+Reading the table matters more than the number it selects. A count whose weakest component
+reproduces at 0.98 across subsamples is a different object from one that reproduces at 0.6.
 
 ## Step 4. Read the concepts
 
@@ -264,6 +286,9 @@ concept is therefore reported again with its overlapping neighbours regressed ou
 fit$evidence$joint[, c("concept", "joint_z", "max_jaccard", "attributed_z")]
 #>                            concept joint_z max_jaccard attributed_z
 #> 1 REACTOME_SPHINGOLIPID_METABOLISM 64.5351           0      64.5351
+#> 2 REACTOME_PHOSPHOLIPID_METABOLISM  0.4023           0       0.4023
+#> 3         REACTOME_NEURONAL_SYSTEM -0.3398           0      -0.3398
+#> 4    REACTOME_INNATE_IMMUNE_SYSTEM  0.1401           0       0.1401
 ```
 
 `max_jaccard` is zero here because the four concepts were built disjoint. On curated collections it
@@ -282,6 +307,9 @@ chorale_added_value(fit)[, c("concept", "n_modalities", "joint_z",
 #> 4 REACTOME_PHOSPHOLIPID_METABOLISM            3  0.4023        1.5820 -1.180
 #>   needs_multiple
 #> 1           TRUE
+#> 2          FALSE
+#> 3          FALSE
+#> 4          FALSE
 ```
 
 The margin is the combined statistic less the best any single modality reached. A positive margin is
@@ -295,14 +323,19 @@ chorale_free_dimensions(fit, n_permutations = 999)[
   , c("modality", "dimension", "variance_share", "reproducibility", "z",
       "p_family", "outside_vocabulary")]
 #>   modality dimension variance_share reproducibility       z p_family
-#> 1      RNA    free_2        0.02360           0.943 -0.2794        1
-#> 2    METAB    free_2        0.04751           0.969  0.2635        1
-#> 3     PROT    free_2        0.03337           1.000  0.1688        1
-#> 4     PROT    free_1        0.02782           1.000  0.1120        1
-#> 5    METAB    free_1        0.03169           0.969  0.1010        1
-#> 6      RNA    free_1        0.02841           0.943 -0.0186        1
+#> 1      RNA    free_2        0.02341           0.940  0.2792        1
+#> 2    METAB    free_1        0.04515           0.963 -0.2222        1
+#> 3    METAB    free_2        0.03405           0.963  0.1728        1
+#> 4     PROT    free_1        0.03337           1.000  0.1688        1
+#> 5     PROT    free_2        0.02782           1.000  0.1120        1
+#> 6      RNA    free_1        0.02859           0.940  0.0224        1
 #>   outside_vocabulary
 #> 1              FALSE
+#> 2              FALSE
+#> 3              FALSE
+#> 4              FALSE
+#> 5              FALSE
+#> 6              FALSE
 ```
 
 Each dimension carries the share of the modality it reconstructs, which the fitted loadings make
@@ -312,6 +345,16 @@ Nothing outside the vocabulary moves with the phenotype in this collection, whic
 cohort-specific direction built into the tail features was drawn independently of the phenotype. A
 row with `outside_vocabulary` true would be coordinated variation the vocabulary has no name for, and
 the table names the features loading on it so it can be followed up.
+
+<div class="note warn">
+<span class="lab">An empty table is not always a negative result</span>
+<p>Concept scores span at most as many directions as a modality has samples. A vocabulary holding
+more concepts than samples therefore spans the whole sample space, leaving a residual of numerical
+noise and no free dimensions to fit. A curated collection of a thousand concepts scored on two
+hundred samples is in that position. Read <code>variance.tsv</code> first: a concept share of one
+with a free ceiling of zero means the question was not asked, whereas a real residual with no
+supported dimension means it was asked and answered.</p>
+</div>
 
 ## Step 8. Run the controls
 
@@ -323,15 +366,15 @@ controls
 #>   strongest concept statistic: 64.535
 #>   phenotype permutation    p = 0.001 (smallest attainable 0.001, 999 resamples)
 #>   modality shuffle         not applicable: modalities share fewer than ten features
-#>   initialisation stability weakest component 0.829
+#>   initialisation stability weakest component 0.810
 ```
 
 The phenotype permutation holds the design fixed and exchanges the part of each concept score the
 covariates do not explain, so the phenotype keeps the relation to `sex` that the cohorts give it.
 The encoder is never refitted, which makes the permutation count a choice about resolution rather
 than about what a refit can afford. The modality shuffle needs a shared feature space, which a
-transcriptome and a lipidome do not have, so it is declared inapplicable rather than quietly passed;
-where it does run it reports a median across shuffles and no p-value, because the pooled collections
+transcriptome and a lipidome do not have, so it is declared inapplicable rather than quietly passed.
+Where it does run it reports a median across shuffles and no p-value, since the pooled collections
 are not comparable with the fit. Every control that produces a p-value states the smallest one it
 can attain, so a control read against a threshold it could never reach is visible as one.
 

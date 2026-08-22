@@ -38,8 +38,8 @@ This is Bioconductor's standard structure for a feature-by-sample assay with its
 and using it has three consequences. The measurements and the sample table are one object, so they
 cannot be subset, reordered or filtered out of alignment with one another. Feature and sample
 identifiers stay bound to the numbers rather than living in a separate vector. And a study whose
-data already sit in a `SummarizedExperiment`, or in one of its subclasses such as a `DESeqDataSet`
-or a `SingleCellExperiment`, is already in the right shape:
+data already sit in a `SummarizedExperiment` is in the right shape, as is one using a subclass such
+as a `DESeqDataSet` or a `SingleCellExperiment`:
 
 ```r
 se <- chorale_load(SummarizedExperiment::assay(existing),
@@ -189,9 +189,9 @@ signatures, in a set of concepts defined for the study, or in any combination of
 vocabulary contains bounds what the concept channel can express, which is why it is chosen before
 the data are looked at.
 
-The lipid-to-pathway table ships with its compound annotation taken from one organism, and is keyed
-on set names that are the same across species, so it places a lipid in the set a study of another
-organism would use wherever that pathway exists there. A table of the same shape built for another
+The lipid-to-pathway table takes its compound annotation from one organism, but it is keyed on set
+names that are the same across species. A lipid is therefore placed in the set a study of any
+organism would use, wherever that pathway exists in it. A table of the same shape built for another
 organism is supplied in its place.
 
 ## Conditions on what is supplied

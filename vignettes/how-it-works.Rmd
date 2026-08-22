@@ -13,9 +13,9 @@ vignette: >
 ---
 
 The modalities were measured on different individuals, so nothing can be matched sample to sample.
-What connects them is a fixed vocabulary of named biological concepts: a concept is a set of
-features that belong together for a stated biological reason, every modality is scored on the same
-concepts, and a concept is the same concept in every modality. The six steps below run in a fixed
+What connects them is a fixed vocabulary of named biological concepts. A concept is a set of
+features that belong together for a stated biological reason, and every modality is scored on the
+same concepts. A concept is the same concept in every modality. The six steps below run in a fixed
 order, and the order is part of the method.
 
 ## 1. Fix the vocabulary
@@ -49,8 +49,17 @@ concept score, so a free dimension cannot absorb concept signal.
 How many free dimensions a modality supports is decided by reproducibility rather than by variance.
 `chorale_select_factors()` runs the decomposition repeatedly at each candidate count, from different
 initialisations and on subsamples of the samples, matches the components one to one, and takes the
-largest count at which the weakest component still clears a declared threshold. Parallel analysis
-sets the upper bound the selection is held to.
+largest count at which the weakest component still clears a declared threshold. Two rules bound the
+search from above: parallel analysis, which says how many components the residual holds above an
+unstructured surrogate, and a cap of one component per five samples, beyond which a component
+describes individual samples rather than biology.
+
+A vocabulary can leave nothing to decompose. Concept scores span at most as many directions as the
+modality has samples, so a vocabulary with more concepts than samples spans the whole sample space,
+the projection reproduces the assay, and the residual is numerical noise. No free dimensions are
+fitted in that case, and the modality's free ceiling is reported as zero. Whether a modality has a
+free channel at all is therefore set by the size of the vocabulary against its sample count, which
+is worth checking before a run rather than after.
 
 ## 4. Ask the design whether each concept separates cases from controls
 
@@ -60,9 +69,9 @@ the reported phenotype effect is adjusted for them. Continuous covariates enter 
 slopes, categorical ones as treatment contrasts on their shared levels.
 
 The modalities are combined by inverse-variance weighting. A modality that measures a concept
-precisely counts for more than one that measures it loosely, and effects in opposite directions
-cancel rather than accumulate, so a concept the modalities disagree about cannot reach a large
-combined statistic by accumulating disagreement. How far they agree is reported beside the combined
+precisely counts for more than one that measures it loosely. Effects in opposite directions cancel
+rather than add, so a concept the modalities disagree about cannot reach a large combined
+statistic. How far they agree is reported beside the combined
 statistic, because a statistic carried by one modality against the others is a different finding
 from the same statistic carried by all of them.
 

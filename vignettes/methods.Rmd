@@ -83,8 +83,16 @@ assignment problem, and the matched correlation is recorded per component. Loadi
 scores are compared, because a run on a subsample has no scores for the samples it left out.
 
 The selected count is the largest \(k\) such that every count up to and including it has its weakest
-component above a declared threshold. Parallel analysis on \(R_m\), comparing observed eigenvalues
-with those of column-permuted data, sets the largest count considered.
+component above a declared threshold. Two bounds cap the search. Parallel analysis on \(R_m\),
+comparing observed eigenvalues with those of column-permuted data, gives the first. A cap of one
+component per five samples gives the second, since beyond it the recovered axes describe individual
+samples.
+
+Where the concept scores span the sample space, \(S_m S_m^{+} = I\) and \(R_m = 0\) up to numerical
+precision. This happens whenever the vocabulary holds more concepts than the modality has samples,
+since \(\operatorname{rank}(S_m) \le \min(n_m, |C|)\). No free dimensions are then fitted, and the
+variance table records a concept share of one. The free channel is available to a modality only when
+the vocabulary is smaller than its sample count.
 
 ## Adjusted design effects
 
@@ -150,10 +158,10 @@ concepts that share features is carried into the null rather than assumed away.
 
 \(\Pi\) is unrestricted unless the study declares which samples are exchangeable. Blocks are read
 only from the columns named in `chorale_control(exchangeability_blocks = )`, because a repeated
-measure, a litter or a processing batch is a fact about the study. Inferring blocks from whatever
-covariates the design carries produces one sample per block wherever a covariate is continuous,
-after which the permutation is either the identity or is taken over covariates dropped until it is
-not, and neither is a statement about the study.
+measure, a litter or a processing batch is a fact about the study. Blocks are not inferred from the
+design. A continuous covariate would give one sample per block, and the permutation would then be
+either the identity, or a permutation over covariates dropped until it is not. Neither is a
+statement about the study.
 
 The encoder is never refitted: \(S_m\) is computed once and only its response is rebuilt. The number
 of permutations \(B\) is therefore set by the resolution required rather than by what a refit can
@@ -173,20 +181,20 @@ that overlapping concepts have, because the permutations carry the same overlap 
 false discovery rate at threshold \(t\) is estimated from the same array as
 
 \[
-\widehat{\mathrm{FDR}}(t) = \frac{B^{-1}\#\{(b,c') : |Z^{(b)}_{c'}| \ge t\}}{\#\{c' : |Z_{c'}| \ge t\}},
+\widehat{\mathrm{FDR}}(t) = \frac{B^{-1}\#\{(b,c') : |Z^{(b)}_{c'}| \ge t\}}{\#\{c' : |Z_{c'}| \ge t\}} .
 \]
 
-and each concept's q-value is the smallest such estimate over thresholds that would also call it,
-which makes the reported rates monotone in the statistic.
+Each concept's q-value is the smallest such estimate over thresholds that would also call it, which
+makes the reported rates monotone in the statistic.
 
 Free dimensions are calibrated the same way, with the maximum taken over free dimensions rather than
 over concepts, so the two families are controlled separately and neither borrows the other's null.
 
-The modality shuffle is reported as a description rather than as a test. Pooling the modalities
-keeps only the features they share, so a shuffled collection is scored on a smaller feature space
-and often on a smaller vocabulary; the reallocation preserves neither each modality's sample count
-nor its design composition; and the statistic it would be read against was computed on the full
-assays. No error rate follows from that comparison.
+The modality shuffle is reported as a description rather than as a test. Three differences separate a shuffled
+collection from the fit. Pooling keeps only the features the modalities share, so the shuffled
+collection is scored on a smaller feature space and often on a smaller vocabulary. The reallocation
+preserves neither each modality's sample count nor its design composition. The observed statistic
+was computed on the full assays. No error rate follows from that comparison.
 
 ## Attribution among overlapping concepts
 
