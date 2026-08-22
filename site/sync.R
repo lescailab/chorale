@@ -29,6 +29,45 @@ field <- function(yaml, key) {
 
 escape_yaml <- function(x) gsub('"', '\\\\"', x)
 
+# ---- mathematics ----------------------------------------------------------
+#
+# A vignette writes mathematics in the delimiters Pandoc reads, \\( \\) around an
+# inline expression and \\[ \\] around a displayed one, because that is what
+# rmarkdown renders the vignette itself with. The site renders markdown through
+# remark-math, which reads only $ and $$. Left alone the delimiters survive into
+# the page as literal backslashes and brackets, and every equation reaches the
+# reader as source.
+#
+# The delimiters are therefore translated on the way out, which keeps the
+# vignette valid for `R CMD build` and the page correct for the site. Fenced
+# code and inline code spans are left alone: a backslash-paren inside an example
+# is text the reader is meant to see, and a dollar in R code is an operator.
+math_delimiters <- function(body) {
+  fenced <- grepl("^\\s*(```|~~~)", body)
+  inside <- cumsum(fenced) %% 2L == 1L | fenced
+  out <- body
+  for (i in which(!inside)) {
+    line <- out[i]
+    spans <- regmatches(line, gregexpr("`[^`]*`", line))[[1]]
+    if (length(spans)) {
+      for (k in seq_along(spans)) {
+        line <- sub(spans[k], sprintf("\\001%d\\001", k), line, fixed = TRUE)
+      }
+    }
+    line <- gsub("\\\\\\[", "$$", line)
+    line <- gsub("\\\\\\]", "$$", line)
+    line <- gsub("\\\\\\(", "$", line)
+    line <- gsub("\\\\\\)", "$", line)
+    if (length(spans)) {
+      for (k in seq_along(spans)) {
+        line <- sub(sprintf("\\001%d\\001", k), spans[k], line, fixed = TRUE)
+      }
+    }
+    out[i] <- line
+  }
+  out
+}
+
 vignettes <- sort(list.files(file.path(root, "vignettes"), pattern = "[.]Rmd$",
                              full.names = TRUE))
 if (length(vignettes) == 0) stop("No vignettes found to build the site from.")
@@ -67,7 +106,8 @@ for (path in vignettes) {
     sprintf('<p class="lede">%s</p>', description),
     ""
   )
-  writeLines(c(header, body), file.path(pages, paste0(slug, ".md")))
+  writeLines(c(header, math_delimiters(body)),
+             file.path(pages, paste0(slug, ".md")))
   message("page  ", slug)
 }
 
