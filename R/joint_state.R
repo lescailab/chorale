@@ -281,6 +281,11 @@ chorale_residualise_scores <- function(scores, design, columns, modality) {
 #' @noRd
 chorale_weighted_lowrank <- function(z, observed, k, seed = 1L, tol = 1e-6,
                                      max_iter = 200L, ridge = 1e-6) {
+  # The starting point is the decomposition of the matrix with missing entries
+  # set to the concept mean, which after within-modality scaling is zero. That
+  # is an initialisation and nothing else: every row and column carrying an
+  # observation is re-estimated below from its observed entries alone, so no
+  # imputed value survives into the fit.
   filled <- z
   filled[!observed] <- 0
   set.seed(seed)
@@ -300,14 +305,20 @@ chorale_weighted_lowrank <- function(z, observed, k, seed = 1L, tol = 1e-6,
     iterations <- it
     for (i in seq_len(nrow(z))) {
       j <- which(observed[i, ])
-      if (length(j) < k) next
+      # Only a row with nothing observed is skipped. The ridge makes the normal
+      # equations solvable from a single observation, giving the smallest score
+      # consistent with what the row actually carries; requiring as many
+      # observations as components would instead leave a sparsely covered row
+      # holding its initialisation, which is the imputed value this fit exists
+      # to avoid.
+      if (length(j) == 0L) next
       l <- loadings[j, , drop = FALSE]
       scores[i, ] <- solve(crossprod(l) + ridge * diag(k),
                            crossprod(l, z[i, j]))
     }
     for (j in seq_len(ncol(z))) {
       i <- which(observed[, j])
-      if (length(i) < k) next
+      if (length(i) == 0L) next
       s <- scores[i, , drop = FALSE]
       loadings[j, ] <- solve(crossprod(s) + ridge * diag(k),
                              crossprod(s, z[i, j]))

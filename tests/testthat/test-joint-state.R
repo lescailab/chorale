@@ -203,6 +203,42 @@ test_that("matching pairs components whatever their order and sign", {
   expect_gt(matched$agreement[matched$fitted == "y"], 0)
 })
 
+test_that("no imputed value survives into the fit", {
+  set.seed(2)
+  k <- 3L
+  z <- matrix(stats::rnorm(30 * 12), nrow = 30,
+              dimnames = list(paste0("s", 1:30), paste0("c", 1:12)))
+  observed <- matrix(TRUE, nrow(z), ncol(z))
+  # A row and a column each carrying fewer observations than there are
+  # components: exactly the case that used to keep its initialisation.
+  observed[1, ] <- FALSE
+  observed[1, 1:2] <- TRUE
+  observed[, 12] <- FALSE
+  observed[1:2, 12] <- TRUE
+  z[!observed] <- NA_real_
+
+  fit <- chorale:::chorale_weighted_lowrank(z, observed, k)
+
+  # Whatever the unobserved entries would have held cannot reach the fit, so
+  # changing them changes nothing.
+  other <- z
+  other[!observed] <- 1000
+  refit <- chorale:::chorale_weighted_lowrank(other, observed, k)
+  expect_equal(fit$scores, refit$scores)
+  expect_equal(fit$loadings, refit$loadings)
+
+  # A row with fewer observations than components is an underdetermined system,
+  # so solving it reproduces those observations exactly. A row left holding its
+  # initialisation cannot, which is what makes this the regression test: the
+  # residual here is zero only if the row was actually estimated.
+  approximation <- fit$scores %*% t(fit$loadings)
+  # The tolerance is loose enough to absorb the ridge, which shrinks the
+  # solution slightly, and tight enough that a row holding its initialisation
+  # cannot pass: that residual is three orders of magnitude larger.
+  expect_lt(max(abs(z[1, 1:2] - approximation[1, 1:2])), 1e-2)
+  expect_lt(max(abs(z[1:2, 12] - approximation[1:2, 12])), 1e-2)
+})
+
 test_that("the state reports no component where the collection carries none", {
   fx <- joint_fixture()
   state <- chorale_joint_state(fx$encoding, n_components = 0)
