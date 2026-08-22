@@ -86,10 +86,29 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
     concept_share <- if (total > 0) 1 - sum(residual^2) / total else NA_real_
 
     k <- free_of[[m]]
-    ceiling_k <- chorale_n_factors(residual, quantile = control$n_factors_quantile,
-                                   max_factors = control$max_factors, seed = seed)
+    # A vocabulary with more concepts than the modality has samples spans the
+    # whole sample space, so the projection reproduces the assay and the
+    # residual is numerical dust. There is then nothing outside the vocabulary
+    # to decompose, and factorising dust would report noise as free dimensions.
+    residual_share <- if (total > 0) sum(residual^2) / total else 0
+    exhausted <- !is.finite(residual_share) || residual_share < 1e-8
+    ceiling_k <- if (exhausted) 0L else {
+      chorale_n_factors(residual, quantile = control$n_factors_quantile,
+                        max_factors = control$max_factors, seed = seed)
+    }
     selected <- NULL
-    if (identical(k, "auto")) {
+    if (exhausted) {
+      if (!identical(k, "auto") && is.finite(suppressWarnings(as.integer(k))) &&
+          as.integer(k) > 0L) {
+        # A count was asked for and cannot be delivered, which the caller has
+        # to be told rather than left to infer from a zero in the table.
+        rlang::inform(paste0(
+          "Modality '", m, "': the concept scores span the sample space, so no ",
+          "variation lies outside the vocabulary and no free dimensions are ",
+          "fitted."))
+      }
+      k <- 0L
+    } else if (identical(k, "auto")) {
       # Parallel analysis says how many components the data could support;
       # reproducibility says how many of them are the same components when the
       # estimator is started again, or run on a different draw of the samples.

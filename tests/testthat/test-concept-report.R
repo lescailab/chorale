@@ -137,3 +137,29 @@ test_that("a fit with no free dimensions writes an empty free-dimension table", 
   expect_equal(nrow(free), 0L)
   expect_false(file.exists(file.path(path, "free_scores_A.tsv")))
 })
+
+test_that("free dimensions report where one modality has none", {
+  fx <- encode_fixture(n_features = 300, seed = 5)
+  ids <- fx$ids
+  # One modality is given fewer samples than the vocabulary has concepts, so
+  # its concept scores span its sample space and it has no free dimensions,
+  # while the other keeps a residual to decompose.
+  small <- fx$containers[[2]][, seq_len(30)]
+  containers <- list(A = fx$containers[[1]], B = small)
+  set.seed(1)
+  sets <- stats::setNames(
+    lapply(seq_len(45), function(i) ids[sample(length(ids), 40)]),
+    paste0("concept_", seq_len(45)))
+  concepts <- chorale_concepts(containers, sets, min_features = 5)
+  fit <- chorale_concept_fit(containers, concepts, n_free = "auto",
+                             n_permutations = 19L, n_init = 2L)
+  n_free <- fit$encoding$variance$n_free
+  expect_true(any(n_free == 0L))
+  expect_true(any(n_free > 0L))
+
+  free <- chorale_free_dimensions(fit, n_permutations = 19L)
+  expect_s3_class(free, "data.frame")
+  expect_true(all(free$modality %in% fit$modalities))
+  expect_false(any(free$modality %in%
+                     fit$encoding$variance$modality[n_free == 0L]))
+})

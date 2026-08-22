@@ -101,3 +101,20 @@ test_that("printing states what each channel carries", {
   enc <- chorale_encode(fx$containers, fx$concepts, n_free = 2, n_init = 2)
   expect_output(print(enc), "concepts scored in every modality: 3")
 })
+
+test_that("a vocabulary that spans the sample space leaves no free dimensions", {
+  # More concepts than samples: their scores span the whole sample space, the
+  # projection reproduces the assay, and the residual is numerical dust.
+  fx <- encode_fixture(n_features = 300, seed = 3)
+  ids <- fx$ids
+  set.seed(1)
+  n_concepts <- nrow(SummarizedExperiment::colData(fx$containers[[1]])) + 40L
+  many <- stats::setNames(
+    lapply(seq_len(n_concepts), function(i) ids[sample(length(ids), 40)]),
+    paste0("concept_", seq_len(n_concepts)))
+  concepts <- chorale_concepts(fx$containers, many, min_features = 5)
+  enc <- chorale_encode(fx$containers, concepts, n_free = "auto", n_init = 2)
+  expect_true(all(enc$variance$n_free == 0L))
+  expect_true(all(enc$variance$free_ceiling == 0L))
+  expect_true(all(enc$variance$concept_share > 0.999))
+})

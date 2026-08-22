@@ -117,9 +117,12 @@ chorale_free_dimensions <- function(fit, n_permutations = NULL, n_top = 10L,
     # The design is held fixed and the response is rebuilt, so the phenotype
     # keeps the relation to the covariates it has in the data.
     permuted_scores <- Map(function(m, d, block, i) {
-      chorale_freedman_lane_scores(
-        fit$encoding$encodings[[m]]$free_scores, d, spec,
-        blocks = block, seed = seed + 1000L * b + i)
+      scores <- fit$encoding$encodings[[m]]$free_scores
+      # A modality whose vocabulary spans its sample space has no free
+      # dimensions, so there is nothing to rebuild and nothing to exchange.
+      if (is.null(scores) || ncol(scores) == 0) return(scores)
+      chorale_freedman_lane_scores(scores, d, spec, blocks = block,
+                                   seed = seed + 1000L * b + i)
     }, fit$modalities, designs, blocks, seq_along(designs))
     e <- chorale_free_effects(fit, spec, phenotype_terms, designs,
                               scores_by_modality = permuted_scores)
