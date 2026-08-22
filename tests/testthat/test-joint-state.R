@@ -155,6 +155,54 @@ test_that("a direction fitted without a modality is tested in that modality", {
                          fixed = TRUE)))
 })
 
+test_that("holding out works when only some modalities declare nuisance", {
+  fx <- joint_fixture(trim_third = TRUE)
+  first <- fx$encoding$modalities[1]
+  design <- fx$encoding$designs[[first]]
+  design$study <- rep(c("a", "b"), length.out = nrow(design))
+  fx$encoding$designs[[first]] <- design
+
+  # Only one of three modalities names a nuisance covariate, so each held-out
+  # fit sees a nuisance list that does not mention two of its modalities.
+  transfer <- chorale_joint_transfer(
+    fx$encoding, n_components = 1, n_permutations = 19,
+    nuisance = stats::setNames(list("study"), first))
+  expect_setequal(unique(transfer$transfer$held_out), fx$encoding$modalities)
+})
+
+test_that("held-out components are named against one reference fit", {
+  fx <- joint_fixture(trim_third = TRUE)
+  transfer <- chorale_joint_transfer(fx$encoding, n_components = 2,
+                                     n_permutations = 19)
+
+  expect_true(all(c("component", "fitted_component", "loading_agreement") %in%
+                    colnames(transfer$transfer)))
+  # Every row carries the label of the reference component it matches, so two
+  # rows with the same `component` describe the same direction.
+  expect_true(all(!is.na(transfer$transfer$component)))
+  # Each held-out fit contributes each reference label at most once per term.
+  counts <- table(transfer$transfer$held_out, transfer$transfer$component)
+  expect_true(all(counts <= 1))
+  agreement <- transfer$transfer$loading_agreement
+  expect_true(all(is.na(agreement) | abs(agreement) <= 1 + 1e-8))
+})
+
+test_that("matching pairs components whatever their order and sign", {
+  loadings <- matrix(stats::rnorm(60), nrow = 20,
+                     dimnames = list(paste0("c", 1:20), c("a", "b", "d")))
+  # The same directions, reordered and with two of them pointing the other way.
+  shuffled <- loadings[, c(3, 1, 2)] %*% diag(c(-1, 1, -1))
+  colnames(shuffled) <- c("x", "y", "z")
+  matched <- chorale:::chorale_match_components(shuffled, loadings)
+
+  expect_equal(matched$reference[matched$fitted == "x"], "d")
+  expect_equal(matched$reference[matched$fitted == "y"], "a")
+  expect_equal(matched$reference[matched$fitted == "z"], "b")
+  # Sign is recorded rather than hidden, and does not affect the pairing.
+  expect_lt(matched$agreement[matched$fitted == "x"], 0)
+  expect_gt(matched$agreement[matched$fitted == "y"], 0)
+})
+
 test_that("the state reports no component where the collection carries none", {
   fx <- joint_fixture()
   state <- chorale_joint_state(fx$encoding, n_components = 0)

@@ -289,12 +289,29 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
                  class = "chorale_transfer_needs_three")
   }
 
+  # Each held-out fit is its own decomposition, so its second component is not
+  # the second component of any other fit. A reference fitted on the whole
+  # collection supplies one set of names, and each held-out component is matched
+  # to it by how far their concept loadings agree. The reference contributes
+  # nothing to the statistic: the direction tested is the one fitted without the
+  # held-out modality, and the p-value is on the magnitude of its effect, so
+  # neither the name nor the orientation can change what is concluded.
+  reference <- chorale_joint_state(encoding, n_components = n_components,
+                                   nuisance = nuisance, control = control,
+                                   seed = seed)
+
   rows <- list()
   for (held in modalities) {
-    trained <- chorale_subset_encoding(encoding, setdiff(modalities, held))
-    state <- chorale_joint_state(trained, n_components = n_components,
-                                 nuisance = nuisance[setdiff(modalities, held)],
-                                 control = control, seed = seed)
+    trained_on <- setdiff(modalities, held)
+    trained <- chorale_subset_encoding(encoding, trained_on)
+    # Subsetting a list by names it does not carry yields entries named NA, so
+    # the modalities to keep are intersected rather than indexed directly: a
+    # collection where only some modalities declare nuisance covariates is the
+    # ordinary case, not an error.
+    state <- chorale_joint_state(
+      trained, n_components = n_components,
+      nuisance = nuisance[intersect(names(nuisance), trained_on)],
+      control = control, seed = seed)
     if (state$n_components == 0) next
 
     projected <- chorale_project_modality(encoding, held, state$loadings,
@@ -325,12 +342,18 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
       null_z[b, ] <- abs(p$z[, term])
     }
 
+    matched <- chorale_match_components(state$loadings, reference$loadings)
+
     for (term in intersect(anchor_terms, colnames(profile$effects))) {
       statistic <- abs(profile$z[, term])
       rows[[length(rows) + 1L]] <- data.frame(
         held_out = held,
-        trained_on = paste(setdiff(modalities, held), collapse = ", "),
-        component = rownames(profile$effects),
+        trained_on = paste(trained_on, collapse = ", "),
+        component = matched$reference[match(rownames(profile$effects),
+                                            matched$fitted)],
+        fitted_component = rownames(profile$effects),
+        loading_agreement = matched$agreement[match(rownames(profile$effects),
+                                                    matched$fitted)],
         term = term,
         n_samples = nrow(projected),
         n_concepts = attr(projected, "n_concepts"),
@@ -347,7 +370,8 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
 
   transfer <- if (length(rows)) do.call(rbind, rows) else
     data.frame(held_out = character(), trained_on = character(),
-               component = character(), term = character(),
+               component = character(), fitted_component = character(),
+               loading_agreement = numeric(), term = character(),
                n_samples = integer(), n_concepts = integer(),
                effect = numeric(), se = numeric(), z = numeric(),
                p_value = numeric(), stringsAsFactors = FALSE)
@@ -391,6 +415,59 @@ chorale_project_modality <- function(encoding, modality, loadings, nuisance,
   rownames(projected) <- rownames(scores)
   attr(projected, "n_concepts") <- length(common)
   projected
+}
+
+#' Match the components of one fit to those of another
+#'
+#' Two decompositions of overlapping data recover the same directions in a
+#' different order and with arbitrary sign, since neither is identified by the
+#' method. Components are therefore paired on how far their concept loadings
+#' agree, over the concepts both carry, and the assignment is the one maximising
+#' total agreement rather than a greedy pass, so one strong pairing cannot force
+#' a poor one on what is left.
+#'
+#' The agreement is returned signed and unrounded. A pairing at a low absolute
+#' correlation is reported rather than suppressed: it says the held-out fit
+#' recovered something the reference did not, which is a result about the
+#' collection and not a failure of matching.
+#'
+#' @param fitted,reference Loading matrices, concepts by components.
+#' @returns A data frame with `fitted`, `reference` and `agreement`.
+#' @keywords internal
+#' @noRd
+chorale_match_components <- function(fitted, reference) {
+  common <- intersect(rownames(fitted), rownames(reference))
+  blank <- data.frame(fitted = colnames(fitted),
+                      reference = colnames(fitted),
+                      agreement = NA_real_, stringsAsFactors = FALSE)
+  if (length(common) < 3 || ncol(fitted) == 0 || ncol(reference) == 0) {
+    return(blank)
+  }
+  agreement <- suppressWarnings(
+    stats::cor(fitted[common, , drop = FALSE],
+               reference[common, , drop = FALSE]))
+  agreement[!is.finite(agreement)] <- 0
+  if (all(agreement == 0)) return(blank)
+
+  # solve_LSAP minimises, and the pairing wanted is the one maximising
+  # agreement whichever way each component happens to point.
+  cost <- max(abs(agreement)) - abs(agreement)
+  square <- matrix(max(cost), nrow = nrow(cost),
+                   ncol = max(ncol(cost), nrow(cost)))
+  square[, seq_len(ncol(cost))] <- cost
+  assignment <- clue::solve_LSAP(square)
+
+  taken <- as.integer(assignment)[seq_len(nrow(cost))]
+  data.frame(
+    fitted = rownames(agreement),
+    reference = ifelse(taken <= ncol(agreement),
+                       colnames(agreement)[pmin(taken, ncol(agreement))],
+                       rownames(agreement)),
+    agreement = vapply(seq_along(taken), function(i) {
+      if (taken[i] > ncol(agreement)) return(NA_real_)
+      agreement[i, taken[i]]
+    }, numeric(1)),
+    stringsAsFactors = FALSE)
 }
 
 #' Restrict an encoding to a subset of its modalities
