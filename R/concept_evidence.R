@@ -106,6 +106,7 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
   null_max <- rep(NA_real_, n_permutations)
   null_by_concept <- matrix(NA_real_, nrow = n_permutations,
                             ncol = nrow(observed$joint))
+  null_signed_by_concept <- null_by_concept
   blocks <- lapply(designs, chorale_exchangeability_blocks,
                    columns = control$exchangeability_blocks)
   for (b in seq_len(n_permutations)) {
@@ -118,8 +119,14 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
                                  designs = designs,
                                  scores_by_modality = permuted_scores,
                                  attribution = FALSE)
-    v <- abs(e$joint$joint_z[match(observed$joint$key, e$joint$key)])
-    v[!is.finite(v)] <- 0
+    signed <- e$joint$joint_z[match(observed$joint$key, e$joint$key)]
+    signed[!is.finite(signed)] <- 0
+    # The signed statistic is kept as well as its magnitude. A statistic summed
+    # over a group of concepts is directional, and the sum of magnitudes with
+    # signs drawn afterwards would break the dependence between overlapping
+    # concepts that this null exists to carry.
+    null_signed_by_concept[b, ] <- signed
+    v <- abs(signed)
     null_by_concept[b, ] <- v
     null_max[b] <- max(v, na.rm = TRUE)
   }
@@ -146,6 +153,12 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
       spec = spec,
       anchor = anchor,
       null = null_max,
+      # Kept so that a statistic over a group of concepts can be calibrated
+      # against the same resamples, which carry the dependence overlapping
+      # concepts have and a fresh set of permutations would not.
+      null_by_concept = `colnames<-`(null_by_concept, observed$joint$key),
+      null_signed_by_concept = `colnames<-`(null_signed_by_concept,
+                                            observed$joint$key),
       n_permutations = as.integer(n_permutations),
       alpha = control$alpha,
       min_overlap = min_overlap,
