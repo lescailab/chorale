@@ -18,6 +18,12 @@ features that belong together for a stated biological reason, and every modality
 same concepts. A concept is the same concept in every modality. The six steps below run in a fixed
 order, and the order is part of the method.
 
+They answer one question: does this named concept separate cases from controls, in the modalities
+that express it. Two further questions are asked of the same encoding and answered differently.
+Whether a group of related concepts moves together where no member of it moves far enough alone,
+and whether the collection carries a state that no modality in it could have found. Those come
+after the six steps, because both read the encoding the six steps produce.
+
 ## 1. Fix the vocabulary
 
 `chorale_concepts()` builds the vocabulary for a collection and reports its coverage. Genes and
@@ -104,6 +110,86 @@ Curated concepts share features, so a signal in one appears in every concept ove
 concept is therefore reported a second time with its overlapping neighbours regressed out of its
 score. A concept whose statistic survives that carries the signal itself; one whose statistic
 collapses is reporting the neighbourhood it sits in.
+
+## Concepts tested as groups
+
+A curated vocabulary names the same process at several resolutions, so a change spread across a
+dozen overlapping concepts can leave every one of them below threshold while the group is
+unambiguous. Testing one concept at a time cannot see that, because each is compared with the
+largest statistic anywhere in the vocabulary and none of them is large.
+
+`chorale_concept_families()` groups concepts by how far they share members, under complete linkage,
+so every pair within a family overlaps at least as much as the threshold requires. Families come
+from the vocabulary and never from the data, so they are fixed before anything is tested, exactly as
+the vocabulary is. A concept in no family stands as its own family of one, so nothing is dropped.
+
+`chorale_family_evidence()` tests a family on the sum of its members' combined statistics,
+standardised by the size of the family. The statistic is directional: members pointing the same way
+accumulate and members pointing opposite ways cancel, so a family is supported when its members
+agree rather than when any one of them is large. Its null reuses the permutations already drawn, and
+the direction of each permuted statistic is kept rather than reconstructed afterwards. That matters
+more here than anywhere else, because concepts within a family overlap heavily and only a null
+carrying that dependence gives their sum a correct distribution.
+
+## One state estimated from every modality at once
+
+Steps 4 and 5 combine separately estimated per-modality effects. That is a meta-analysis: the
+modality is the unit of estimation, and what is estimated is a scalar each modality could in
+principle have estimated alone. A modality that cannot express a concept contributes nothing to it.
+
+`chorale_joint_state()` estimates a different object. Every modality is described on the same
+vocabulary, and every score is a weighted mean of standardised feature values, so the score matrices
+share their columns and sit on one scale. They are stacked by row into a single matrix of every
+sample in the collection against every concept, and decomposed once. The concept loadings that come
+out are common to the collection by construction rather than matched across modalities afterwards.
+
+What this recovers is a direction in concept space, of dimension the size of the vocabulary. Where
+the vocabulary holds more concepts than any one modality has samples, which is the usual case, no
+modality can identify such a direction on its own and the stacked collection can. That is the sense
+in which the collection carries something none of its members carries.
+
+Two things are removed before stacking. Each concept is centred and scaled within its modality, so a
+platform's level and spread cannot drive a component and only variation between samples measured the
+same way survives. Then whatever a modality's own nuisance structure contributes is regressed out of
+that modality's scores: study, acquisition batch, colonisation, region. Those need not be shared
+with any other modality, which is what makes them adjustable here and not in a model the modalities
+hold in common.
+
+A concept a modality cannot express is missing rather than zero. After centring, zero is that
+concept's mean, so writing zero would enter a measurement claiming the modality observed exactly
+average. The entry carries no weight in the fit instead, and the concept is estimated from the
+modalities that measure it. Restricting the vocabulary to concepts every modality expresses would
+discard most of it and reinstate the narrowest modality as the limit on the whole collection.
+
+`chorale_joint_evidence()` then asks whether a sample's position along a component moves with the
+phenotype, adjusting for the covariates the modalities share and for the modality itself. Without
+the modality term a component that merely ordered the modalities would appear to separate cases from
+controls whenever the modalities differ in composition. Residuals are exchanged within modality, so
+every permuted collection has the composition the study produced. The same effect read within each
+modality alone is reported beside the joint one, as a description and not a condition.
+
+## A direction tested where it was not estimated
+
+A permutation asks whether structure could have arisen by chance given this design. It cannot ask
+whether the structure transfers.
+
+`chorale_joint_transfer()` holds each modality out in turn, estimates the state from the rest, and
+projects the held-out samples onto the concept loadings that come out. Whether those projections
+separate cases from controls is then tested in the held-out modality alone. The loadings carry none
+of that modality: not its samples, its batches, its assay or its preparation. Structure a modality's
+own nuisance produced can inflate a component fitted with that modality in, but it cannot produce a
+direction over concepts that predicts the phenotype in a cohort sharing none of it.
+
+It is also the positive claim rather than only its defence. A direction estimated without a cohort,
+which orders that cohort by disease state, is what it means for a collection of separately deposited
+studies to carry one biology.
+
+Each held-out fit is its own decomposition, and neither the order of its components nor their sign
+is identified by the method. A reference fitted on the whole collection therefore supplies one set
+of names, and each held-out component is matched to it by how far their concept loadings agree. The
+reference contributes nothing to the statistic: the direction tested is the one fitted without the
+held-out modality, and the p-value is on the magnitude of its effect, so neither the name nor the
+orientation can change what is concluded.
 
 ## What the phenotype is compared against
 
