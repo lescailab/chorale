@@ -12,44 +12,56 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 coverage](https://codecov.io/gh/lescailab/chorale/graph/badge.svg)](https://app.codecov.io/gh/lescailab/chorale)
 <!-- badges: end -->
 
-CHORALE estimates a shared biological state across omics modalities
-measured on different individuals, and expresses it in named biological
-terms.
+CHORALE analyses omics modalities measured on different individuals by
+first placing every sample in the same space of named biological
+concepts.
 
-The modalities share no sample and need share no feature, so what
-connects them is a fixed vocabulary of named biological concepts. A
-concept is a set of features that belong together for a stated
-biological reason, such as a curated pathway or a cell type signature.
-Every modality is scored on the same concepts, a concept is the same
-concept in every modality, and the design then supplies the evidence
-that a concept separates cases from controls.
+The modalities share no sample and need share no feature. Their
+connection is a fixed vocabulary: pathways, cell-type signatures, or
+other feature sets chosen before the results are inspected. Once each
+modality has been scored on that vocabulary, CHORALE supports two
+complementary analyses.
 
-The estimator runs in a fixed order:
+- **Concept evidence** estimates the adjusted phenotype effect
+  separately in each modality and combines those effects by
+  inverse-variance weighting.
+- **Joint-state analysis** stacks all samples by their concept scores
+  and fits a low-rank representation, then tests and transfers the
+  resulting directions.
+
+Related concepts can also be tested as families, while variation outside
+the vocabulary is retained as free dimensions.
+
+The shared preparation runs in a fixed order:
 
 1.  The vocabulary is fixed and its coverage reported, per concept and
     per modality.
 2.  Every modality is scored on it, without the design being consulted.
 3.  What the vocabulary does not explain is kept as free dimensions,
     selected by reproducibility.
-4.  The concept score is regressed on the design in each modality, and
-    the modalities are combined by inverse-variance weighting.
-5.  Permuting the phenotype within strata of the design calibrates the
-    whole vocabulary at once.
+4.  The concept branch regresses each score on the design within each
+    modality and combines the adjusted effects.
+5.  The joint branch standardises scores within modality, optionally
+    removes modality-local nuisance effects, and fits the observed
+    entries of the stacked score matrix.
+6.  Freedman–Lane residual permutations hold the design fixed while
+    calibrating concept, family, joint-component, and free-dimension
+    evidence.
 
 ## What a result says
 
-Each concept carries its adjusted case-control effect in every modality
-that expresses it, the combined statistic, how far the modalities agree
-in direction and in magnitude, family-wise and false-discovery control
-over the vocabulary, and the statistic that survives once overlapping
-concepts are regressed out. Coordinated variation no concept explains is
-reported separately as free dimensions, so the bound the vocabulary
-places on interpretation stays visible.
+Each concept carries its adjusted phenotype effect in every modality
+that expresses it, the combined statistic, agreement diagnostics,
+family-wise and false-discovery control, and the statistic that survives
+adjustment for overlapping neighbours. A high heterogeneity p-value
+means that disagreement was not detected; it does not prove that the
+effects are identical.
 
-A supported concept is a coordinated case-control shift in a named piece
-of biology, seen in more than one measurement layer, at a stated error
-rate. Ordering cause and consequence requires timing, mediation or
-perturbation.
+A joint component is a fitted direction over concepts, not an identified
+mechanism. Its sign and label are arbitrary, so it is interpreted
+through its loadings, calibrated phenotype evidence, per-modality
+effects, and leave-one-modality-out transfer. Coordinated variation no
+concept explains is reported separately as free dimensions.
 
 ## Status
 
@@ -74,8 +86,9 @@ conda env create -f environment.yml
 conda activate chorale_development
 ```
 
-The repository-owned environment uses R 4.5 and Node 22 and lists direct
-dependencies without machine-specific build hashes.
+The package requires R 4.5. The repository-owned environment uses R 4.5
+and Node 22 and lists direct dependencies without machine-specific build
+hashes.
 
 ## Minimal example
 
@@ -91,8 +104,17 @@ fit$evidence$joint[, c("concept", "n_modalities", "joint_z",
                        "sign_agreement", "q_value")]
 #>   concept n_modalities joint_z sign_agreement q_value
 #> 1 planted            2 26.9901            1.0  0.0000
-#> 2   quiet            2  0.2657            1.0  0.8827
-#> 3   other            2  0.1165            0.5  0.8827
+#> 2   quiet            2  0.2657            1.0  0.9112
+#> 3   other            2  0.1165            0.5  0.9112
+
+# The same encoding can be analysed jointly. This does not happen implicitly:
+# component count and nuisance adjustment remain explicit decisions.
+state <- chorale_joint_state(fit$encoding, n_components = 1)
+chorale_joint_evidence(state, n_permutations = 199)$components
+#>   component           term  share    effect        se        z p_value p_family
+#> 1  joint_01 phenotype=case 0.3562 0.3604175 0.1871729 1.925586    0.07     0.07
+#>   q_value significant family_significant
+#> 1  0.0653       FALSE              FALSE
 ```
 
 Use `chorale_control()` to set the phenotype column, reference level,

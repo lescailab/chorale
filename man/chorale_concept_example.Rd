@@ -20,14 +20,15 @@ chorale_concept_example(
 
 \item{n_features}{Features per modality.}
 
-\item{effect}{Shift, in standard deviations, applied in cases to the members
+\item{effect}{Shift, in standard deviations, applied in the non-reference
+phenotype group to the members
 of every planted concept.}
 
 \item{n_modalities}{Modalities in the collection, on disjoint samples.}
 
 \item{n_concepts}{Concepts in the vocabulary.}
 
-\item{n_planted}{Concepts of those that carry the case-control shift. The
+\item{n_planted}{Concepts of those that carry the phenotype shift. The
 rest are the vocabulary the estimator must leave alone.}
 
 \item{coverage}{Share of each concept's members a modality measures.}
@@ -41,7 +42,7 @@ that carry the shift.
 }
 \description{
 Documentation, tests and recovery curves all need a collection where named
-concepts really do separate cases from controls, on features the modalities
+concepts really do differ across a phenotype contrast, on features the modalities
 share by name. This builds one directly rather than deriving it from a factor
 model, so what each concept does is stated rather than inferred.
 }

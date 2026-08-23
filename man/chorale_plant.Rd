@@ -83,7 +83,7 @@ concept.
 A concept is planted and recovered by name, so the planting and scoring
 vocabularies are the same one. The question is not whether a concept\'s
 composition can be rediscovered but whether the design shows it separating
-cases from controls in every modality that expresses it, and whether the
+phenotype groups in every modality that expresses it, and whether the
 concepts that were not planted stay quiet.
 
 Two dials govern how far a planted signal departs from a clean set

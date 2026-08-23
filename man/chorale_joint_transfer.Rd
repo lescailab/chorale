@@ -40,7 +40,7 @@ in the held-out modality and its permutation p-value.
 The control a permutation cannot supply. Each modality is held out in turn,
 the joint state is estimated from the remaining ones, and the held-out
 modality's samples are projected onto the concept loadings that came out.
-Whether those projections separate cases from controls is then tested in the
+Whether those projections change with the phenotype is then tested in the
 held-out modality alone.
 }
 \details{
@@ -52,6 +52,6 @@ cohort sharing none of it. Transfer is therefore evidence about the biology
 and not only about the arithmetic.
 
 It is also the positive claim rather than only its defence: a direction
-estimated without a cohort, which orders that cohort by disease state, is
+estimated without a cohort, which orders that cohort by phenotype, is
 what it means for the collection to carry something no member carries.
 }

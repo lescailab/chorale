@@ -2,7 +2,7 @@
 % Please edit documentation in R/control.R
 \name{chorale_control}
 \alias{chorale_control}
-\title{Every decision the estimator makes, in one object}
+\title{Analysis settings recorded with a CHORALE fit}
 \usage{
 chorale_control(
   alpha = 0.05,
@@ -37,37 +37,31 @@ chorale_control(
 )
 }
 \arguments{
-\item{alpha}{Significance threshold a programme's joint evidence must beat,
+\item{alpha}{Significance threshold a concept's combined evidence must beat,
 and the level at which false discovery is controlled.}
 
 \item{n_perm}{Permutations calibrating the design channel. The smallest
 attainable p-value is \code{1 / (n_perm + 1)}, so a threshold the count cannot
 reach is not reportable.}
 
-\item{n_pathway_perm}{Score-residual permutations calibrating the
-pathway channel. Zero skips the channel.}
+\item{n_pathway_perm}{Retained for compatibility with earlier releases; the
+concept workflow takes its permutation count from \code{n_permutations} or
+\code{n_perm} and does not use this setting.}
 
 \item{n_init}{Initialisations of the factorisation per modality.}
 
 \item{consensus}{Deprecated compatibility switch. Factors are always taken
 from the medoid stable run; aligned-run averaging is not an ICA solution.}
 
-\item{require_pure_features}{Optional diagnostic filter: report only
-programmes whose every member passes the requested loading-purity rule.
-This is not an identification condition and defaults to \code{FALSE}.}
-
-\item{purity_ratio}{A feature is pure for a factor when its largest
-competing loading is at most this fraction of its own.}
-
-\item{min_markers}{Features a factor needs to pass the optional purity
-diagnostic.}
-
-\item{max_markers}{Markers retained per factor.}
+\item{require_pure_features, purity_ratio, min_markers, max_markers}{Retained
+compatibility settings for older component diagnostics. They do not filter
+concept, family, joint-state, transfer, or free-dimension report rows.}
 
 \item{lambda}{Ridge penalty on the curated-set coefficients.}
 
-\item{min_set_features}{Features of a modality a curated set must contain
-before it can describe that modality.}
+\item{min_set_features}{Retained compatibility setting. Concept coverage is
+controlled by \code{min_features} in \code{\link[=chorale_concepts]{chorale_concepts()}} or
+\code{\link[=chorale_concept_fit]{chorale_concept_fit()}}.}
 
 \item{min_lipid_compounds}{Distinct compounds of a lipid class a pathway must
 be annotated with before the link is used.}
@@ -95,7 +89,8 @@ must exceed when the factor count is chosen from the data.}
 from the data. \code{NULL} leaves the ceiling to the modality's sample count,
 which \code{\link[=chorale_n_factors]{chorale_n_factors()}} caps at one component per five samples.}
 
-\item{n_grid}{Quantiles representing each marginal when bounding a coupling.}
+\item{n_grid}{Retained compatibility setting with no effect on the current
+concept and joint workflows.}
 
 \item{phenotype_column}{Name of the mandatory phenotype column shared by all
 modalities.}
@@ -103,35 +98,27 @@ modalities.}
 \item{phenotype_reference}{Reference phenotype level. The default is
 \code{"control"}; an informative error is raised when that level is absent.}
 
-\item{profile_covariates}{Optional covariates allowed to refine phenotype-led
-matching. \code{NULL} discovers every eligible covariate shared by all
-modalities. Phenotype is always included and always remains primary.}
+\item{profile_covariates}{Optional covariates used with the phenotype in the
+shared regression design. \code{NULL} discovers eligible covariates shared by
+all modalities. Phenotype remains the tested term unless another anchor is
+requested explicitly.}
 
-\item{bound_strata}{Covariates used to condition coupling bounds. \code{NULL}
-uses the eligible shared design covariates. This is deliberately separate
-from the variables used for matching.}
+\item{bound_strata}{Retained compatibility setting with no effect on the
+current workflow.}
 
 \item{exchangeability_blocks}{Optional shared design columns within which
 permutation and bootstrap resampling must stay.}
 
-\item{phenotype_alpha}{Family-wise significance threshold for phenotype
-support. \code{NULL} uses \code{alpha}.}
-
-\item{ambiguity_level}{Confidence level for assignment-margin intervals.}
-
-\item{n_ambiguity_boot}{Bootstrap replicates used to assess whether a
-phenotype-compatible assignment is separated from its alternatives. The
-default gives about 25 draws in each 2.5 per cent tail of a 95 per cent
-interval. Zero uses an analytic margin diagnostic without resampling.}
-
-\item{n_cores}{Worker processes for bootstrap and permutation loops. Results
-are deterministic across worker counts. Windows uses a sequential fallback.}
+\item{phenotype_alpha, ambiguity_level, n_ambiguity_boot, n_cores}{Retained
+compatibility settings for earlier assignment diagnostics. They do not
+change current concept, family, joint-state, transfer, or free-dimension
+inference; \code{alpha} controls the current significance flags.}
 }
 \value{
 A named list of the decisions, of class \code{chorale_control}.
 }
 \description{
-A run is decided by more than its data: the threshold a programme must beat,
+A run is decided by more than its data: the threshold a concept must beat,
 how many permutations calibrate it, what counts as a pure feature, how far a
 lipid class must reach into a pathway before the link is used. Left inside
 the code, those choices are invisible to the reader of a result and
@@ -147,7 +134,7 @@ records the whole set.
 }
 \examples{
 # The defaults.
-str(chorale_control()[c("alpha", "n_perm", "purity_ratio")])
+str(chorale_control()[c("alpha", "n_perm", "phenotype_column")])
 
 # An analysis plan fixed before a run is a call, not a paragraph.
 plan <- chorale_control(alpha = 0.01, n_perm = 5000L)

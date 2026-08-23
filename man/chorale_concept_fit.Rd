@@ -54,7 +54,7 @@ An object of class \code{chorale_concept_fit} carrying \code{concepts},
 The whole estimator in one call. A vocabulary of named concepts is built for
 the collection, every modality is scored on it, what the vocabulary does not
 explain is kept as free dimensions, and the design is asked whether each
-concept separates cases from controls.
+concept changes with the configured phenotype contrast.
 }
 \details{
 The order matters and is fixed. Scoring comes before the design is consulted,
@@ -66,7 +66,7 @@ What connects the modalities is the vocabulary, not the design. Two
 modalities measured on different individuals share no sample and need share no
 covariate beyond the phenotype: they meet because both are scored on the same
 named concepts. The design is what supplies the evidence, one modality at a
-time, that a concept moves with the disease.
+time, that a concept moves with the phenotype.
 }
 \examples{
 fx <- chorale_concept_example(seed = 1)

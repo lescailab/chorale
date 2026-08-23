@@ -97,7 +97,8 @@ chorale_concept_families <- function(concepts, min_overlap = 0.25,
 #' @returns An object of class `chorale_family_evidence` with `families`, one
 #'   row per family per phenotype term carrying the family statistic, the
 #'   permutation p-values, the error control and the largest single concept
-#'   statistic inside the family.
+#'   statistic inside the family; and `membership`, the source concept-to-family
+#'   mapping retained for reporting and audit.
 #' @export
 chorale_family_evidence <- function(evidence, families,
                                     control = chorale_control(), ...) {
@@ -175,7 +176,8 @@ chorale_family_evidence <- function(evidence, families,
   out <- out[order(-out$statistic), , drop = FALSE]
   rownames(out) <- NULL
 
-  structure(list(families = out, alpha = control$alpha,
+  structure(list(families = out, membership = families,
+                 alpha = control$alpha,
                  n_permutations = evidence$n_permutations),
             class = "chorale_family_evidence")
 }

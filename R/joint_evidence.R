@@ -1,4 +1,4 @@
-#' Whether a jointly estimated component separates cases from controls
+#' Whether a jointly estimated component changes with the phenotype
 #'
 #' A component of [chorale_joint_state()] is one direction in concept space,
 #' carried by every sample in the collection. This asks whether a sample's
@@ -6,8 +6,8 @@
 #' modalities share and for the modality itself.
 #'
 #' The modality term matters. Without it a component that merely orders the
-#' modalities would appear to separate cases from controls whenever the
-#' modalities differ in case-control composition. With it, only variation
+#' modalities would appear to change with the phenotype whenever the
+#' modalities differ in phenotype composition. With it, only variation
 #' between samples measured the same way contributes, which is the variation the
 #' stacking was arranged to keep.
 #'
@@ -246,7 +246,7 @@ print.chorale_joint_evidence <- function(x, ...) {
 #' The control a permutation cannot supply. Each modality is held out in turn,
 #' the joint state is estimated from the remaining ones, and the held-out
 #' modality's samples are projected onto the concept loadings that came out.
-#' Whether those projections separate cases from controls is then tested in the
+#' Whether those projections change with the phenotype is then tested in the
 #' held-out modality alone.
 #'
 #' The loadings carry nothing from the held-out modality: not its samples, not
@@ -257,7 +257,7 @@ print.chorale_joint_evidence <- function(x, ...) {
 #' and not only about the arithmetic.
 #'
 #' It is also the positive claim rather than only its defence: a direction
-#' estimated without a cohort, which orders that cohort by disease state, is
+#' estimated without a cohort, which orders that cohort by phenotype, is
 #' what it means for the collection to carry something no member carries.
 #'
 #' @param encoding A `chorale_encode` object.

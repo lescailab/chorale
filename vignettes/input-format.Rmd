@@ -1,6 +1,6 @@
 ---
 title: "The input data"
-description: "The container the tables become, the scale each matrix is on, what every column does, and how features reach the vocabulary."
+description: "Matrices, sample tables, organisms, phenotypes, nuisance variables, and exchangeability."
 site_order: 3
 site_wide: true
 output:
@@ -57,7 +57,8 @@ same order. A modality is whatever was measured on its own set of samples: a tra
 proteome, a lipidome, a panel of variant dosages. Each is one matrix and one call.
 
 Row names are the feature identifiers, and they are what reaches the vocabulary of concepts. Gene
-and protein modalities are mapped to Entrez identifiers by [`chorale_map()`](reference/chorale_map),
+and protein modalities are mapped to Entrez identifiers by
+[`chorale_map()`](https://lescailab.github.io/chorale/reference/chorale_map),
 from Ensembl identifiers, symbols or UniProt accessions. A lipidome is declared with
 `feature_space = "lipid"` and reaches the same concepts through its class names instead.
 
@@ -110,6 +111,22 @@ fit <- chorale_concept_fit(containers, sets,
 The phenotype is a condition of entry rather than a covariate. The estimand is a contrast, so a
 modality that cannot express one cannot contribute to it, and a run whose modalities do not all
 carry it stops with that named as the reason.
+
+The column need not literally be called `phenotype`. Its role and reference
+level are analysis settings:
+
+```r
+control <- chorale_control(
+  phenotype_column = "outcome",
+  phenotype_reference = "reference"
+)
+fit <- chorale_concept_fit(containers, sets, control = control)
+```
+
+The phenotype may be any estimable categorical comparison: treatment response,
+exposure group, genotype class, time category, or another study-defined outcome.
+Every modality must contain the declared reference and at least one comparison
+level.
 
 ## What every other column does
 
@@ -179,9 +196,29 @@ Bioconductor annotation the study needs, and the curated vocabulary is retrieved
 species it describes.
 
 ```r
+# Mouse-native collections and mouse annotation.
+mouse_map <- chorale_map(rownames(matrix), from = "ENSEMBL",
+                         orgdb = "org.Mm.eg.db")
+mouse_sets <- chorale_genesets(species = "Mus musculus", db_species = "MM")
+
+# Human collections and human annotation.
 feature_map <- chorale_map(rownames(matrix), from = "ENSEMBL",
                            orgdb = "org.Hs.eg.db")
 sets <- chorale_genesets(species = "Homo sapiens", db_species = "HS")
+```
+
+Another annotated organism uses its Bioconductor `OrgDb`. Curated collections
+can come from a compatible source database or be supplied as custom Entrez sets:
+
+```r
+other_map <- chorale_map(rownames(matrix), from = "SYMBOL",
+                         orgdb = "org.Species.eg.db")
+custom_sets <- list(
+  concept_a = c("101", "102", "103", "104", "105"),
+  concept_b = c("201", "202", "203", "204", "205")
+)
+sets <- chorale_genesets(collections = character(), custom = custom_sets,
+                         min_size = 5)
 ```
 
 The vocabulary is an argument, so a collection can be analysed in curated pathways, in cell type
@@ -200,3 +237,41 @@ Matrices are normalised within each modality before they are loaded. A cross-mod
 that uses the intended answer, or constructed sample pairs, puts information into the scores that
 the design is then asked to find in them, so scoring must see each modality on its own. Batch and
 study variables belong in the design, where their effects are adjusted and reported.
+
+## Shared covariates, local nuisance, and exchangeability
+
+These three ideas are related but not interchangeable.
+
+- A **shared covariate** is represented compatibly in every modality and enters
+  the regression model for concept and joint evidence.
+- A **modality-local nuisance variable** is recorded only for one modality. It
+  can be removed from that modality's concept scores before joint stacking.
+- An **exchangeability block** states which samples may exchange residuals under
+  permutation. It describes sampling or dependence, not merely adjustment.
+
+```r
+state <- chorale_joint_state(
+  fit$encoding,
+  n_components = 2,
+  nuisance = list(modality_a = c("local_batch", "processing_day"))
+)
+
+control <- chorale_control(
+  exchangeability_blocks = c("subject_group", "processing_block")
+)
+```
+
+Do not infer exchangeability blocks from every design column. A continuous age
+column would create one-sample blocks and prevent meaningful permutation.
+Declare only restrictions justified by the way observations were sampled or
+processed. Missing nuisance values are not imputed: samples unavailable to the
+local nuisance model retain their original score.
+
+## Preflight checklist
+
+Before fitting, verify that matrix columns match `sample_id`, the phenotype
+contrast exists in every modality, numeric covariates are stored as numeric,
+identifier mapping reaches the intended concepts, and all transformations and
+normalisations are recorded. Run `chorale_check_design()` and inspect
+`chorale_concepts()$coverage`. These checks distinguish a weak biological signal
+from a question the inputs never made estimable.

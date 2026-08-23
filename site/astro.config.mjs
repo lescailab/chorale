@@ -1,4 +1,5 @@
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
@@ -8,8 +9,10 @@ export default defineConfig({
   outDir: './dist',
   trailingSlash: 'ignore',
   markdown: {
-    remarkPlugins: [remarkMath],
-    rehypePlugins: [rehypeKatex],
+    processor: unified({
+      remarkPlugins: [remarkMath],
+      rehypePlugins: [rehypeKatex],
+    }),
     shikiConfig: { // The high-contrast pair. Every token colour either of them assigns
     // clears WCAG AA against this site's two page grounds; the plain
     // github-light and github-dark do not.

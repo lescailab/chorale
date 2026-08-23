@@ -19,7 +19,8 @@ chorale_family_evidence(evidence, families, control = chorale_control(), ...)
 An object of class \code{chorale_family_evidence} with \code{families}, one
 row per family per phenotype term carrying the family statistic, the
 permutation p-values, the error control and the largest single concept
-statistic inside the family.
+statistic inside the family; and \code{membership}, the source concept-to-family
+mapping retained for reporting and audit.
 }
 \description{
 The statistic is the sum of the combined per-concept statistics across the

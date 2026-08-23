@@ -3,7 +3,7 @@
 #' The whole estimator in one call. A vocabulary of named concepts is built for
 #' the collection, every modality is scored on it, what the vocabulary does not
 #' explain is kept as free dimensions, and the design is asked whether each
-#' concept separates cases from controls.
+#' concept changes with the configured phenotype contrast.
 #'
 #' The order matters and is fixed. Scoring comes before the design is consulted,
 #' so the concept scores cannot have been shaped by the contrast they are then
@@ -14,7 +14,7 @@
 #' modalities measured on different individuals share no sample and need share no
 #' covariate beyond the phenotype: they meet because both are scored on the same
 #' named concepts. The design is what supplies the evidence, one modality at a
-#' time, that a concept moves with the disease.
+#' time, that a concept moves with the phenotype.
 #'
 #' @param containers A named list of [chorale_load()] containers.
 #' @param sets A named list of concepts, as returned by [chorale_genesets()], or
@@ -99,7 +99,7 @@ chorale_concept_fit <- function(containers, sets,
 #' A collection with named concepts planted in it
 #'
 #' Documentation, tests and recovery curves all need a collection where named
-#' concepts really do separate cases from controls, on features the modalities
+#' concepts really do differ across a phenotype contrast, on features the modalities
 #' share by name. This builds one directly rather than deriving it from a factor
 #' model, so what each concept does is stated rather than inferred.
 #'
@@ -112,11 +112,12 @@ chorale_concept_fit <- function(containers, sets,
 #'
 #' @param n_samples Samples per modality.
 #' @param n_features Features per modality.
-#' @param effect Shift, in standard deviations, applied in cases to the members
+#' @param effect Shift, in standard deviations, applied in the non-reference
+#'   phenotype group to the members
 #'   of every planted concept.
 #' @param n_modalities Modalities in the collection, on disjoint samples.
 #' @param n_concepts Concepts in the vocabulary.
-#' @param n_planted Concepts of those that carry the case-control shift. The
+#' @param n_planted Concepts of those that carry the phenotype shift. The
 #'   rest are the vocabulary the estimator must leave alone.
 #' @param coverage Share of each concept's members a modality measures.
 #' @param seed Integer seed.

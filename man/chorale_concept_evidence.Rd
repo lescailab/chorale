@@ -2,7 +2,7 @@
 % Please edit documentation in R/concept_evidence.R
 \name{chorale_concept_evidence}
 \alias{chorale_concept_evidence}
-\title{Whether each concept separates cases from controls}
+\title{Whether each concept changes with the configured phenotype contrast}
 \usage{
 chorale_concept_evidence(
   encoding,
@@ -59,15 +59,14 @@ Agreement is reported beside the combined statistic, because a large combined
 statistic carried by one modality against the others is a different finding
 from the same statistic carried by all of them.
 
-Significance is calibrated by permuting the phenotype within strata of
-otherwise-alike samples. The permutation acts on the design and leaves the
-assay untouched, so the concept scores are computed once and reused: nothing
-is refitted, and the number of permutations is set by the resolution the
-report needs rather than by what a refit can afford. Two levels of error
-control follow from the same permutations. The family-wise p-value compares
-each concept with the largest statistic anywhere in the vocabulary, which is
-exact under the dependence curated sets have because they overlap. The
-q-value is the false discovery rate the same null implies at that threshold.
+Significance is calibrated with a Freedman--Lane residual permutation. The
+design is held fixed; the reduced model without the effect under test is
+fitted, and the part of each score it does not explain is exchanged. Declared
+exchangeability blocks restrict those exchanges. The concept scores are
+computed once and reused, so the permutation count sets the resolution of the
+reported p-values. The family-wise p-value compares each concept with the
+largest statistic anywhere in the vocabulary, while the q-value estimates
+the false discovery rate from the same dependent permutation array.
 
 Overlapping concepts are not independent claims. Each supported concept is
 therefore also reported after the concepts it overlaps have been regressed

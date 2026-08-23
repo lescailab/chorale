@@ -48,7 +48,7 @@ them.
 \details{
 Three dials matter and each asks a different question. \strong{Sample size} asks
 whether bulk cohorts are large enough. \strong{Effect size} asks how strong a
-concept's separation of cases from controls has to be. \strong{Vocabulary
+concept's phenotype contrast has to be. \strong{Vocabulary
 coverage} asks how far the vocabulary has to reach into a modality's
 measured features, which is the question a modality with an incomplete
 annotation raises.

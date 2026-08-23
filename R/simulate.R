@@ -7,8 +7,8 @@
 #' provides a demanding ICA simulation. These choices are not presented as
 #' identification conditions for CHORALE's phenotype correspondence.
 #'
-#' A shared factor is what the estimator should recover as one cross-modality
-#' programme. Its correspondence across modalities is carried by its
+#' A shared factor is what a component-recovery benchmark should recover across
+#' modalities. Its correspondence across modalities is carried by its
 #' **design signature**, one weight per design contrast, which is the same in
 #' every modality; its remaining, design-independent variation is drawn
 #' independently per modality, since the individuals are disjoint. Matching two
@@ -45,7 +45,7 @@
 #'   noise.
 #' @param effect_size Magnitude of the design signatures carried by the shared
 #'   factors, in units of the latent scale. Zero detaches the shared factors
-#'   from the design, which is the complete null the matching is calibrated
+#'   from the design, which is the complete null the recovery benchmark is calibrated
 #'   against.
 #' @param signature Optional matrix of design weights, one row per shared factor
 #'   and one column per design term, shared across modalities. The terms are the
@@ -53,7 +53,7 @@
 #'   share where `profile` is given; [chorale_signature_terms()] reports them.
 #'   When absent each shared factor is given a distinct dominant contrast.
 #'   Supplying a signature in which two factors respond to the phenotype the
-#'   same way is how a same-response, distinct-programme adversarial case is
+#'   same way is how a same-response, distinct-component adversarial case is
 #'   built.
 #' @param confounder Optional named list adding a nuisance covariate correlated
 #'   with the phenotype, with elements `name`, `rho` (the correlation) and
@@ -247,7 +247,7 @@ chorale_simulate <- function(n_modalities = 3,
     batch <- rep("batch1", n_m)
     if (!is.null(confounder)) {
       # A nuisance covariate correlated with the phenotype, loading on the
-      # shared factors, so a matched programme can be probed for whether it
+      # shared factors, so a matched component can be probed for whether it
       # tracks the phenotype or the confounder.
       z <- ifelse(cells$phenotype == "case", 1, -1) * confounder$rho +
         stats::rnorm(n_m) * sqrt(1 - confounder$rho^2)
@@ -582,7 +582,7 @@ chorale_apply_marginals <- function(x, profile, donor) {
 #' directions restore it. Their scores are Gaussian, so they add covariance
 #' without adding anything a component analysis driven by non-Gaussianity could
 #' recover as a source, and they are orthonormal in feature space, so they
-#' occupy it evenly rather than concentrating on the features a programme
+#' occupy it evenly rather than concentrating on the features a component
 #' already uses.
 #'
 #' @keywords internal

@@ -14,7 +14,7 @@ vignette: >
 
 <div class="note">
 <span class="lab">What this produces</span>
-<p>Collections in which named concepts are known to separate cases from controls. With them: a
+<p>Collections in which named concepts are known to carry a phenotype contrast. With them: a
 score for how much of that planting the estimator gave back, and a placement of concept-space
 recovery between the best any method could reach and alignment at random.</p>
 </div>
@@ -22,7 +22,7 @@ recovery between the best any method could reach and alignment at random.</p>
 The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
 named biological concepts. A concept is a set of features that belong together for a stated
 biological reason, and every modality is scored on the same concepts. A validation therefore has to
-answer two questions that no real cohort can. Are the concepts that take part in the disease the
+answer two questions that no real cohort can. Are the concepts that move with the phenotype the
 ones that get called? And does a concept scored in one modality track the same concept scored in
 another?
 
@@ -47,13 +47,13 @@ properties of a real assay it does not capture bounds what recovery on it establ
 
 | Construction | What is simulated | What it establishes |
 |---|---|---|
-| Planted concepts | Named concepts that separate cases from controls in every modality that expresses them | Whether the concepts that take part get called, and whether the rest of the vocabulary stays quiet |
+| Planted concepts | Named concepts that carry the phenotype contrast in every modality that expresses them | Whether the concepts that take part get called, and whether the rest of the vocabulary stays quiet |
 | Borrowed observation model | The same structure, read through the marginals, missingness, correlation and design cells of real layers | How recovery changes when the matrix has the shape of the data the method is applied to |
 | Withheld pairing | Two modalities measured on the same individuals, encoded as though disjoint | Whether the identity the vocabulary asserts is the correspondence the pairing shows |
 
 ## Planting concepts
 
-`chorale_concept_example()` builds a collection in which named concepts carry a case-control shift.
+`chorale_concept_example()` builds a collection in which named concepts carry a phenotype shift.
 The vocabulary, how many of its concepts are planted, how many features a modality measures of each,
 and the size of the shift are all arguments.
 
@@ -83,7 +83,7 @@ Which control decides a call is an argument, because the two answer different qu
 
 `chorale_plant()` plants concepts into the observation model of real layers instead. The planting
 and scoring vocabularies are the same one, because a concept is planted and recovered by name: the
-question is whether the design shows it separating cases from controls, not whether its composition
+question is whether the design shows it changing with the phenotype, not whether its composition
 can be rediscovered.
 
 ## Recovery curves
@@ -110,7 +110,7 @@ samples per cohort with concepts of about thirty features. The false positive ra
 the level it was called at throughout, and at a shift of zero the ranking sits at chance, which is
 what a calibrated null looks like from this side.
 
-**Effect size** asks how strong a concept's separation of cases from controls has to be. The unit is
+**Effect size** asks how strong a concept's phenotype contrast has to be. The unit is
 the shift in each member feature, not in the concept score, and the difference matters. A concept
 score is a mean over its members, so a shift of \(d\) in each of \(m\) members that are otherwise
 independent moves the score by about \(d\sqrt{m}\). Concept scoring aggregates, which is why
@@ -193,6 +193,37 @@ r$concept_recovery
 
 The benchmark takes any two modalities measured on the same individuals and any vocabulary, so it is
 a property of the estimator rather than of one collection.
+
+## Validating families and joint transfer
+
+Concept recovery alone does not validate the newer group and joint analyses.
+Their simulations need distinct targets.
+
+For a concept family, plant modest concordant shifts across several overlapping
+concepts and compare them with families whose members point in opposite
+directions. Recovery means the concordant family statistic gains power while the
+discordant sum cancels, with family-wise error controlled under a complete
+null. Because the definitions overlap, every member must reuse the same signed
+permutation draw; independent null draws would be an invalid benchmark.
+
+For a joint state, plant a low-rank pattern over several concept columns in
+every modality, then assess four properties separately:
+
+1. reconstruction over observed entries;
+2. loading stability across starts and sample perturbations;
+3. calibrated phenotype evidence on the fitted scores; and
+4. leave-one-modality-out prediction in a modality excluded from fitting.
+
+The fourth is the strongest test of cross-modality portability. It still does
+not prove a component is a unique latent mechanism: sign, order, and rotations
+remain non-identifiable, and more than one low-rank basis can describe the same
+reconstruction. Simulations should therefore compare loading subspaces or
+matched directions, not raw component labels.
+
+Coverage missing by modality must also be planted explicitly. Joint-state
+selection currently uses a zero-filled matrix for reproducibility selection and
+the observed-entry mask for fitting. A validation should vary that coverage
+pattern so selection artefacts are not mistaken for biological rank.
 
 ## Conditions of applicability
 

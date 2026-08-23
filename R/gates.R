@@ -12,21 +12,22 @@
 #'     so the question is only meaningful against that calibration.}
 #'   \item{modality-difference diagnostic}{How different are the component
 #'     distributions across modalities? This is descriptive and does not gate
-#'     matching.}
+#'     component recovery.}
 #'   \item{detectability}{How many components stand above what the same matrix
 #'     produces with its covariance destroyed, and above the spiked-covariance
 #'     threshold implied by its shape?}
 #'   \item{anchor richness}{How many design strata are populated, and how many
 #'     of those are shared across the modalities? The design is what stands in
 #'     for matched individuals: no individual appears in two modalities, so the
-#'     comparison is anchored on the strata the modalities have in common.}
+#'     comparison of phenotype effects is adjusted on design information rather
+#'     than on matched individuals.}
 #' }
 #'
 #' Distributional diagnostics are evaluated in R on components recovered by
 #' the same estimator the free dimensions are recovered with. The estimator does not
 #' claim unique latent-state recovery: its permutation inference is conditional
 #' on stable, detectable fitted factors. Consequently cross-modality shape is
-#' not an identification condition for the reported phenotype correspondence,
+#' not an identification condition for the reported phenotype evidence,
 #' and non-Gaussianity is shown as an ICA diagnostic rather than a theorem gate.
 #'
 #' @param containers A named list of `SummarizedExperiment` objects, as

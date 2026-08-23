@@ -1,7 +1,7 @@
 #' Score a fit against the concepts that were planted in it
 #'
 #' On simulated data the answer is known, which no real cohort supplies: a
-#' recorded cohort does not say which named concepts take part in the disease.
+#' recorded cohort does not say which named concepts move with the phenotype.
 #' Two questions decide whether the estimator recovered the planting. Were the
 #' planted concepts called? And did the rest of the vocabulary stay quiet? A
 #' method that calls everything answers the first and fails the second, so both
@@ -113,7 +113,7 @@ chorale_planted_names <- function(planted) {
 #'
 #' Three dials matter and each asks a different question. **Sample size** asks
 #' whether bulk cohorts are large enough. **Effect size** asks how strong a
-#' concept's separation of cases from controls has to be. **Vocabulary
+#' concept's phenotype contrast has to be. **Vocabulary
 #' coverage** asks how far the vocabulary has to reach into a modality's
 #' measured features, which is the question a modality with an incomplete
 #' annotation raises.

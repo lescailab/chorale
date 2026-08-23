@@ -7,7 +7,17 @@
 \usage{
 chorale_report(fit, null = NULL, path, ...)
 
-\method{chorale_report}{chorale_concept_fit}(fit, null = NULL, path, n_top = 10L, ...)
+\method{chorale_report}{chorale_concept_fit}(
+  fit,
+  null = NULL,
+  path,
+  family_evidence = NULL,
+  joint_state = NULL,
+  joint_evidence = NULL,
+  joint_transfer = NULL,
+  n_top = 10L,
+  ...
+)
 }
 \arguments{
 \item{fit}{A \code{chorale_concept_fit}.}
@@ -18,6 +28,17 @@ is absent no control table is written.}
 \item{path}{Directory to write into. Created if absent.}
 
 \item{...}{Passed to the method.}
+
+\item{family_evidence}{Optional fitted \code{\link[=chorale_family_evidence]{chorale_family_evidence()}} object.}
+
+\item{joint_state}{Optional fitted \code{\link[=chorale_joint_state]{chorale_joint_state()}} object.}
+
+\item{joint_evidence}{Optional fitted \code{\link[=chorale_joint_evidence]{chorale_joint_evidence()}} object.}
+
+\item{joint_transfer}{Optional fitted \code{\link[=chorale_joint_transfer]{chorale_joint_transfer()}} object.
+Reporting never computes these analyses: only objects supplied here are
+written, so component counts, nuisance covariates, family thresholds and
+permutation counts remain explicit analysis decisions.}
 
 \item{n_top}{Features named per free dimension.}
 }

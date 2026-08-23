@@ -12,8 +12,10 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-`chorale_report()` writes `report.html` and the machine-readable tables beside it. The HTML uses the
-same values as the tables and states which controls were run, so it is the place to start.
+`chorale_report()` writes `report.html` and machine-readable tables beside it.
+The concept files are always written. Family and joint files are written only
+when the corresponding already fitted objects are supplied. The HTML analysis
+status distinguishes “not supplied” from an empty or nonsignificant result.
 
 The modalities were measured on different individuals, so what connects them is a fixed vocabulary
 of named biological concepts. A concept is a set of features that belong together for a stated
@@ -29,7 +31,7 @@ One row per concept and phenotype contrast.
 | `concept`, `term` | The concept and the phenotype contrast the row is about. |
 | `n_modalities`, `modalities` | How many modalities express the concept, and which. |
 | `in_all_modalities` | Whether every modality of the collection expresses it. |
-| `effect_<m>`, `z_<m>` | The adjusted case-control effect in modality `m`, in standard deviations of the concept score, and its ratio to its standard error. |
+| `effect_<m>`, `z_<m>` | The adjusted phenotype contrast in modality `m`, in standard deviations of the concept score, and its ratio to its standard error. |
 | `joint_effect`, `joint_z` | The inverse-variance combination across the modalities that express the concept. |
 | `sign_agreement` | Share of those modalities whose effect points the same way as the combination. |
 | `heterogeneity_p` | Cochran's Q for the modalities being one quantity. A small value means they are not. |
@@ -43,7 +45,9 @@ One row per concept and phenotype contrast.
 Four columns decide how much a supported concept is worth, and they answer different questions.
 `joint_z` says how strong the combined evidence is. `sign_agreement` says whether the modalities
 agree; a large statistic with agreement of 0.5 is one modality carrying the others.
-`heterogeneity_p` says whether they are consistent with one underlying effect. `attributed_z` says
+`heterogeneity_p` tests for excess disagreement. A small value warns against one
+common effect; a large value does not prove equality, especially with few
+modalities. `attributed_z` says
 whether the signal belongs to the concept or to the concepts it overlaps.
 
 `p_family` and `q_value` control different things and neither is a correction applied to the other.
@@ -79,8 +83,11 @@ are reporting the same signal twice.
 
 `concept_variance.tsv` gives the share each concept carries on its own, in each modality.
 
-A concept share of one, with `n_free` and `free_ceiling` both zero, says the vocabulary spans that
-modality's sample space. The concept scores then reproduce the assay exactly and nothing is left to
+A concept share of one, with `n_free` and `free_ceiling` both zero, says the
+realised concept-score matrix spans the centred sample space for that modality.
+Having more concepts than samples makes this possible but does not guarantee it.
+When the realised span is full, the
+concept scores reproduce the assay exactly and nothing is left to
 decompose, so the modality has no free channel in that run. Scoring the same collection on a
 vocabulary smaller than the modality's sample count is what makes the question answerable.
 
@@ -94,8 +101,8 @@ carried here.
 | `modality`, `dimension` | Which free dimension the row is about. |
 | `variance_share` | Share of the modality's variance this dimension reconstructs. The dimensions of a modality sum to the free share the channel carries; where they cannot, no per-dimension share is reported. |
 | `reproducibility` | Mean matched correlation with the same dimension recovered from other initialisations. |
-| `effect`, `se`, `z` | The adjusted case-control effect on the dimension. |
-| `p_value`, `p_family` | Calibrated against the same permuted phenotypes as the concepts, with `p_family` taken against the largest statistic over every free dimension. |
+| `effect`, `se`, `z` | The adjusted phenotype contrast on the dimension. |
+| `p_value`, `p_family` | Calibrated from rebuilt score residuals with the design fixed; `p_family` is taken against the largest statistic over every free dimension. |
 | `outside_vocabulary` | Whether the dimension is called at the configured level. |
 | `top_features` | The features loading on it most heavily. |
 
@@ -157,9 +164,81 @@ object that produced them, so an analysis resumes from it without the tables hav
 One row per sample, one column per concept or free dimension. These are the quantities every table
 above is computed from, so they are what a downstream analysis of the same collection starts from.
 
+## `concept_families.tsv` and `family_evidence.tsv`
+
+These files appear when `family_evidence` is supplied to `chorale_report()`.
+
+`concept_families.tsv` is the audit trail for construction: one row per concept,
+with `family` and `family_size`. A singleton is retained rather than discarded.
+`family_evidence.tsv` contains one row per family and phenotype term.
+
+| Column | Meaning |
+|---|---|
+| `statistic` | Absolute signed sum of member z-statistics divided by the square root of family size. |
+| `mean_z` | Mean signed member statistic; its sign is meaningful because concept scores have fixed orientation. |
+| `best_single_z` | Largest absolute statistic of one member, for comparison with the group result. |
+| `p_value` | Family-specific permutation p-value. |
+| `p_family` | P-value against the largest family statistic in each permutation. |
+| `q_value` | Estimated FDR over the tested families. |
+| `members` | Semicolon-separated concepts contributing to the row. |
+
+A supported family says its members move coherently as a group. It does not say
+that every listed concept is individually supported or independently measured.
+
+## Joint-state audit files
+
+These files appear when `joint_state` is supplied.
+
+- `joint_scores.tsv`: `sample_id`, `modality`, and one score per component.
+- `joint_loadings.tsv`: `concept` and its signed loading on each component.
+- `joint_variance.tsv`: the observed-entry rank-one share per component.
+- `joint_coverage.tsv`: samples and observed concepts contributed by modality.
+- `joint_nuisance.tsv`: modality-local covariates removed before stacking.
+
+Component signs are arbitrary. A negative loading is meaningful only relative
+to other loadings in the same chosen orientation. The component shares describe
+rank-one fitted energy over observed entries; with missing concept blocks they
+need not sum to an exact partition.
+
+## `joint_components.tsv` and `joint_component_effects.tsv`
+
+These appear when `joint_evidence` is supplied. `joint_components.tsv` carries
+the combined adjusted effect, standard error, z-statistic, component share,
+component-specific p-value, max-component `p_family`, permutation `q_value`, and
+the two significance flags. `joint_component_effects.tsv` gives the same
+adjusted effect within each modality as context.
+
+The joint effect sign reverses if the component is reoriented. Read magnitude
+and calibrated error rates first, then define direction from loadings. A
+component can be significant jointly while being weak in one modality; local
+effects are reported, not used as a hidden inclusion rule.
+
+## `joint_transfer.tsv`
+
+This appears when `joint_transfer` is supplied. Each row gives the held-out
+modality, training modalities, reference `component`, local
+`fitted_component`, signed `loading_agreement`, concept and sample counts, and
+the held-out effect, uncertainty, z-statistic, and p-value.
+
+The p-value is component-specific and not corrected over the whole transfer
+table. Rows sharing `component` have been matched to the same full-data
+reference direction. If `loading_agreement` is negative, the local orientation
+is reversed; compare effect signs only after accounting for that reversal. Low
+absolute agreement means the reference label is weak even if the held-out
+component has a small p-value.
+
+## Reading absence correctly
+
+| State | Meaning |
+|---|---|
+| File not written and HTML says `not supplied` | The caller did not include that fitted analysis. No statistical conclusion follows. |
+| File written with zero rows | The analysis was supplied but produced no estimable row. Read coverage, component count, and prerequisites. |
+| Rows present and not significant | The quantity was tested and did not beat the stated null at the available permutation resolution. |
+| Smallest attainable p-value above the decision threshold | The resampling plan could not express the desired claim, regardless of the observed statistic. |
+
 ## What a supported concept establishes
 
-A coordinated case-control shift in a named piece of biology, seen in the modalities that express
+A coordinated phenotype shift in a named piece of biology, seen in the modalities that express
 the concept, at a stated error rate. Ordering cause and consequence requires timing, mediation or
 perturbation. Attribution to the concept rather than to its neighbourhood is what `attributed_z`
 reports, and a concept whose statistic collapses there describes the region of the vocabulary it

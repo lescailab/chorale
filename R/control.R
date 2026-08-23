@@ -1,6 +1,6 @@
-#' Every decision the estimator makes, in one object
+#' Analysis settings recorded with a CHORALE fit
 #'
-#' A run is decided by more than its data: the threshold a programme must beat,
+#' A run is decided by more than its data: the threshold a concept must beat,
 #' how many permutations calibrate it, what counts as a pure feature, how far a
 #' lipid class must reach into a pathway before the link is used. Left inside
 #' the code, those choices are invisible to the reader of a result and
@@ -13,27 +13,24 @@
 #' caller who does care sets only what they mean to change, and the result
 #' records the whole set.
 #'
-#' @param alpha Significance threshold a programme's joint evidence must beat,
+#' @param alpha Significance threshold a concept's combined evidence must beat,
 #'   and the level at which false discovery is controlled.
 #' @param n_perm Permutations calibrating the design channel. The smallest
 #'   attainable p-value is `1 / (n_perm + 1)`, so a threshold the count cannot
 #'   reach is not reportable.
-#' @param n_pathway_perm Score-residual permutations calibrating the
-#'   pathway channel. Zero skips the channel.
+#' @param n_pathway_perm Retained for compatibility with earlier releases; the
+#'   concept workflow takes its permutation count from `n_permutations` or
+#'   `n_perm` and does not use this setting.
 #' @param n_init Initialisations of the factorisation per modality.
 #' @param consensus Deprecated compatibility switch. Factors are always taken
 #'   from the medoid stable run; aligned-run averaging is not an ICA solution.
-#' @param require_pure_features Optional diagnostic filter: report only
-#'   programmes whose every member passes the requested loading-purity rule.
-#'   This is not an identification condition and defaults to `FALSE`.
-#' @param purity_ratio A feature is pure for a factor when its largest
-#'   competing loading is at most this fraction of its own.
-#' @param min_markers Features a factor needs to pass the optional purity
-#'   diagnostic.
-#' @param max_markers Markers retained per factor.
+#' @param require_pure_features,purity_ratio,min_markers,max_markers Retained
+#'   compatibility settings for older component diagnostics. They do not filter
+#'   concept, family, joint-state, transfer, or free-dimension report rows.
 #' @param lambda Ridge penalty on the curated-set coefficients.
-#' @param min_set_features Features of a modality a curated set must contain
-#'   before it can describe that modality.
+#' @param min_set_features Retained compatibility setting. Concept coverage is
+#'   controlled by `min_features` in [chorale_concepts()] or
+#'   [chorale_concept_fit()].
 #' @param min_lipid_compounds Distinct compounds of a lipid class a pathway must
 #'   be annotated with before the link is used.
 #' @param min_lipid_specificity Share of a pathway's annotated compounds a lipid
@@ -52,34 +49,30 @@
 #' @param max_factors Optional further upper bound on a factor count chosen
 #'   from the data. `NULL` leaves the ceiling to the modality's sample count,
 #'   which [chorale_n_factors()] caps at one component per five samples.
-#' @param n_grid Quantiles representing each marginal when bounding a coupling.
+#' @param n_grid Retained compatibility setting with no effect on the current
+#'   concept and joint workflows.
 #' @param phenotype_column Name of the mandatory phenotype column shared by all
 #'   modalities.
 #' @param phenotype_reference Reference phenotype level. The default is
 #'   `"control"`; an informative error is raised when that level is absent.
-#' @param profile_covariates Optional covariates allowed to refine phenotype-led
-#'   matching. `NULL` discovers every eligible covariate shared by all
-#'   modalities. Phenotype is always included and always remains primary.
-#' @param bound_strata Covariates used to condition coupling bounds. `NULL`
-#'   uses the eligible shared design covariates. This is deliberately separate
-#'   from the variables used for matching.
+#' @param profile_covariates Optional covariates used with the phenotype in the
+#'   shared regression design. `NULL` discovers eligible covariates shared by
+#'   all modalities. Phenotype remains the tested term unless another anchor is
+#'   requested explicitly.
+#' @param bound_strata Retained compatibility setting with no effect on the
+#'   current workflow.
 #' @param exchangeability_blocks Optional shared design columns within which
 #'   permutation and bootstrap resampling must stay.
-#' @param phenotype_alpha Family-wise significance threshold for phenotype
-#'   support. `NULL` uses `alpha`.
-#' @param ambiguity_level Confidence level for assignment-margin intervals.
-#' @param n_ambiguity_boot Bootstrap replicates used to assess whether a
-#'   phenotype-compatible assignment is separated from its alternatives. The
-#'   default gives about 25 draws in each 2.5 per cent tail of a 95 per cent
-#'   interval. Zero uses an analytic margin diagnostic without resampling.
-#' @param n_cores Worker processes for bootstrap and permutation loops. Results
-#'   are deterministic across worker counts. Windows uses a sequential fallback.
+#' @param phenotype_alpha,ambiguity_level,n_ambiguity_boot,n_cores Retained
+#'   compatibility settings for earlier assignment diagnostics. They do not
+#'   change current concept, family, joint-state, transfer, or free-dimension
+#'   inference; `alpha` controls the current significance flags.
 #'
 #' @returns A named list of the decisions, of class `chorale_control`.
 #' @export
 #' @examples
 #' # The defaults.
-#' str(chorale_control()[c("alpha", "n_perm", "purity_ratio")])
+#' str(chorale_control()[c("alpha", "n_perm", "phenotype_column")])
 #'
 #' # An analysis plan fixed before a run is a call, not a paragraph.
 #' plan <- chorale_control(alpha = 0.01, n_perm = 5000L)

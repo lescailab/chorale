@@ -41,8 +41,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     the sample, each platform needs its own preparation, and the layers of a study usually come
     from different groups at different times. CHORALE scores every modality on one fixed vocabulary
     of named biological concepts, then asks two questions of it. Whether the design of each study
-    supports a named concept, and whether the collection as a whole carries a state that no
-    modality in it could have found alone.
+    supports a named concept, and what low-rank state is supported by the collection as a whole.
   </p>
   <div class="btnrow">
     <a class="btn" href={base + '/tutorial'}>Run the tutorial</a>
@@ -52,7 +51,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </section>
 
 <section class="fig reveal">
-  <svg viewBox="0 0 900 372" role="img" aria-label="Three cohorts with no individual in common are each scored on one fixed vocabulary of named concepts. The concept scores then branch: on one side the design of each study gives an adjusted case-control effect per concept, and concepts whose effects agree across the modalities that express them are the result; on the other every sample is stacked against every concept and decomposed once, giving a single direction over the whole vocabulary that no modality could have identified alone.">
+  <svg viewBox="0 0 900 372" role="img" aria-label="Three cohorts with no individual in common are each scored on one fixed vocabulary of named concepts. The concept scores then branch: on one side the design of each study gives an adjusted phenotype effect per concept and the effects are combined; on the other every sample is stacked against every concept and the observed entries are fitted with one low-rank model.">
     <defs>
       <linearGradient id="g" x1="0" x2="1">
         <stop offset="0" style="stop-color:var(--accent);stop-opacity:.14"/>
@@ -116,7 +115,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <rect x="20" y="326" width="400" height="36" rx="9" fill="url(#g)"/>
     <text x="220" y="349" text-anchor="middle" font-size="12.5" class="t-strong">concepts the design supports</text>
     <rect x="480" y="326" width="400" height="36" rx="9" fill="url(#g)"/>
-    <text x="680" y="349" text-anchor="middle" font-size="12.5" class="t-strong">a state no single layer could find</text>
+    <text x="680" y="349" text-anchor="middle" font-size="12.5" class="t-strong">a state fitted across the collection</text>
   </svg>
   <p class="cap">
     No individual appears twice, and the cohorts need not be the same size. Two modalities need
@@ -124,8 +123,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     moves with the phenotype in each of them. The concept scores then branch. On the left each
     modality is read separately and the answers combined, so what is estimated is a quantity a
     modality could have estimated alone. On the right every sample is stacked against every concept
-    and decomposed once, which recovers a direction over a space larger than any modality's sample
-    count.
+    and fitted once, which estimates directions from more samples and broader concept coverage than
+    any single modality contributes.
   </p>
 </section>
 
@@ -141,7 +140,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <div class="card">
       <span class="num">02</span>
       <h3>A few hundred stated hypotheses</h3>
-      <p>Each modality is asked whether a named concept separates cases from controls, under
+      <p>Each modality is asked whether a named concept changes with the configured phenotype, under
          family-wise control across the whole vocabulary and a false discovery rate estimated over
          the same permutations.</p>
     </div>
@@ -154,18 +153,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     </div>
     <div class="card">
       <span class="num">04</span>
-      <h3>A state no single layer could find</h3>
+      <h3>A state estimated from the collection</h3>
       <p>The concept scores of every modality share their columns, so they stack into one matrix of
          every sample against every concept and are decomposed once. The direction that comes out
-         lives in a space larger than any modality's sample count, which is what makes it
-         unavailable to a modality on its own.</p>
+         uses the samples and observed concept coverage of the whole collection. It is a fitted
+         low-rank summary, not a uniquely identified mechanism.</p>
     </div>
     <div class="card">
       <span class="num">05</span>
       <h3>Tested where it was not estimated</h3>
       <p>Each modality is held out, the state is estimated from the rest, and the held-out cohort is
          projected onto loadings carrying none of it: not its samples, batches, assay or
-         preparation. A batch effect cannot predict a phenotype in a cohort sharing none of it.</p>
+         preparation. This tests portability beyond the assay structure used for fitting.</p>
     </div>
     <div class="card">
       <span class="num">06</span>
@@ -216,7 +215,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p>
     Alongside it, <code>chorale_concept_specificity()</code> puts each covariate the modalities
     share in the phenotype's place, on the terms that covariate contributes, which separates a
-    concept that tracks the disease from one tracking something the cohorts differ in.
+         concept that tracks the phenotype from one tracking something the cohorts differ in.
   </p>
 </section>
 
@@ -230,9 +229,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     every sample against every concept, decomposed once.
   </p>
   <p>
-    The result is a direction over the whole vocabulary. Where the vocabulary holds more concepts
-    than a modality has samples, no modality can identify such a direction and the stacked
-    collection can. A concept a modality cannot express is missing rather than zero: after centring
+    The result is a fitted direction over the whole vocabulary. Stacking increases the number and
+    diversity of observed rows and allows concepts with incomplete coverage to contribute where
+    they are measured; it does not make an individual component uniquely identifiable. A concept a
+    modality cannot express is missing rather than zero: after centring
     within modality, zero would be a claim that the modality measured exactly average, so the entry
     carries no weight instead and the narrowest layer never bounds the vocabulary.
   </p>
@@ -251,7 +251,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     rest, and projects the held-out cohort onto loadings containing none of it. A permutation asks
     whether structure could arise by chance under this design; transfer asks whether it survives in
     a cohort sharing no individual, batch, assay or preparation with the one that produced it. It is
-    the defence against a batch effect and the positive claim at the same time.
+    evidence of portability beyond modality-specific structure, while remaining an association
+    rather than a causal claim.
   </p>
 </section>
 
@@ -296,13 +297,19 @@ chorale_free_dimensions(fit)          # what moved with the phenotype unnamed
 chorale_concept_specificity(fit)      # whether another covariate does the same
 
 families &lt;- chorale_concept_families(concepts)
-chorale_family_evidence(fit$evidence, families)   # concepts that move as a group
+family_result &lt;- chorale_family_evidence(fit$evidence, families)
 
 state &lt;- chorale_joint_state(fit$encoding, nuisance = list(RNA = "study"))
-chorale_joint_evidence(state)                     # one state, every sample at once
-chorale_joint_transfer(fit$encoding)              # tested where it was not estimated
+joint_result &lt;- chorale_joint_evidence(state)
+transfer &lt;- chorale_joint_transfer(fit$encoding)
 
-chorale_report(fit, chorale_null(fit, containers), "results/")</code></pre>
+chorale_report(
+  fit, chorale_null(fit, containers), "results/",
+  family_evidence = family_result,
+  joint_state = state,
+  joint_evidence = joint_result,
+  joint_transfer = transfer
+)</code></pre>
   <p>
     The <a href={base + '/tutorial'}>tutorial</a> runs this end to end on simulated data and explains
     every number it prints.
@@ -314,7 +321,7 @@ chorale_report(fit, chorale_null(fit, containers), "results/")</code></pre>
 <pre><code># install.packages("devtools")
 devtools::install_github("lescailab/chorale")</code></pre>
   <p>
-    R 4.4 or later. Bioconductor dependencies resolve through <code>BiocManager</code>.
+    R 4.5 or later. Bioconductor dependencies resolve through <code>BiocManager</code>.
     The <a href={base + '/tutorial'}>tutorial</a> runs end to end on simulated data, so nothing
     needs downloading to see the whole workflow.
   </p>

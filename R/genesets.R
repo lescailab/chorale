@@ -9,8 +9,8 @@
 #' [chorale_genesets()], changes which vocabulary a collection is scored on,
 #' without touching the estimator.
 #'
-#' The default registry is deliberately organism-agnostic and disease-agnostic.
-#' Collections tied to one disease would name factors in terms of the answer
+#' The default registry is deliberately organism-agnostic and phenotype-agnostic.
+#' Collections tied to one phenotype would name concepts in terms of the answer
 #' being sought, and the species is a parameter rather than a fixed choice, so
 #' the same registry serves a human analysis unchanged.
 #'

@@ -86,10 +86,10 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
     concept_share <- if (total > 0) 1 - sum(residual^2) / total else NA_real_
 
     k <- free_of[[m]]
-    # A vocabulary with more concepts than the modality has samples spans the
-    # whole sample space, so the projection reproduces the assay and the
-    # residual is numerical dust. There is then nothing outside the vocabulary
-    # to decompose, and factorising dust would report noise as free dimensions.
+    # Where the realised concept-score matrix has full row rank, its span is the
+    # whole centred sample space. The projection then reproduces the assay and
+    # the residual is numerical dust. Having at least as many concepts as
+    # samples makes this possible but does not guarantee the required rank.
     residual_share <- if (total > 0) sum(residual^2) / total else 0
     exhausted <- !is.finite(residual_share) || residual_share < 1e-8
     ceiling_k <- if (exhausted) 0L else {

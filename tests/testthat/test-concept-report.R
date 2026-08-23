@@ -5,6 +5,23 @@ report_fit <- function(seed = 1, n_free = 2, ...) {
                                  n_permutations = 199, n_init = 2))
 }
 
+report_additions <- function(seed = 7) {
+  fx <- chorale_concept_example(n_samples = 30, n_features = 120,
+                                n_modalities = 3, n_concepts = 4,
+                                seed = seed)
+  fit <- chorale_concept_fit(fx$containers, fx$sets, n_free = 1,
+                             n_permutations = 19, n_init = 2)
+  membership <- chorale_concept_families(fit$concepts, min_overlap = 0.9)
+  family_evidence <- chorale_family_evidence(fit$evidence, membership)
+  joint_state <- chorale_joint_state(fit$encoding, n_components = 1)
+  joint_evidence <- chorale_joint_evidence(joint_state, n_permutations = 19)
+  joint_transfer <- chorale_joint_transfer(fit$encoding, n_components = 1,
+                                           n_permutations = 19)
+  list(fit = fit, family_evidence = family_evidence,
+       joint_state = joint_state, joint_evidence = joint_evidence,
+       joint_transfer = joint_transfer)
+}
+
 test_that("the report writes the concept, free-dimension and added-value tables", {
   h <- report_fit()
   path <- withr::local_tempdir()
@@ -17,6 +34,82 @@ test_that("the report writes the concept, free-dimension and added-value tables"
   expect_true(all(file.exists(written)))
   concepts <- utils::read.delim(file.path(path, "concepts.tsv"))
   expect_equal(nrow(concepts), length(h$fx$sets))
+})
+
+test_that("the report writes a full audit trail for supplied analyses", {
+  h <- report_additions()
+  path <- withr::local_tempdir()
+  written <- chorale_report(
+    h$fit, path = path, family_evidence = h$family_evidence,
+    joint_state = h$joint_state, joint_evidence = h$joint_evidence,
+    joint_transfer = h$joint_transfer)
+
+  extra <- c(
+    "concept_families.tsv", "family_evidence.tsv", "joint_scores.tsv",
+    "joint_loadings.tsv", "joint_variance.tsv", "joint_coverage.tsv",
+    "joint_nuisance.tsv", "joint_components.tsv",
+    "joint_component_effects.tsv", "joint_transfer.tsv")
+  expect_setequal(intersect(basename(written), extra), extra)
+  expect_true(all(file.exists(file.path(path, extra))))
+
+  scores <- utils::read.delim(file.path(path, "joint_scores.tsv"))
+  loadings <- utils::read.delim(file.path(path, "joint_loadings.tsv"))
+  transfer <- utils::read.delim(file.path(path, "joint_transfer.tsv"))
+  expect_named(scores, c("sample_id", "modality", "joint_01"))
+  expect_named(loadings, c("concept", "joint_01"))
+  expect_true(all(c("component", "fitted_component", "loading_agreement",
+                    "p_value") %in% names(transfer)))
+
+  html <- paste(readLines(file.path(path, "report.html")), collapse = "\n")
+  expect_match(html, "Concept families", fixed = TRUE)
+  expect_match(html, "Joint component evidence", fixed = TRUE)
+  expect_match(html, "component-specific", fixed = TRUE)
+})
+
+test_that("optional analyses are never computed or written implicitly", {
+  h <- report_fit()
+  path <- withr::local_tempdir()
+  written <- chorale_report(h$fit, path = path)
+  expect_false(any(startsWith(basename(written), "joint_")))
+  expect_false("family_evidence.tsv" %in% basename(written))
+
+  html <- paste(readLines(file.path(path, "report.html")), collapse = "\n")
+  expect_match(html, "not supplied", fixed = TRUE)
+  expect_match(html, "not a negative or nonsignificant result", fixed = TRUE)
+})
+
+test_that("the report validates optional analysis objects and vocabularies", {
+  h <- report_additions()
+  path <- withr::local_tempdir()
+  expect_error(
+    chorale_report(h$fit, path = path, joint_state = list()),
+    class = "chorale_invalid_report_analysis")
+
+  wrong <- h$family_evidence
+  wrong$membership$concept[1] <- "not_in_this_vocabulary"
+  expect_error(
+    chorale_report(h$fit, path = path, family_evidence = wrong),
+    class = "chorale_incompatible_report_analysis")
+})
+
+test_that("empty supplied joint results remain distinct from omitted analyses", {
+  h <- report_additions()
+  state <- chorale_joint_state(h$fit$encoding, n_components = 0)
+  evidence <- chorale_joint_evidence(state, n_permutations = 19)
+  transfer <- structure(
+    list(transfer = h$joint_transfer$transfer[0, , drop = FALSE],
+         n_permutations = 19L, alpha = 0.05),
+    class = "chorale_joint_transfer")
+  path <- withr::local_tempdir()
+  chorale_report(h$fit, path = path, joint_state = state,
+                 joint_evidence = evidence, joint_transfer = transfer)
+
+  components <- utils::read.delim(file.path(path, "joint_components.tsv"))
+  transferred <- utils::read.delim(file.path(path, "joint_transfer.tsv"))
+  expect_equal(nrow(components), 0L)
+  expect_equal(nrow(transferred), 0L)
+  html <- paste(readLines(file.path(path, "report.html")), collapse = "\n")
+  expect_match(html, "supplied", fixed = TRUE)
 })
 
 test_that("the concept table carries the effect in each modality and the joint one", {

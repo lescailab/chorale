@@ -68,6 +68,13 @@ math_delimiters <- function(body) {
   out
 }
 
+# Knitr needs fences such as ```{r example}; Astro/Shiki expects ```r. The
+# generated site page is display-only, so translate the opening fence while
+# leaving the executable vignette source unchanged.
+site_code_fences <- function(body) {
+  sub("^([[:space:]]*)```\\{r[^}]*\\}[[:space:]]*$", "\\1```r", body)
+}
+
 vignettes <- sort(list.files(file.path(root, "vignettes"), pattern = "[.]Rmd$",
                              full.names = TRUE))
 if (length(vignettes) == 0) stop("No vignettes found to build the site from.")
@@ -106,7 +113,7 @@ for (path in vignettes) {
     sprintf('<p class="lede">%s</p>', description),
     ""
   )
-  writeLines(c(header, math_delimiters(body)),
+  writeLines(c(header, math_delimiters(site_code_fences(body))),
              file.path(pages, paste0(slug, ".md")))
   message("page  ", slug)
 }

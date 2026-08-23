@@ -48,7 +48,7 @@ noise.}
 
 \item{effect_size}{Magnitude of the design signatures carried by the shared
 factors, in units of the latent scale. Zero detaches the shared factors
-from the design, which is the complete null the matching is calibrated
+from the design, which is the complete null the recovery benchmark is calibrated
 against.}
 
 \item{signature}{Optional matrix of design weights, one row per shared factor
@@ -57,7 +57,7 @@ phenotype, age and sex contrasts by default, and the contrasts the profiles
 share where \code{profile} is given; \code{\link[=chorale_signature_terms]{chorale_signature_terms()}} reports them.
 When absent each shared factor is given a distinct dominant contrast.
 Supplying a signature in which two factors respond to the phenotype the
-same way is how a same-response, distinct-programme adversarial case is
+same way is how a same-response, distinct-component adversarial case is
 built.}
 
 \item{confounder}{Optional named list adding a nuisance covariate correlated
@@ -104,8 +104,8 @@ provides a demanding ICA simulation. These choices are not presented as
 identification conditions for CHORALE's phenotype correspondence.
 }
 \details{
-A shared factor is what the estimator should recover as one cross-modality
-programme. Its correspondence across modalities is carried by its
+A shared factor is what a component-recovery benchmark should recover across
+modalities. Its correspondence across modalities is carried by its
 \strong{design signature}, one weight per design contrast, which is the same in
 every modality; its remaining, design-independent variation is drawn
 independently per modality, since the individuals are disjoint. Matching two

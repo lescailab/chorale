@@ -1,6 +1,6 @@
 ---
 title: "How the estimator works"
-description: "A fixed vocabulary of named concepts connects the modalities; the design supplies the evidence."
+description: "One common encoding followed by concept, family, joint-state, transfer, and free-dimension analyses."
 site_order: 2
 site_wide: false
 output:
@@ -12,201 +12,160 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-The modalities were measured on different individuals, so nothing can be matched sample to sample.
-What connects them is a fixed vocabulary of named biological concepts. A concept is a set of
-features that belong together for a stated biological reason, and every modality is scored on the
-same concepts. A concept is the same concept in every modality. The six steps below run in a fixed
-order, and the order is part of the method.
+CHORALE first creates one common representation and then asks several different
+questions of it. Keeping those questions separate is essential: they have
+different estimands, null distributions, and interpretations.
 
-They answer one question: does this named concept separate cases from controls, in the modalities
-that express it. Two further questions are asked of the same encoding and answered differently.
-Whether a group of related concepts moves together where no member of it moves far enough alone,
-and whether the collection carries a state that no modality in it could have found. Those come
-after the six steps, because both read the encoding the six steps produce.
+## 1. Fix the vocabulary and measure coverage
 
-## 1. Fix the vocabulary
+`chorale_concepts()` builds the vocabulary before any phenotype result is
+examined. Genes and proteins reach concepts through identifier mappings. Lipids
+reach compatible pathway concepts through lipid class. A custom named list of
+feature identifiers works as well.
 
-`chorale_concepts()` builds the vocabulary for a collection and reports its coverage. Genes and
-proteins reach a concept through their identifiers, mapped to a common identifier space by
-`chorale_map()`. Lipid species reach the same concept through their class, since a pathway acts on a
-class rather than on one chain length.
+Coverage is recorded for every concept and modality. “Not expressed” means that
+the modality contains fewer than the requested number of concept members. It
+does not mean that the biological process is absent.
 
-Coverage is reported rather than assumed. For every concept and every modality, the number of
-features that modality carries for it is recorded, and a modality is counted as expressing a concept
-only above a stated number of features. The counts expressible in every modality, in a subset, and
-in none are what the vocabulary can and cannot carry for this collection.
+## 2. Put each modality on an appropriate scale
 
-## 2. Score every modality on the vocabulary
+`chorale_transform()` handles within-feature measurement scale: count-like data
+receive a variance-stabilising transform, skewed positive intensities receive
+`log1p`, and already symmetric data are left unchanged. Samples must already be
+normalised within modality for library size, total intensity, or the equivalent
+platform-specific exposure.
 
-`chorale_encode()` gives each sample one number per concept: the average standardised level of the
-features carrying that concept in that sample. The scores are standardised afterwards, so an effect
-on a large concept and an effect on a small one are on one scale.
+Each feature is then centred and scaled across the samples of its own modality.
+This prevents a high-abundance feature from dominating solely because of its
+unit or baseline.
 
-Nothing in this step reads the design. The concept scores therefore cannot have been shaped by the
-contrast they are tested on in step 4.
+## 3. Score the concepts without reading the phenotype
 
-## 3. Keep what the vocabulary misses
+For each sample, a concept score is the weighted mean of the standardised
+features that carry that concept. Scores are standardised again within modality.
+`chorale_encode()` does not consult the design, so a phenotype contrast cannot
+choose or rotate the representation that will later be tested.
 
-The concept scores are projected out of the assay and independent component analysis is run on what
-remains. Those free dimensions carry coordinated variation no concept explains. Because the
-projection is onto the space the concept scores span, the residual is exactly orthogonal to every
-concept score, so a free dimension cannot absorb concept signal.
+From here the workflow branches.
 
-How many free dimensions a modality supports is decided by reproducibility rather than by variance.
-`chorale_select_factors()` runs the decomposition repeatedly at each candidate count, from different
-initialisations and on subsamples of the samples, matches the components one to one, and takes the
-largest count at which the weakest component still clears a declared threshold. Two rules bound the
-search from above: parallel analysis, which says how many components the residual holds above an
-unstructured surrogate, and a cap of one component per five samples, beyond which a component
-describes individual samples rather than biology.
+## Branch A: named concept evidence
 
-A vocabulary can leave nothing to decompose. Concept scores span at most as many directions as the
-modality has samples, so a vocabulary with more concepts than samples spans the whole sample space,
-the projection reproduces the assay, and the residual is numerical noise. No free dimensions are
-fitted in that case, and the modality's free ceiling is reported as zero. Whether a modality has a
-free channel at all is therefore set by the size of the vocabulary against its sample count, which
-is worth checking before a run rather than after.
+### 4A. Estimate an adjusted effect in each modality
 
-## 4. Ask the design whether each concept separates cases from controls
+`chorale_concept_evidence()` regresses each concept score on the phenotype and
+the covariates that all modalities can represent consistently. Continuous
+covariates contribute standardised slopes. Categorical covariates contribute
+treatment contrasts over shared levels.
 
-`chorale_concept_evidence()` regresses each concept score on the design within each modality. The
-model carries the phenotype and every covariate the modalities share and can jointly estimate, so
-the reported phenotype effect is adjusted for them. Continuous covariates enter as standardised
-slopes, categorical ones as treatment contrasts on their shared levels.
+The effect is measured in standard deviations of the concept score. An effect
+of 0.8 means that, after adjustment, the compared phenotype level is estimated
+to sit 0.8 concept-score standard deviations above the reference level.
 
-The modalities are combined by inverse-variance weighting. A modality that measures a concept
-precisely counts for more than one that measures it loosely. Effects in opposite directions cancel
-rather than add, so a concept the modalities disagree about cannot reach a large combined
-statistic. How far they agree is reported beside the combined
-statistic, because a statistic carried by one modality against the others is a different finding
-from the same statistic carried by all of them.
+### 5A. Combine, but keep disagreement visible
 
-## 5. Calibrate against a null that keeps the design
+Effects are combined by inverse-variance weighting. A precise modality receives
+more weight; opposite directions cancel. `sign_agreement` reports the fraction
+of modalities pointing with the combined effect. `heterogeneity_p` tests for
+more disagreement than the standard errors predict. A small value warns against
+one common effect. A large value only says that disagreement was not detected;
+with few modalities the test has limited power.
 
-The quantity under test is the phenotype coefficient of a model that also carries the covariates the
-modalities share, so the null has to be a null for that coefficient. Permuting the phenotype label
-would break its relation to those covariates as well, and the permuted designs would be designs the
-study could not have produced.
+### 6A. Calibrate and attribute
 
-The design is therefore held fixed and the response is what moves. The model without the phenotype
-is fitted, its residuals are exchanged, and they are added back to what that model explains. This is
-the null of Freedman and Lane (1983): the phenotype keeps exactly the relation to the covariates the
-data give it, and only the part of the score those covariates do not explain is exchanged. Samples
-are exchanged freely unless the study declares which of them are exchangeable, since a repeated
-measure or a processing batch is a fact about the study rather than something a design table can be
-read for.
+Freedman--Lane residual permutations hold the design fixed. The reduced model
+without the tested term is fitted, its residuals are exchanged within any
+declared exchangeability blocks, and the full model is refitted to the rebuilt
+score. One permutation is shared across concepts in a modality, preserving the
+dependence caused by overlapping feature sets.
 
-The encoder is never refitted, so the number of permutations is a choice about the resolution the
-report needs rather than about what a refit can afford.
+`p_value` is concept-specific. `p_family` compares the concept with the largest
+statistic anywhere in the vocabulary and controls family-wise error. `q_value`
+estimates the false-discovery rate among concepts at least this extreme.
 
-Two levels of error control come from the same permutations. The family-wise p-value compares each
-concept with the largest statistic anywhere in the vocabulary, which is exact under the dependence
-that overlapping concepts have. The q-value is the false discovery rate that null implies at the
-same threshold.
+Overlapping neighbours are then regressed from each concept score.
+`attributed_z` asks whether the signal remains with that concept rather than
+with the neighbourhood it shares.
 
-## 6. Separate a concept from its neighbourhood
+## Branch B: families of related concepts
 
-Curated concepts share features, so a signal in one appears in every concept overlapping it. Each
-concept is therefore reported a second time with its overlapping neighbours regressed out of its
-score. A concept whose statistic survives that carries the signal itself; one whose statistic
-collapses is reporting the neighbourhood it sits in.
+`chorale_concept_families()` groups concepts from their Jaccard overlap using
+complete linkage. Family construction uses only the vocabulary and therefore
+precedes testing. Every pair in a multi-concept family must meet the overlap
+threshold; ungrouped concepts remain as singleton families.
 
-## Concepts tested as groups
+`chorale_family_evidence()` sums the signed concept statistics and divides by
+the square root of family size. Agreement accumulates and opposing directions
+cancel. Calibration reuses the signed per-concept permutation array, which is
+necessary because the family members overlap. A significant family means that
+its members move together as a group; it does not imply that every member is
+individually significant.
 
-A curated vocabulary names the same process at several resolutions, so a change spread across a
-dozen overlapping concepts can leave every one of them below threshold while the group is
-unambiguous. Testing one concept at a time cannot see that, because each is compared with the
-largest statistic anywhere in the vocabulary and none of them is large.
+## Branch C: one low-rank state over the stacked collection
 
-`chorale_concept_families()` groups concepts by how far they share members, under complete linkage,
-so every pair within a family overlaps at least as much as the threshold requires. Families come
-from the vocabulary and never from the data, so they are fixed before anything is tested, exactly as
-the vocabulary is. A concept in no family stands as its own family of one, so nothing is dropped.
+`chorale_joint_state()` starts from the same concept scores but estimates a
+different object. Each concept is centred and scaled within each modality.
+Optional modality-local nuisance columns—such as a batch recorded only in one
+cohort—are regressed out before stacking. The phenotype is never allowed in
+that nuisance list.
 
-`chorale_family_evidence()` tests a family on the sum of its members' combined statistics,
-standardised by the size of the family. The statistic is directional: members pointing the same way
-accumulate and members pointing opposite ways cancel, so a family is supported when its members
-agree rather than when any one of them is large. Its null reuses the permutations already drawn, and
-the direction of each permuted statistic is kept rather than reconstructed afterwards. That matters
-more here than anywhere else, because concepts within a family overlap heavily and only a null
-carrying that dependence gives their sum a correct distribution.
+The score blocks are stacked by row. A concept unavailable in one modality is
+stored as missing, not as zero, and carries no weight in the alternating
+ridge-regularised least-squares fit. The result is a low-rank approximation with
+one score per sample and one loading per concept.
 
-## One state estimated from every modality at once
+Stacking supplies more observations and broader concept coverage than any
+single modality. It does not by itself identify a unique biological mechanism.
+Component sign is arbitrary, component order can change between fits, and
+different low-rank solutions may describe similar reconstructions. Interpret a
+component through its stability, loadings, phenotype evidence, per-modality
+effects, and transfer—not through its label alone.
 
-Steps 4 and 5 combine separately estimated per-modality effects. That is a meta-analysis: the
-modality is the unit of estimation, and what is estimated is a scalar each modality could in
-principle have estimated alone. A modality that cannot express a concept contributes nothing to it.
+`chorale_joint_evidence()` regresses the joint component scores on phenotype,
+shared covariates, and modality. The modality term prevents differences in
+cohort composition from masquerading as phenotype effects. Residual permutations
+take place within modality. The same component is also described within each
+modality, but those local effects are context, not a filtering rule.
 
-`chorale_joint_state()` estimates a different object. Every modality is described on the same
-vocabulary, and every score is a weighted mean of standardised feature values, so the score matrices
-share their columns and sit on one scale. They are stacked by row into a single matrix of every
-sample in the collection against every concept, and decomposed once. The concept loadings that come
-out are common to the collection by construction rather than matched across modalities afterwards.
+## Branch D: test the direction where it was not fitted
 
-What this recovers is a direction in concept space, of dimension the size of the vocabulary. Where
-the vocabulary holds more concepts than any one modality has samples, which is the usual case, no
-modality can identify such a direction on its own and the stacked collection can. That is the sense
-in which the collection carries something none of its members carries.
+`chorale_joint_transfer()` requires at least three modalities. It leaves one
+modality out, fits the joint state on the remainder, projects the held-out
+concept scores onto those loadings, and tests the projected scores in the
+held-out design.
 
-Two things are removed before stacking. Each concept is centred and scaled within its modality, so a
-platform's level and spread cannot drive a component and only variation between samples measured the
-same way survives. Then whatever a modality's own nuisance structure contributes is regressed out of
-that modality's scores: study, acquisition batch, colonisation, region. Those need not be shared
-with any other modality, which is what makes them adjustable here and not in a model the modalities
-hold in common.
+Each held-out decomposition has arbitrary order and sign. Components are
+matched one-to-one to a full-data reference by the absolute correlation of
+their concept loadings. `loading_agreement` retains the signed correlation. A
+negative value means that the held-out fit points opposite to the reference;
+the effect sign must be interpreted with that orientation. `p_value` is a
+component-specific permutation p-value, not a family-wise correction over all
+transferred components.
 
-A concept a modality cannot express is missing rather than zero. After centring, zero is that
-concept's mean, so writing zero would enter a measurement claiming the modality observed exactly
-average. The entry carries no weight in the fit instead, and the concept is estimated from the
-modalities that measure it. Restricting the vocabulary to concepts every modality expresses would
-discard most of it and reinstate the narrowest modality as the limit on the whole collection.
+Transfer reduces one important explanation: structure unique to the held-out
+assay could not have produced loadings fitted without that assay. It still does
+not prove causality or eliminate confounding shared across studies.
 
-`chorale_joint_evidence()` then asks whether a sample's position along a component moves with the
-phenotype, adjusting for the covariates the modalities share and for the modality itself. Without
-the modality term a component that merely ordered the modalities would appear to separate cases from
-controls whenever the modalities differ in composition. Residuals are exchanged within modality, so
-every permuted collection has the composition the study produced. The same effect read within each
-modality alone is reported beside the joint one, as a description and not a condition.
+## Branch E: variation outside the vocabulary
 
-## A direction tested where it was not estimated
+The concept-score span is projected from each analysis matrix. ICA is fitted to
+the residual, producing free dimensions that are orthogonal to the concept
+scores. The count is selected by reproducibility under restarts and subsampling,
+bounded by parallel analysis and sample size.
 
-A permutation asks whether structure could have arisen by chance given this design. It cannot ask
-whether the structure transfers.
+If the realised concept-score matrix has full row rank, it spans the centred
+sample space and leaves no residual to decompose. Having at least as many
+concepts as samples makes full row rank possible, but does not guarantee it.
+An empty free-dimension table can therefore mean “not estimable because no
+residual remained,” not “tested and absent.” Read `variance.tsv` first.
 
-`chorale_joint_transfer()` holds each modality out in turn, estimates the state from the rest, and
-projects the held-out samples onto the concept loadings that come out. Whether those projections
-separate cases from controls is then tested in the held-out modality alone. The loadings carry none
-of that modality: not its samples, its batches, its assay or its preparation. Structure a modality's
-own nuisance produced can inflate a component fitted with that modality in, but it cannot produce a
-direction over concepts that predicts the phenotype in a cohort sharing none of it.
+## What the controls do
 
-It is also the positive claim rather than only its defence. A direction estimated without a cohort,
-which orders that cohort by disease state, is what it means for a collection of separately deposited
-studies to carry one biology.
+Phenotype residual permutations calibrate the reported tests. The modality
+shuffle is descriptive because it changes feature support, cohort sizes, and
+design composition; it carries no p-value. Initialisation stability reports
+whether free dimensions reappear. `chorale_concept_specificity()` separately
+tests whether shared covariates drive the vocabulary as strongly as phenotype.
 
-Each held-out fit is its own decomposition, and neither the order of its components nor their sign
-is identified by the method. A reference fitted on the whole collection therefore supplies one set
-of names, and each held-out component is matched to it by how far their concept loadings agree. The
-reference contributes nothing to the statistic: the direction tested is the one fitted without the
-held-out modality, and the p-value is on the magnitude of its effect, so neither the name nor the
-orientation can change what is concluded.
-
-## What the phenotype is compared against
-
-A vocabulary that answers to any strong contrast is not telling you about the disease.
-`chorale_concept_specificity()` tests each covariate the modalities share in the phenotype's place,
-over the same vocabulary and against the same null. Because the encoding never read the design, the
-concept scores are computed once and every covariate reuses them, so the comparison costs the
-permutations and nothing else.
-
-A covariate is tested on the terms it contributes to the model: a contrast per level for a
-categorical one, a standardised slope for a continuous one. Recoding a continuous covariate into a
-contrast would give it one level per sample, leave no residual degrees of freedom, and turn a
-failure to estimate into an appearance of specificity.
-
-## What the free dimensions add
-
-The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every
-concept score. `chorale_free_dimensions()` tests each of them against the same permutations and
-names the features loading on it most heavily. A dimension called there is a candidate outside the
-vocabulary, described by its features and not identified by them.
+Controls do not rescue an unsuitable design. Exchangeability blocks, phenotype
+reference, nuisance variables, and the vocabulary are study decisions that must
+be justified before reading significance.

@@ -32,7 +32,7 @@ does.
 }
 \description{
 A vocabulary that answers to any strong contrast is not telling you about the
-disease. Each nuisance covariate is tested in the phenotype's place, over the
+phenotype. Each nuisance covariate is tested in the phenotype's place, over the
 same vocabulary and against the same kind of null, so the phenotype result can
 be read against what the procedure recovers when something else drives it. A
 vocabulary whose evidence under the phenotype is no stronger than under sex or

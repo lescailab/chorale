@@ -2,7 +2,7 @@
 % Please edit documentation in R/joint_evidence.R
 \name{chorale_joint_evidence}
 \alias{chorale_joint_evidence}
-\title{Whether a jointly estimated component separates cases from controls}
+\title{Whether a jointly estimated component changes with the phenotype}
 \usage{
 chorale_joint_evidence(
   state,
@@ -41,8 +41,8 @@ modalities share and for the modality itself.
 }
 \details{
 The modality term matters. Without it a component that merely orders the
-modalities would appear to separate cases from controls whenever the
-modalities differ in case-control composition. With it, only variation
+modalities would appear to change with the phenotype whenever the
+modalities differ in phenotype composition. With it, only variation
 between samples measured the same way contributes, which is the variation the
 stacking was arranged to keep.
 

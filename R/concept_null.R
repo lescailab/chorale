@@ -44,7 +44,7 @@ chorale_null <- function(fit, containers = NULL, n_permutations = 100L,
 #' @export
 chorale_null.default <- function(fit, containers = NULL, n_permutations = 100L,
                                  n_init = 5L, seed = 1L, ...) {
-  rlang::abort("`fit` must be a chorale_concept_fit or a chorale_fit object.")
+  rlang::abort("`fit` must be a chorale_concept_fit object.")
 }
 
 #' @export

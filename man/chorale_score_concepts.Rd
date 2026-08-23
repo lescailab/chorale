@@ -35,7 +35,7 @@ probability that a planted concept outranks one that was not.
 }
 \description{
 On simulated data the answer is known, which no real cohort supplies: a
-recorded cohort does not say which named concepts take part in the disease.
+recorded cohort does not say which named concepts move with the phenotype.
 Two questions decide whether the estimator recovered the planting. Were the
 planted concepts called? And did the rest of the vocabulary stay quiet? A
 method that calls everything answers the first and fails the second, so both

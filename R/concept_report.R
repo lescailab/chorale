@@ -9,6 +9,13 @@
 #' @param null A `chorale_null` object, as returned by [chorale_null()]. Where it
 #'   is absent no control table is written.
 #' @param path Directory to write into. Created if absent.
+#' @param family_evidence Optional fitted [chorale_family_evidence()] object.
+#' @param joint_state Optional fitted [chorale_joint_state()] object.
+#' @param joint_evidence Optional fitted [chorale_joint_evidence()] object.
+#' @param joint_transfer Optional fitted [chorale_joint_transfer()] object.
+#'   Reporting never computes these analyses: only objects supplied here are
+#'   written, so component counts, nuisance covariates, family thresholds and
+#'   permutation counts remain explicit analysis decisions.
 #' @param ... Passed to the method.
 #' @returns Invisibly, a character vector of the files written.
 #' @export
@@ -277,8 +284,11 @@ chorale_added_value.chorale_concept_fit <- function(fit, ...) {
 #' @rdname chorale_report
 #' @param n_top Features named per free dimension.
 #' @export
-chorale_report.chorale_concept_fit <- function(fit, null = NULL, path,
-                                               n_top = 10L, ...) {
+chorale_report.chorale_concept_fit <- function(
+    fit, null = NULL, path, family_evidence = NULL, joint_state = NULL,
+    joint_evidence = NULL, joint_transfer = NULL, n_top = 10L, ...) {
+  chorale_validate_report_additions(
+    fit, family_evidence, joint_state, joint_evidence, joint_transfer)
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   written <- character()
 
@@ -306,6 +316,53 @@ chorale_report.chorale_concept_fit <- function(fit, null = NULL, path,
     written <- c(written, chorale_write(controls, path, "controls.tsv"))
   }
 
+  if (!is.null(family_evidence)) {
+    membership <- chorale_report_family_membership(family_evidence)
+    written <- c(written, chorale_write(membership, path,
+                                        "concept_families.tsv"))
+    written <- c(written, chorale_write(family_evidence$families, path,
+                                        "family_evidence.tsv"))
+  }
+
+  if (!is.null(joint_state)) {
+    scores <- data.frame(
+      sample_id = rownames(joint_state$scores),
+      modality = joint_state$modality,
+      as.data.frame(joint_state$scores, check.names = FALSE),
+      check.names = FALSE, stringsAsFactors = FALSE)
+    loadings <- data.frame(
+      concept = rownames(joint_state$loadings),
+      as.data.frame(joint_state$loadings, check.names = FALSE),
+      check.names = FALSE, stringsAsFactors = FALSE)
+    nuisance <- data.frame(
+      modality = names(joint_state$nuisance),
+      covariates = vapply(joint_state$nuisance, function(x) {
+        if (length(x)) paste(x, collapse = "; ") else ""
+      }, character(1)),
+      stringsAsFactors = FALSE)
+    written <- c(written, chorale_write(scores, path, "joint_scores.tsv"))
+    written <- c(written, chorale_write(loadings, path,
+                                        "joint_loadings.tsv"))
+    written <- c(written, chorale_write(joint_state$variance, path,
+                                        "joint_variance.tsv"))
+    written <- c(written, chorale_write(joint_state$coverage, path,
+                                        "joint_coverage.tsv"))
+    written <- c(written, chorale_write(nuisance, path,
+                                        "joint_nuisance.tsv"))
+  }
+
+  if (!is.null(joint_evidence)) {
+    written <- c(written, chorale_write(joint_evidence$components, path,
+                                        "joint_components.tsv"))
+    written <- c(written, chorale_write(joint_evidence$per_modality, path,
+                                        "joint_component_effects.tsv"))
+  }
+
+  if (!is.null(joint_transfer)) {
+    written <- c(written, chorale_write(joint_transfer$transfer, path,
+                                        "joint_transfer.tsv"))
+  }
+
   for (m in fit$modalities) {
     e <- fit$encoding$encodings[[m]]
     written <- c(written, chorale_write(
@@ -326,9 +383,80 @@ chorale_report.chorale_concept_fit <- function(fit, null = NULL, path,
   saveRDS(fit, fit_file)
   written <- c(written, fit_file)
 
-  written <- c(written, chorale_write_concept_html(fit, concepts, free, added,
-                                                   controls, path))
+  written <- c(written, chorale_write_concept_html(
+    fit, concepts, free, added, controls, path,
+    family_evidence = family_evidence, joint_state = joint_state,
+    joint_evidence = joint_evidence, joint_transfer = joint_transfer))
   invisible(written)
+}
+
+#' Validate optional analyses supplied to the report
+#' @keywords internal
+#' @noRd
+chorale_validate_report_additions <- function(
+    fit, family_evidence, joint_state, joint_evidence, joint_transfer) {
+  expected <- list(
+    family_evidence = "chorale_family_evidence",
+    joint_state = "chorale_joint_state",
+    joint_evidence = "chorale_joint_evidence",
+    joint_transfer = "chorale_joint_transfer")
+  supplied <- list(family_evidence = family_evidence, joint_state = joint_state,
+                   joint_evidence = joint_evidence,
+                   joint_transfer = joint_transfer)
+  for (nm in names(expected)) {
+    if (!is.null(supplied[[nm]]) && !inherits(supplied[[nm]], expected[[nm]])) {
+      rlang::abort(paste0("`", nm, "` must be a ", expected[[nm]],
+                          " object."),
+                   class = "chorale_invalid_report_analysis")
+    }
+  }
+
+  vocabulary <- fit$concepts$vocabulary
+  if (!is.null(family_evidence)) {
+    membership <- chorale_report_family_membership(family_evidence)
+    unknown <- setdiff(membership$concept, vocabulary)
+    if (length(unknown)) {
+      rlang::abort("`family_evidence` was fitted on a different vocabulary.",
+                   class = "chorale_incompatible_report_analysis")
+    }
+  }
+  if (!is.null(joint_state)) {
+    unknown <- setdiff(rownames(joint_state$loadings), vocabulary)
+    if (length(unknown)) {
+      rlang::abort("`joint_state` was fitted on a different vocabulary.",
+                   class = "chorale_incompatible_report_analysis")
+    }
+  }
+  if (!is.null(joint_state) && !is.null(joint_evidence)) {
+    unknown <- setdiff(unique(joint_evidence$components$component),
+                       colnames(joint_state$scores))
+    if (length(unknown)) {
+      rlang::abort("`joint_evidence` does not describe `joint_state`.",
+                   class = "chorale_incompatible_report_analysis")
+    }
+  }
+  invisible(TRUE)
+}
+
+#' Recover one row per concept-family assignment for reporting
+#' @keywords internal
+#' @noRd
+chorale_report_family_membership <- function(family_evidence) {
+  membership <- family_evidence$membership
+  if (!is.null(membership)) {
+    return(membership[, c("concept", "family", "family_size"), drop = FALSE])
+  }
+  rows <- lapply(seq_len(nrow(family_evidence$families)), function(i) {
+    r <- family_evidence$families[i, , drop = FALSE]
+    concepts <- trimws(strsplit(r$members, ";", fixed = TRUE)[[1]])
+    data.frame(concept = concepts, family = r$family,
+               family_size = length(concepts), stringsAsFactors = FALSE)
+  })
+  if (!length(rows)) {
+    return(data.frame(concept = character(), family = character(),
+                      family_size = integer(), stringsAsFactors = FALSE))
+  }
+  unique(do.call(rbind, rows))
 }
 
 #' One row per concept, with everything the report claims about it
@@ -379,8 +507,9 @@ chorale_concept_table <- function(fit) {
 #' A page a reader can take the result from
 #' @keywords internal
 #' @noRd
-chorale_write_concept_html <- function(fit, concepts, free, added, controls,
-                                       path) {
+chorale_write_concept_html <- function(
+    fit, concepts, free, added, controls, path, family_evidence = NULL,
+    joint_state = NULL, joint_evidence = NULL, joint_transfer = NULL) {
   file <- file.path(path, "report.html")
   n_supported <- if (nrow(concepts) > 0) sum(concepts$significant) else 0L
   head <- utils::head(concepts, 25)
@@ -398,12 +527,12 @@ chorale_write_concept_html <- function(fit, concepts, free, added, controls,
            length(fit$concepts$vocabulary), " named concepts, of which ",
            fit$concepts$n_in_all, " are expressible in every modality. Of the ",
            nrow(concepts), " tested, ", n_supported,
-           " separate cases from controls at a false discovery rate of ",
+           " pass the configured phenotype test at a false discovery rate of ",
            fit$evidence$alpha, ".</p>"),
     chorale_html_table(
       head, "Concepts",
       paste0("One row per concept. The effect columns give the adjusted ",
-             "case-control contrast in each modality; the joint statistic ",
+             "phenotype contrast in each modality; the joint statistic ",
              "combines them by inverse-variance weighting, so effects in ",
              "opposite directions cancel. Sign agreement says how far the ",
              "modalities agree. The attributed statistic is what survives ",
@@ -427,9 +556,62 @@ chorale_write_concept_html <- function(fit, concepts, free, added, controls,
     } else {
       ""
     },
+    "<h2>Additional analyses</h2>",
+    chorale_report_analysis_status(family_evidence, joint_state,
+                                   joint_evidence, joint_transfer),
+    if (!is.null(family_evidence)) {
+      chorale_html_table(
+        utils::head(family_evidence$families, 25), "Concept families",
+        paste0("Related concepts tested as a directional group. The family ",
+               "p-value is calibrated for that family; p_family compares it ",
+               "with the strongest family in each permutation."))
+    } else "",
+    if (!is.null(joint_state)) {
+      chorale_html_table(
+        joint_state$variance, "Joint state",
+        paste0("A low-rank representation of the stacked, within-modality ",
+               "standardised concept scores. Component sign and order are ",
+               "arbitrary; a component is not an identified mechanism."))
+    } else "",
+    if (!is.null(joint_evidence)) {
+      chorale_html_table(
+        utils::head(joint_evidence$components, 25), "Joint component evidence",
+        paste0("Adjusted phenotype effects on the joint component scores. ",
+               "Read magnitude and calibrated error rates; the sign depends ",
+               "on the arbitrary orientation of the component."))
+    } else "",
+    if (!is.null(joint_transfer)) {
+      chorale_html_table(
+        utils::head(joint_transfer$transfer, 25), "Joint transfer",
+        paste0("Each direction was fitted without the held-out modality. ",
+               "p_value is component-specific, not family-wise adjusted; ",
+               "loading_agreement records orientation against the reference."))
+    } else "",
     "</body></html>")
   writeLines(parts, file)
   file
+}
+
+#' State which optional analyses were supplied to a report
+#' @keywords internal
+#' @noRd
+chorale_report_analysis_status <- function(family_evidence, joint_state,
+                                           joint_evidence, joint_transfer) {
+  supplied <- list(
+    "concept-family evidence" = family_evidence,
+    "joint state" = joint_state,
+    "joint component evidence" = joint_evidence,
+    "leave-one-modality-out transfer" = joint_transfer)
+  status <- data.frame(
+    analysis = names(supplied),
+    status = vapply(supplied, function(x) {
+      if (is.null(x)) "not supplied" else "supplied"
+    }, character(1)),
+    stringsAsFactors = FALSE)
+  chorale_html_table(
+    status, "Analysis status",
+    paste0("Not supplied means the analysis was not included in this report; ",
+           "it is not a negative or nonsignificant result."))
 }
 
 

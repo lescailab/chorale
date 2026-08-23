@@ -14,11 +14,13 @@
 #' The concept loadings that come out are common to the whole collection by
 #' construction rather than matched across modalities afterwards.
 #'
-#' The direction this recovers is a direction in concept space, of dimension the
-#' size of the vocabulary. Where the vocabulary is larger than any one
-#' modality's sample count, which is the usual case, no modality can identify
-#' such a direction on its own and the stacked collection can. That is the sense
-#' in which the collection carries something none of its members carries.
+#' The fitted directions live in concept space, whose dimension is the size of
+#' the vocabulary. Stacking increases the number and diversity of observations
+#' available to estimate those directions and permits concepts with incomplete
+#' modality coverage to contribute wherever they are observed. A direction is
+#' not guaranteed to be unique or biologically identified merely because the
+#' vocabulary is larger than one modality's sample count; interpretation rests
+#' on stability, loadings, phenotype evidence and held-out transfer.
 #'
 #' @section What is removed before stacking:
 #' Two things would otherwise dominate a decomposition of stacked modalities.

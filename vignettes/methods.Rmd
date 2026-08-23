@@ -14,12 +14,17 @@ vignette: >
 
 ## Scope
 
-CHORALE estimates, for each of a fixed set of named biological concepts, whether that concept
-separates cases from controls in the modalities that express it. A concept is a set of features that
-belong together for a stated biological reason, defined before the data are looked at. The
-modalities are measured on different individuals, so a concept is what connects them: it is the same
-concept in every modality because its name and its membership were fixed in advance, and no
-correspondence between modalities is estimated.
+CHORALE first expresses every modality on a fixed vocabulary of named
+biological concepts. It then estimates concept-level phenotype effects,
+concept-family effects, a low-rank joint representation of the stacked concept
+scores, held-out transfer of those directions, and phenotype-linked free
+dimensions outside the vocabulary. These are separate estimands sharing one
+encoding, not interchangeable versions of one result.
+
+A concept is a set of features defined before results are inspected. The
+modalities are measured on different individuals, so the vocabulary supplies a
+common reference frame; no individual-level cross-modality profile is observed
+or reconstructed.
 
 Notation is introduced where it is used. Modalities are indexed by \(m\), concepts by \(c\), samples
 within modality \(m\) by \(i\), and features of modality \(m\) by \(j\).
@@ -88,11 +93,13 @@ comparing observed eigenvalues with those of column-permuted data, gives the fir
 component per five samples gives the second, since beyond it the recovered axes describe individual
 samples.
 
-Where the concept scores span the sample space, \(S_m S_m^{+} = I\) and \(R_m = 0\) up to numerical
-precision. This happens whenever the vocabulary holds more concepts than the modality has samples,
-since \(\operatorname{rank}(S_m) \le \min(n_m, |C|)\). No free dimensions are then fitted, and the
-variance table records a concept share of one. The free channel is available to a modality only when
-the vocabulary is smaller than its sample count.
+Where the realised concept-score matrix has full row rank on the centred sample
+space, its projection is the identity on that space and \(R_m = 0\) up to
+numerical precision. Having at least as many concepts as samples makes full row
+rank possible, but does not guarantee it: correlated or redundant concept
+scores can have lower rank. CHORALE therefore decides from the residual norm,
+not from the dimensions alone. No free dimensions are fitted when that residual
+is numerical dust.
 
 ## Adjusted design effects
 
@@ -138,7 +145,7 @@ removes from the problem.
 ## Calibration and error control
 
 The quantity under test is the phenotype coefficient of a model that also carries the adjusting
-covariates, so the null must be a null for that coefficient. Permuting the phenotype label would
+covariates, so the null must be a null for that coefficient. Shuffling raw phenotype labels would
 break its relation to those covariates as well, giving designs the study could not have produced.
 
 The null is therefore the one of Freedman and Lane (1983). Write \(D_m = [Z_m, P_m]\), with \(Z_m\)
@@ -196,6 +203,104 @@ collection is scored on a smaller feature space and often on a smaller vocabular
 preserves neither each modality's sample count nor its design composition. The observed statistic
 was computed on the full assays. No error rate follows from that comparison.
 
+## Concept families
+
+Let \(G_g\) be a family fixed from vocabulary overlap before testing. Complete
+linkage at Jaccard threshold \(a\) ensures that every pair in a multi-concept
+family overlaps by at least \(a\). Ungrouped concepts remain singletons.
+
+For one phenotype term, the family statistic is
+
+\[
+T_g = \frac{\left|\sum_{c \in G_g} Z_c\right|}{\sqrt{|G_g|}}.
+\]
+
+The signed sum makes concordant concepts accumulate and discordant concepts
+cancel. For permutation \(b\), the same function is applied to the signed
+statistics \(Z_c^{(b)}\) already generated for concept inference. This retains
+dependence induced by shared features. `p_value` compares a family with its own
+null; `p_family` compares it with the largest family statistic in each
+permutation; `q_value` estimates FDR over families. A supported family is a
+group-level result and does not imply that each member is supported.
+
+## Joint low-rank state
+
+Concept meta-analysis combines scalar effects estimated separately. Joint-state
+analysis instead factorises all concept-score observations at once. Let \(Z_m\)
+contain the scores of modality \(m\), after optional regression on
+modality-local nuisance variables and centring and scaling each concept within
+that modality. The blocks are stacked by row to form \(Z\). Let \(\Omega\) mark
+the entries that were observed; a modality-concept combination below the
+coverage threshold is missing, not zero.
+
+For rank \(k\), `chorale_joint_state()` alternates ridge-regularised
+least-squares updates for sample scores \(U\) and concept loadings \(V\), using
+only \(\Omega_{ic}=1\):
+
+\[
+\sum_{(i,c):\Omega_{ic}=1} (Z_{ic} - u_i^T v_c)^2.
+\]
+
+The small ridge makes each update solvable even when a row or column has fewer
+observations than components. Zero-filled singular vectors initialise the
+algorithm, but unobserved entries never enter its update objective. Automatic
+component selection currently applies reproducibility selection to the
+zero-filled stacked matrix; where coverage differs sharply, inspect that
+selection and compare prespecified counts.
+
+After convergence, a rotation orders the fitted rank-one terms by the variance
+they carry. This does not make the factors unique: \(UV^T\) is the fitted
+reconstruction, and signs, rotations, or nearly equivalent low-rank solutions
+can describe similar data. The component share is the squared norm of its
+rank-one approximation over observed entries divided by the observed squared
+score norm. With missing entries these shares need not form an exact partition,
+because cross-terms over the observation mask may remain.
+
+Stacking increases the number and diversity of observed rows and allows each
+concept to contribute wherever it is measured. It does not identify a direction
+merely because the vocabulary dimension exceeds one modality's sample count.
+
+## Evidence for a joint component
+
+For each component score, CHORALE fits a stacked linear model containing an
+intercept, modality, the phenotype terms, and covariates shared across
+modalities. The modality term absorbs cohort-level composition differences.
+Per-modality models are reported separately as descriptions.
+
+Calibration again uses Freedman--Lane residual permutation, but exchange is
+always restricted within modality in addition to declared blocks. The
+component-specific p-value, max-component family-wise p-value, and
+permutation-based q-value have the same definitions as in the concept branch,
+with components replacing concepts.
+
+Component orientation is arbitrary. Multiplying its scores and loadings by -1
+reverses the effect sign but leaves the reconstruction and two-sided inference
+unchanged. Declare an orientation from loadings or an external convention before
+describing a component effect as positive or negative.
+
+## Leave-one-modality-out transfer
+
+For held-out modality \(h\), the state is fitted on all \(m \ne h\). Let
+\(Z_h^{(C)}\) contain the held-out scores for concepts also present in training
+loadings \(V^{(C)}\). Projection uses
+
+\[
+U_h = Z_h^{(C)} V^{(C)}
+      \left(V^{(C)T}V^{(C)} + 10^{-8}I\right)^{-1}.
+\]
+
+The projected scores are tested in the held-out design with Freedman--Lane
+permutations. At least three modalities are required so the training set remains
+joint. The returned `p_value` is component-specific, not max-statistic or FDR
+control over the transfer table.
+
+Each held-out fit has independent sign and order. Its loadings are matched
+one-to-one to a full-data reference by the assignment maximising absolute
+loading correlation. `component` is the reference label,
+`fitted_component` the local label, and `loading_agreement` the signed
+correlation. The reference supplies labels only. Effect signs from different
+held-out fits are comparable only after accounting for orientation.
+
 ## Attribution among overlapping concepts
 
 Concepts sharing features are not independent claims. For each concept, those whose Jaccard overlap
@@ -209,7 +314,7 @@ neighbourhood it sits in.
 Where two modalities were measured on the same individuals, the pairing can be withheld and used
 afterwards to check what the vocabulary asserts. The two modalities are presented under their own
 sample identifiers and encoded as though disjoint. The pairing then enters once, to compute the
-concept-by-concept agreement matrix \(A\) with \(a_{cd} = |\mathrm{cor}(S_{A,c}, S_{B,d})|\) across
+concept-by-concept agreement matrix \(A\) with \(a_{cd} = \mathrm{cor}(S_{A,c}, S_{B,d})\) across
 the individuals both were measured on.
 
 The correlation is signed. A concept score has a fixed orientation, since a larger score means a
@@ -238,11 +343,12 @@ reported per concept for that reason.
 Curated concepts overlap, so attribution requires the overlap structure to be carried through the
 inference, which is what the family-wise permutation and the neighbour-adjusted statistic do.
 
-Identification of the free dimensions requires non-Gaussian, pairwise different latent errors, which
-`chorale_gates()` evaluates on a collection before it is fitted.
+ICA free dimensions rely on stable non-Gaussian structure. `chorale_gates()`
+reports non-Gaussianity and modality-difference diagnostics, but a diagnostic
+passing is not proof that an individual free axis is identified.
 
-A coordinated case-control shift supports the claim that a concept takes part in the disease
-process. Ordering cause and consequence requires timing, mediation or perturbation.
+A coordinated phenotype shift supports an association with the named concept.
+Ordering cause and consequence requires timing, mediation or perturbation.
 
 ## Literature
 
@@ -258,3 +364,8 @@ family-wise control follows Westfall and Young (1993). Single-sample set scoring
 standardised level of a set's members is the construction underlying Lee et al. (2008) and
 Hänzelmann, Castelo and Guinney (2013). Lipid shorthand names are parsed with Goslin (Kopczynski et
 al. 2020).
+
+The observed-entry joint fit is an alternating regularised low-rank
+approximation. A reconstruction can be stable while a particular factor basis
+is not unique. The transfer analysis is a held-out assessment of the
+implemented fitted directions, not a separate identifiability theorem.
