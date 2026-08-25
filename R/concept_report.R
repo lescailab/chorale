@@ -351,6 +351,18 @@ chorale_report.chorale_concept_fit <- function(
                                         "joint_nuisance.tsv"))
   }
 
+  # A component label carries no biology. What the component is made of does,
+  # so the concepts loading on it are named beside its evidence.
+  joint_concepts <- NULL
+  if (!is.null(joint_state)) {
+    joint_concepts <- chorale_joint_concepts(
+      joint_state, evidence = joint_evidence,
+      families = if (!is.null(family_evidence)) family_evidence$membership,
+      n_top = n_top)
+    written <- c(written, chorale_write(joint_concepts, path,
+                                        "joint_component_concepts.tsv"))
+  }
+
   if (!is.null(joint_evidence)) {
     written <- c(written, chorale_write(joint_evidence$components, path,
                                         "joint_components.tsv"))
@@ -386,7 +398,8 @@ chorale_report.chorale_concept_fit <- function(
   written <- c(written, chorale_write_concept_html(
     fit, concepts, free, added, controls, path,
     family_evidence = family_evidence, joint_state = joint_state,
-    joint_evidence = joint_evidence, joint_transfer = joint_transfer))
+    joint_evidence = joint_evidence, joint_transfer = joint_transfer,
+    joint_concepts = joint_concepts))
   invisible(written)
 }
 
@@ -509,18 +522,16 @@ chorale_concept_table <- function(fit) {
 #' @noRd
 chorale_write_concept_html <- function(
     fit, concepts, free, added, controls, path, family_evidence = NULL,
-    joint_state = NULL, joint_evidence = NULL, joint_transfer = NULL) {
+    joint_state = NULL, joint_evidence = NULL, joint_transfer = NULL,
+    joint_concepts = NULL) {
   file <- file.path(path, "report.html")
   n_supported <- if (nrow(concepts) > 0) sum(concepts$significant) else 0L
   head <- utils::head(concepts, 25)
   parts <- c(
     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
     "<title>chorale concept report</title>",
-    "<style>body{font-family:system-ui,sans-serif;margin:2rem;max-width:70rem}",
-    "table{border-collapse:collapse;margin:1rem 0}",
-    "th,td{border:1px solid #999;padding:.25rem .5rem;font-size:.85rem}",
-    "caption{text-align:left;font-weight:600;margin-bottom:.25rem}",
-    "p{max-width:44rem}</style></head><body>",
+    chorale_report_style(),
+    "</head><body>",
     "<h1>What the collection shares</h1>",
     paste0("<p>The modalities were measured on different individuals and share ",
            "no sample. They meet in a vocabulary of ",
@@ -556,29 +567,44 @@ chorale_write_concept_html <- function(
     } else {
       ""
     },
-    "<h2>Additional analyses</h2>",
+    "<h2 id='additional'>Additional analyses</h2>",
     chorale_report_analysis_status(family_evidence, joint_state,
                                    joint_evidence, joint_transfer),
     if (!is.null(family_evidence)) {
       chorale_html_table(
         utils::head(family_evidence$families, 25), "Concept families",
-        paste0("Related concepts tested as a directional group. The family ",
-               "p-value is calibrated for that family; p_family compares it ",
-               "with the strongest family in each permutation."))
+        paste0("Related concepts tested as a directional group. A family is ",
+               "formed from the vocabulary itself, by how far its concepts ",
+               "share members, so its identifier is a label for the group ",
+               "listed in the members column and carries no meaning of its ",
+               "own. The family p-value is calibrated for that family; ",
+               "p (family-wise) compares it with the strongest family in ",
+               "each permutation."))
     } else "",
     if (!is.null(joint_state)) {
-      chorale_html_table(
-        joint_state$variance, "Joint state",
-        paste0("A low-rank representation of the stacked, within-modality ",
-               "standardised concept scores. Component sign and order are ",
-               "arbitrary; a component is not an identified mechanism."))
+      paste0(
+        "<h3>Joint state</h3>",
+        "<p class='legend'>A low-rank representation of the stacked, ",
+        "within-modality standardised concept scores. A component is a ",
+        "direction in concept space, not an identified mechanism, and its ",
+        "number is the column it occupies in the decomposition rather than a ",
+        "name. What it is made of is the concepts that load on it, which the ",
+        "table below reports.</p>",
+        chorale_joint_component_html(joint_state, joint_evidence,
+                                     joint_concepts))
     } else "",
     if (!is.null(joint_evidence)) {
       chorale_html_table(
-        utils::head(joint_evidence$components, 25), "Joint component evidence",
+        utils::head(joint_evidence$components, 25),
+        "Joint component evidence, in full",
         paste0("Adjusted phenotype effects on the joint component scores. ",
                "Read magnitude and calibrated error rates; the sign depends ",
-               "on the arbitrary orientation of the component."))
+               "on the arbitrary orientation of the component. ",
+               "<em>significant (FDR)</em> and <em>significant ",
+               "(family-wise)</em> are two error rates over the same set of ",
+               "components: the second controls the chance of any false call ",
+               "anywhere among them. Neither says anything about a concept ",
+               "family."))
     } else "",
     if (!is.null(joint_transfer)) {
       chorale_html_table(
@@ -635,6 +661,11 @@ chorale_esc <- function(x) {
 }
 
 #' A table with its legend
+#'
+#' Columns are formatted before they are written rather than after: a number
+#' printed to fifteen digits is unreadable, and a column named `p_family` is
+#' read as a property of a family unless it is spelled out.
+#'
 #' @keywords internal
 #' @noRd
 chorale_html_table <- function(d, caption, legend) {
@@ -643,11 +674,136 @@ chorale_html_table <- function(d, caption, legend) {
   if (is.null(d) || nrow(d) == 0) {
     return(paste0(head_block, "<p class='empty'>No rows.</p>"))
   }
-  hdr <- paste0("<tr>", paste0("<th>", chorale_esc(colnames(d)), "</th>",
-                               collapse = ""), "</tr>")
-  body <- apply(d, 1, function(r) {
-    paste0("<tr>", paste0("<td>", chorale_esc(r), "</td>", collapse = ""), "</tr>")
-  })
+  numeric_column <- vapply(d, is.numeric, logical(1))
+  cells <- lapply(seq_along(d), function(j) chorale_format_column(d[[j]]))
+  hdr <- paste0(
+    "<tr>",
+    paste0("<th class='", ifelse(numeric_column, "num", "txt"), "'>",
+           chorale_esc(chorale_column_label(colnames(d))), "</th>",
+           collapse = ""),
+    "</tr>")
+  body <- vapply(seq_len(nrow(d)), function(i) {
+    paste0("<tr>",
+           paste0("<td class='", ifelse(numeric_column, "num", "txt"), "'>",
+                  chorale_esc(vapply(cells, function(x) x[i], character(1))),
+                  "</td>", collapse = ""),
+           "</tr>")
+  }, character(1))
   paste0(head_block, "<div class='scroll'><table>", hdr,
          paste(body, collapse = ""), "</table></div>")
+}
+
+#' Column headers a reader does not have to decode
+#'
+#' `p_family` and `family_significant` are family-wise error rates over
+#' everything the run tested. Left as they are, they read as statements about a
+#' concept family, which is a different object entirely.
+#'
+#' @keywords internal
+#' @noRd
+chorale_column_label <- function(x) {
+  labels <- c(
+    p_value = "p",
+    p_family = "p (family-wise)",
+    q_value = "q (FDR)",
+    significant = "significant (FDR)",
+    family_significant = "significant (family-wise)",
+    concepts_high = "concepts ranked high",
+    concepts_low = "concepts ranked low",
+    leading_family = "leading concept family",
+    leading_family_share = "share of loading mass",
+    leading_family_members = "members of that family")
+  ifelse(x %in% names(labels), labels[match(x, names(labels))],
+         gsub("_", " ", x, fixed = TRUE))
+}
+
+#' Numbers at a readable resolution
+#' @keywords internal
+#' @noRd
+chorale_format_column <- function(x) {
+  if (!is.numeric(x)) return(as.character(x))
+  out <- character(length(x))
+  small <- is.finite(x) & x != 0 & abs(x) < 1e-3
+  out[small] <- format(signif(x[small], 2), scientific = TRUE, trim = TRUE)
+  rest <- is.finite(x) & !small
+  out[rest] <- format(round(x[rest], 4), trim = TRUE, drop0trailing = TRUE,
+                      scientific = FALSE)
+  out[!is.finite(x)] <- ""
+  out
+}
+
+#' What each joint component is made of, beside whether it moves
+#'
+#' The evidence table and the loadings answer different halves of one question,
+#' and separating them leaves the reader with a component that is significant
+#' and anonymous. They are joined here.
+#'
+#' @keywords internal
+#' @noRd
+chorale_joint_component_html <- function(joint_state, joint_evidence,
+                                         joint_concepts) {
+  if (is.null(joint_concepts) || nrow(joint_concepts) == 0) {
+    return(chorale_html_table(
+      joint_state$variance, "Components",
+      "The share of the stacked variance each component carries."))
+  }
+  out <- joint_concepts
+  if (!is.null(joint_evidence) && nrow(joint_evidence$components) > 0) {
+    ev <- joint_evidence$components
+    ev <- ev[!duplicated(ev$component), , drop = FALSE]
+    at <- match(out$component, ev$component)
+    out <- data.frame(
+      component = out$component,
+      term = ev$term[at],
+      share = out$share,
+      z = ev$z[at],
+      p_family = ev$p_family[at],
+      q_value = ev$q_value[at],
+      significant = ev$significant[at],
+      family_significant = ev$family_significant[at],
+      out[, setdiff(colnames(out), c("component", "share")), drop = FALSE],
+      check.names = FALSE, stringsAsFactors = FALSE)
+    out <- out[order(-abs(out$z)), , drop = FALSE]
+  }
+  legend <- paste0(
+    "One row per component, naming the concepts whose loadings define it. ",
+    "Where the phenotype effect is known the component is oriented by it, so ",
+    "the concepts ranked high are those higher in cases; the orientation ",
+    "column records which applies. ",
+    "The leading family is the group of overlapping concepts holding the ",
+    "largest share of the component's loading mass, and a small share means ",
+    "the component spreads across the vocabulary rather than describing one ",
+    "group.")
+  chorale_html_table(out, "What each component is made of", legend)
+}
+
+#' The page style
+#' @keywords internal
+#' @noRd
+chorale_report_style <- function() {
+  paste0(
+    "<style>",
+    "body{font-family:system-ui,sans-serif;margin:2rem auto;max-width:80rem;",
+    "padding:0 1.5rem;line-height:1.5;color:#1a1a1a}",
+    "h1{font-size:1.6rem;margin-bottom:.5rem}",
+    "h2{font-size:1.25rem;margin-top:2.5rem;border-top:1px solid #ddd;",
+    "padding-top:1rem}",
+    "h3{font-size:1.05rem;margin-top:2rem;margin-bottom:.25rem}",
+    "p{max-width:44rem}",
+    "p.legend{color:#444;font-size:.9rem;margin-top:0}",
+    "nav ul{columns:2;max-width:44rem;padding-left:1.2rem}",
+    "nav a{color:#1a4f8a}",
+    ".scroll{overflow:auto;max-height:34rem;border:1px solid #ddd;",
+    "border-radius:4px;margin:.75rem 0}",
+    "table{border-collapse:collapse;width:100%;font-size:.82rem}",
+    "th,td{padding:.3rem .5rem;border-bottom:1px solid #eee;",
+    "vertical-align:top}",
+    "thead th,tr:first-child th{position:sticky;top:0;background:#f6f6f6;",
+    "border-bottom:1px solid #bbb;text-align:left;font-weight:600;z-index:1}",
+    "tr:nth-child(even) td{background:#fafafa}",
+    "td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;",
+    "white-space:nowrap}",
+    "td.txt{max-width:34rem}",
+    ".empty{color:#666;font-style:italic}",
+    "</style>")
 }
