@@ -1,0 +1,384 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Outputs and how to read them · CHORALE</title><meta name="description" content="Every table the report writes, what each column means, and what it does not establish."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why">Why</a><a href="/chorale/how-it-works">How it works</a><a href="/chorale/input-format">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs" aria-current="page">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body wide"><h1 id="outputs-and-how-to-read-them">Outputs and how to read them</h1>
+<p class="lede">Every table the report writes, what each column means, and what it does not establish.</p>
+<p><code>chorale_report()</code> writes <code>report.html</code> and machine-readable tables beside it.
+The concept files are always written. Family and joint files are written only
+when the corresponding already fitted objects are supplied. The HTML analysis
+status distinguishes “not supplied” from an empty or nonsignificant result.</p>
+<p>The modalities were measured on different individuals, so what connects them is a fixed vocabulary
+of named biological concepts. A concept is a set of features that belong together for a stated
+biological reason, and every modality is scored on the same concepts. Every table below is organised
+by concept for that reason.</p>
+<h2 id="conceptstsv-the-primary-result"><code>concepts.tsv</code>: the primary result</h2>
+<p>One row per concept and phenotype contrast.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>concept</code>, <code>term</code></td><td>The concept and the phenotype contrast the row is about.</td></tr><tr><td><code>n_modalities</code>, <code>modalities</code></td><td>How many modalities express the concept, and which.</td></tr><tr><td><code>in_all_modalities</code></td><td>Whether every modality of the collection expresses it.</td></tr><tr><td><code>effect_&#x3C;m></code>, <code>z_&#x3C;m></code></td><td>The adjusted phenotype contrast in modality <code>m</code>, in standard deviations of the concept score, and its ratio to its standard error.</td></tr><tr><td><code>joint_effect</code>, <code>joint_z</code></td><td>The inverse-variance combination across the modalities that express the concept.</td></tr><tr><td><code>sign_agreement</code></td><td>Share of those modalities whose effect points the same way as the combination.</td></tr><tr><td><code>heterogeneity_p</code></td><td>Cochran’s Q for the modalities being one quantity. A small value means they are not.</td></tr><tr><td><code>max_jaccard</code>, <code>attributed_z</code></td><td>The largest overlap with another concept, and the statistic that survives once overlapping concepts are regressed out.</td></tr><tr><td><code>p_value</code></td><td>Permutation p-value for this concept alone.</td></tr><tr><td><code>p_family</code></td><td>Permutation p-value against the largest statistic anywhere in the vocabulary.</td></tr><tr><td><code>q_value</code></td><td>False discovery rate over the vocabulary at this threshold.</td></tr><tr><td><code>significant</code></td><td>Whether <code>q_value</code> clears the configured level.</td></tr><tr><td><code>beats_best_single</code></td><td>Whether the combination exceeds the best any one modality reached.</td></tr></tbody></table>
+<p>Four columns decide how much a supported concept is worth, and they answer different questions.
+<code>joint_z</code> says how strong the combined evidence is. <code>sign_agreement</code> says whether the modalities
+agree; a large statistic with agreement of 0.5 is one modality carrying the others.
+<code>heterogeneity_p</code> tests for excess disagreement. A small value warns against one
+common effect; a large value does not prove equality, especially with few
+modalities. <code>attributed_z</code> says
+whether the signal belongs to the concept or to the concepts it overlaps.</p>
+<p><code>p_family</code> and <code>q_value</code> control different things and neither is a correction applied to the other.
+<code>p_family</code> is the probability of any false call anywhere in the vocabulary; <code>q_value</code> is the share
+of calls expected to be false at that threshold. Both come from the same permutations, so both carry
+the dependence that overlapping concepts have rather than assuming it away.</p>
+<h2 id="concept_effectstsv-one-row-per-concept-per-modality"><code>concept_effects.tsv</code>: one row per concept per modality</h2>
+<p>The unaggregated effects: <code>effect</code>, <code>se</code> and <code>z</code> per modality, with <code>n_features</code>, the number of
+features that modality has for the concept, and the same overlap columns computed within that
+modality. Read <code>n_features</code> before reading an effect. A concept a modality reaches through five
+features is a different measurement from one it reaches through five hundred.</p>
+<h2 id="concept_coveragetsv-what-could-be-tested-at-all"><code>concept_coverage.tsv</code>: what could be tested at all</h2>
+<p>One row per concept per modality, carrying <code>n_features</code> and whether the modality expresses the
+concept at the configured threshold. This is the table that separates two situations a bare absence
+of results confuses: a collection carrying no shared signal, and a collection whose vocabulary
+reaches too little of the measured features to ask the question.</p>
+<h2 id="variancetsv-and-concept_variancetsv-what-each-channel-holds"><code>variance.tsv</code> and <code>concept_variance.tsv</code>: what each channel holds</h2>
+<p><code>variance.tsv</code> gives, per modality, the share of variance the concept scores reconstruct, the share
+the free dimensions carry, and the share left over. The three partition the variance of the analysis
+matrix. Most of the total is feature-level noise in any bulk assay, so the interesting comparison is
+between the first two rather than against one.</p>
+<p><code>max_free_concept_correlation</code> is a check on the construction rather than a result. The projection
+is onto the space the concept scores span, so the residual is orthogonal to every concept score and
+the value is zero to numerical precision. A value that is not near zero would mean the two channels
+are reporting the same signal twice.</p>
+<p><code>concept_variance.tsv</code> gives the share each concept carries on its own, in each modality.</p>
+<p>A concept share of one, with <code>n_free</code> and <code>free_ceiling</code> both zero, says the
+realised concept-score matrix spans the centred sample space for that modality.
+Having more concepts than samples makes this possible but does not guarantee it.
+When the realised span is full, the
+concept scores reproduce the assay exactly and nothing is left to
+decompose, so the modality has no free channel in that run. Scoring the same collection on a
+vocabulary smaller than the modality’s sample count is what makes the question answerable.</p>
+<h2 id="free_dimensionstsv-what-the-vocabulary-cannot-name"><code>free_dimensions.tsv</code>: what the vocabulary cannot name</h2>
+<p>A fixed vocabulary bounds what the concept channel can express. Coordinated variation outside it is
+carried here.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>modality</code>, <code>dimension</code></td><td>Which free dimension the row is about.</td></tr><tr><td><code>variance_share</code></td><td>Share of the modality’s variance this dimension reconstructs. The dimensions of a modality sum to the free share the channel carries; where they cannot, no per-dimension share is reported.</td></tr><tr><td><code>reproducibility</code></td><td>Mean matched correlation with the same dimension recovered from other initialisations.</td></tr><tr><td><code>effect</code>, <code>se</code>, <code>z</code></td><td>The adjusted phenotype contrast on the dimension.</td></tr><tr><td><code>p_value</code>, <code>p_family</code></td><td>Calibrated from rebuilt score residuals with the design fixed; <code>p_family</code> is taken against the largest statistic over every free dimension.</td></tr><tr><td><code>outside_vocabulary</code></td><td>Whether the dimension is called at the configured level.</td></tr><tr><td><code>top_features</code></td><td>The features loading on it most heavily.</td></tr></tbody></table>
+<p><code>top_features</code> describes a dimension; it does not identify it. A free dimension has no name, and
+naming it from its loadings is the reader’s inference rather than the method’s output.</p>
+<p>The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every
+concept score. A phenotype-linked direction that shares its direction with a concept is carried by
+that concept and does not appear here.</p>
+<h2 id="added_valuetsv-whether-integration-was-needed"><code>added_value.tsv</code>: whether integration was needed</h2>
+<p><code>joint_z</code> beside <code>best_single_z</code>, their difference as <code>margin</code>, and <code>needs_multiple</code>. A concept only
+one modality expresses cannot need more than one modality, whatever its statistic, and is marked
+accordingly. A positive margin is what separates a result integration produced from a result one
+modality produced and the others accompanied.</p>
+<h2 id="controlstsv-what-would-have-caught-an-artefact"><code>controls.tsv</code>: what would have caught an artefact</h2>
+<p>One row per control, with the smallest p-value that control can attain beside its result.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Control</th><th>What it breaks</th><th>When it is inapplicable</th></tr></thead><tbody><tr><td>Phenotype permutation</td><td>The part of the score the adjusting covariates do not explain, with the design held fixed</td><td>Never; it is the calibration the reported p-values come from.</td></tr><tr><td>Modality shuffle</td><td>The assignment of samples to modalities, after pooling</td><td>Always, as a test. It is reported as a description.</td></tr><tr><td>Initialisation stability</td><td>Nothing; it reports how reproducibly the free dimensions were recovered</td><td>Where no free dimensions were fitted.</td></tr></tbody></table>
+<p>The modality shuffle carries a median statistic and no p-value. Three differences separate a shuffled
+collection from the fit it would be read against. Pooling keeps only the features the modalities
+share, so the shuffled collections are scored on a smaller feature space and often on a smaller
+vocabulary. The reallocation preserves neither each modality’s sample count nor its phenotype and
+covariate composition. The observed statistic was computed on the full assays. The median across shuffles describes how much of the result survives that
+treatment, and nothing about it is an error rate. An inferential form needs the observed statistic
+refitted on the common features alone, feature spaces that can be pooled, and modality labels
+permuted within declared design cells with each modality keeping its count in every cell.</p>
+<p>A control that could not be computed is named with its reason rather than passed over. Reading
+<code>smallest_attainable_p</code> before quoting a p-value is what stops a control being read against a
+threshold it could never reach.</p>
+<p><code>chorale_concept_specificity()</code> runs a fourth check, separately, because it produces a table rather
+than a row. Each covariate the modalities share is tested in the phenotype’s place, over the same
+vocabulary and against the same null, so the phenotype result can be read against what the procedure
+recovers when something else drives it. A covariate is tested on the terms it contributes to the
+model: a contrast per level for a categorical covariate, a standardised slope for a continuous one.
+Anchors are compared on the family-wise p-value rather than on the largest statistic. A covariate
+with four levels contributes three contrasts, and so three times as many chances at a large
+maximum. A vocabulary whose evidence under the phenotype is no stronger than under sex or age is
+reporting cohort structure.</p>
+<h2 id="fitrds-the-whole-result"><code>fit.rds</code>: the whole result</h2>
+<p>The fitted object, written with <code>saveRDS()</code> and reloaded with <code>readRDS()</code>. It carries the concept
+scores, the free dimensions, the vocabulary and its coverage, the evidence table and the control
+object that produced them, so an analysis resumes from it without the tables having to be lossless.</p>
+<h2 id="concept_scores_mtsv-and-free_scores_mtsv"><code>concept_scores_&#x3C;m>.tsv</code> and <code>free_scores_&#x3C;m>.tsv</code></h2>
+<p>One row per sample, one column per concept or free dimension. These are the quantities every table
+above is computed from, so they are what a downstream analysis of the same collection starts from.</p>
+<h2 id="concept_familiestsv-and-family_evidencetsv"><code>concept_families.tsv</code> and <code>family_evidence.tsv</code></h2>
+<p>These files appear when <code>family_evidence</code> is supplied to <code>chorale_report()</code>.</p>
+<p><code>concept_families.tsv</code> is the audit trail for construction: one row per concept,
+with <code>family</code> and <code>family_size</code>. A singleton is retained rather than discarded.
+<code>family_evidence.tsv</code> contains one row per family and phenotype term.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>statistic</code></td><td>Absolute signed sum of member z-statistics divided by the square root of family size.</td></tr><tr><td><code>mean_z</code></td><td>Mean signed member statistic; its sign is meaningful because concept scores have fixed orientation.</td></tr><tr><td><code>best_single_z</code></td><td>Largest absolute statistic of one member, for comparison with the group result.</td></tr><tr><td><code>p_value</code></td><td>Family-specific permutation p-value.</td></tr><tr><td><code>p_family</code></td><td>P-value against the largest family statistic in each permutation.</td></tr><tr><td><code>q_value</code></td><td>Estimated FDR over the tested families.</td></tr><tr><td><code>members</code></td><td>Semicolon-separated concepts contributing to the row.</td></tr></tbody></table>
+<p>A supported family says its members move coherently as a group. It does not say
+that every listed concept is individually supported or independently measured.</p>
+<h2 id="joint-state-audit-files">Joint-state audit files</h2>
+<p>These files appear when <code>joint_state</code> is supplied.</p>
+<ul>
+<li><code>joint_scores.tsv</code>: <code>sample_id</code>, <code>modality</code>, and one score per component.</li>
+<li><code>joint_loadings.tsv</code>: <code>concept</code> and its signed loading on each component.</li>
+<li><code>joint_variance.tsv</code>: the observed-entry rank-one share per component.</li>
+<li><code>joint_coverage.tsv</code>: samples and observed concepts contributed by modality.</li>
+<li><code>joint_nuisance.tsv</code>: modality-local covariates removed before stacking.</li>
+</ul>
+<p>Component signs are arbitrary. A negative loading is meaningful only relative
+to other loadings in the same chosen orientation. The component shares describe
+rank-one fitted energy over observed entries; with missing concept blocks they
+need not sum to an exact partition.</p>
+<h2 id="joint_componentstsv-and-joint_component_effectstsv"><code>joint_components.tsv</code> and <code>joint_component_effects.tsv</code></h2>
+<p>These appear when <code>joint_evidence</code> is supplied. <code>joint_components.tsv</code> carries
+the combined adjusted effect, standard error, z-statistic, component share,
+component-specific p-value, max-component <code>p_family</code>, permutation <code>q_value</code>, and
+the two significance flags. <code>joint_component_effects.tsv</code> gives the same
+adjusted effect within each modality as context.</p>
+<p>The joint effect sign reverses if the component is reoriented. Read magnitude
+and calibrated error rates first, then define direction from loadings. A
+component can be significant jointly while being weak in one modality; local
+effects are reported, not used as a hidden inclusion rule.</p>
+<h2 id="joint_transfertsv"><code>joint_transfer.tsv</code></h2>
+<p>This appears when <code>joint_transfer</code> is supplied. Each row gives the held-out
+modality, training modalities, reference <code>component</code>, local
+<code>fitted_component</code>, signed <code>loading_agreement</code>, concept and sample counts, and
+the held-out effect, uncertainty, z-statistic, and p-value.</p>
+<p>The p-value is component-specific and not corrected over the whole transfer
+table. Rows sharing <code>component</code> have been matched to the same full-data
+reference direction. If <code>loading_agreement</code> is negative, the local orientation
+is reversed; compare effect signs only after accounting for that reversal. Low
+absolute agreement means the reference label is weak even if the held-out
+component has a small p-value.</p>
+<h2 id="reading-absence-correctly">Reading absence correctly</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>State</th><th>Meaning</th></tr></thead><tbody><tr><td>File not written and HTML says <code>not supplied</code></td><td>The caller did not include that fitted analysis. No statistical conclusion follows.</td></tr><tr><td>File written with zero rows</td><td>The analysis was supplied but produced no estimable row. Read coverage, component count, and prerequisites.</td></tr><tr><td>Rows present and not significant</td><td>The quantity was tested and did not beat the stated null at the available permutation resolution.</td></tr><tr><td>Smallest attainable p-value above the decision threshold</td><td>The resampling plan could not express the desired claim, regardless of the observed statistic.</td></tr></tbody></table>
+<h2 id="what-a-supported-concept-establishes">What a supported concept establishes</h2>
+<p>A coordinated phenotype shift in a named piece of biology, seen in the modalities that express
+the concept, at a stated error rate. Ordering cause and consequence requires timing, mediation or
+perturbation. Attribution to the concept rather than to its neighbourhood is what <code>attributed_z</code>
+reports, and a concept whose statistic collapses there describes the region of the vocabulary it
+sits in.</p></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

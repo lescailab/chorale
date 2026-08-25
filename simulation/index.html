@@ -1,0 +1,268 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Simulation and validation · CHORALE</title><meta name="description" content="What planted concepts, borrowed observation models and a withheld pairing establish, and what they do not."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why">Why</a><a href="/chorale/how-it-works">How it works</a><a href="/chorale/input-format">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation" aria-current="page">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body wide"><h1 id="simulation-and-validation">Simulation and validation</h1>
+<p class="lede">What planted concepts, borrowed observation models and a withheld pairing establish, and what they do not.</p>
+<div class="note">
+<span class="lab">What this produces</span>
+<p>Collections in which named concepts are known to carry a phenotype contrast. With them: a
+score for how much of that planting the estimator gave back, and a placement of concept-space
+recovery between the best any method could reach and alignment at random.</p>
+</div>
+<p>The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
+named biological concepts. A concept is a set of features that belong together for a stated
+biological reason, and every modality is scored on the same concepts. A validation therefore has to
+answer two questions that no real cohort can. Are the concepts that move with the phenotype the
+ones that get called? And does a concept scored in one modality track the same concept scored in
+another?</p>
+<h2 id="what-a-simulation-has-to-reproduce-and-what-it-does-not">What a simulation has to reproduce, and what it does not</h2>
+<p>The estimator reads a normalised feature-by-sample matrix. Fragment bias, retention time, ionisation
+efficiency and isotope envelopes are modelled upstream of that matrix, and normalisation removes or
+absorbs them before anything reaches the estimator. The simulation target is therefore not
+measurement physics but the six properties of a prepared matrix the estimator can respond to:</p>
+<ol>
+<li>the per-feature marginal distribution, including its skewness and tail weight;</li>
+<li>the mean-variance relation across features;</li>
+<li>missingness as a function of abundance;</li>
+<li>the feature-feature correlation structure, summarised by its eigenspectrum;</li>
+<li>non-Gaussianity relevant to the recovery of free dimensions;</li>
+<li>the design margins, including unpopulated cells and covariates recorded in only one cohort.</li>
+</ol>
+<p>A generator that reproduces these properties provides a useful observation-model stress test. Which
+properties of a real assay it does not capture bounds what recovery on it establishes.</p>
+<h2 id="three-questions-three-constructions">Three questions, three constructions</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Construction</th><th>What is simulated</th><th>What it establishes</th></tr></thead><tbody><tr><td>Planted concepts</td><td>Named concepts that carry the phenotype contrast in every modality that expresses them</td><td>Whether the concepts that take part get called, and whether the rest of the vocabulary stays quiet</td></tr><tr><td>Borrowed observation model</td><td>The same structure, read through the marginals, missingness, correlation and design cells of real layers</td><td>How recovery changes when the matrix has the shape of the data the method is applied to</td></tr><tr><td>Withheld pairing</td><td>Two modalities measured on the same individuals, encoded as though disjoint</td><td>Whether the identity the vocabulary asserts is the correspondence the pairing shows</td></tr></tbody></table>
+<h2 id="planting-concepts">Planting concepts</h2>
+<p><code>chorale_concept_example()</code> builds a collection in which named concepts carry a phenotype shift.
+The vocabulary, how many of its concepts are planted, how many features a modality measures of each,
+and the size of the shift are all arguments.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#A0111F;--shiki-dark:#FF9492">library</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">chorale</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">fx</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_concept_example</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">n_samples</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 60</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_features</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 200</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                              n_concepts</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 6</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_planted</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 2</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                              effect</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0.1</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> coverage</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 1</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> seed</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 1</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">fit</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_concept_fit</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">fx</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">containers</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> fx</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">sets</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_free</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                           n_permutations</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 999</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#622CBC;--shiki-dark:#DBB7FF">chorale_score_concepts</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">fit</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> fx</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">planted</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">summary</span></span></code></pre>
+<p><code>chorale_score_concepts()</code> answers two questions rather than one. <strong>Recall</strong> is the share of planted
+concepts that were called. The <strong>false positive rate</strong> is the share of the rest of the vocabulary
+that was called as well. A method that calls everything answers the first and fails the second, so
+neither is the result on its own.</p>
+<p><strong>Rank AUC</strong> is the probability that a planted concept outranks one that was not planted. A
+threshold is a choice and a ranking is not, so the ranking says how far the two are separated
+whatever cut is applied. Chance is 0.5.</p>
+<p>Which control decides a call is an argument, because the two answer different questions.
+<code>criterion = "fdr"</code> holds the share of calls expected to be false at the configured level;
+<code>criterion = "family_wise"</code> holds the probability of any false call anywhere in the vocabulary.</p>
+<p><code>chorale_plant()</code> plants concepts into the observation model of real layers instead. The planting
+and scoring vocabularies are the same one, because a concept is planted and recovered by name: the
+question is whether the design shows it changing with the phenotype, not whether its composition
+can be rediscovered.</p>
+<h2 id="recovery-curves">Recovery curves</h2>
+<p><code>chorale_validate_concepts()</code> runs a grid of regimes, draws several collections from each, and
+averages the recovery over them. Three dials matter and each asks a different question.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">grid</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> data.frame</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">label</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"0.20"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "0.10"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "0.05"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "0.02"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "0.00"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                   effect</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#023B95;--shiki-dark:#91CBFF">0.2</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0.1</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0.05</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0.02</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 0</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                   n_concepts</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 6L</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_planted</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 2L</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                   n_features</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 200L</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_samples</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 40L</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#622CBC;--shiki-dark:#DBB7FF">chorale_validate_concepts</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">grid</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_rep</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 5</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> n_permutations</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 999</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#>   label effect recall false_positive_rate rank_auc n_evaluated</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 1  0.20   0.20    1.0                0.05    1.000           5</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 2  0.10   0.10    0.4                0.10    0.825           5</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 3  0.05   0.05    0.1                0.00    0.675           5</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 4  0.02   0.02    0.0                0.00    0.600           5</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 5  0.00   0.00    0.0                0.00    0.550           5</span></span></code></pre>
+<p>Recall falls away between a per-feature shift of 0.2 and one of 0.05 standard deviations, in forty
+samples per cohort with concepts of about thirty features. The false positive rate stays at or below
+the level it was called at throughout, and at a shift of zero the ranking sits at chance, which is
+what a calibrated null looks like from this side.</p>
+<p><strong>Effect size</strong> asks how strong a concept’s phenotype contrast has to be. The unit is
+the shift in each member feature, not in the concept score, and the difference matters. A concept
+score is a mean over its members, so a shift of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">d</span></span></span></span> in each of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi></mrow><annotation encoding="application/x-tex">m</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.4306em;"></span><span class="mord mathnormal">m</span></span></span></span> members that are otherwise
+independent moves the score by about <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><msqrt><mi>m</mi></msqrt></mrow><annotation encoding="application/x-tex">d\sqrt{m}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.04em;vertical-align:-0.2397em;"></span><span class="mord mathnormal">d</span><span class="mord sqrt"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.8003em;"><span class="svg-align" style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord" style="padding-left:0.833em;"><span class="mord mathnormal">m</span></span></span><span style="top:-2.7603em;"><span class="pstrut" style="height:3em;"></span><span class="hide-tail" style="min-width:0.853em;height:1.08em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="1.08em" viewBox="0 0 400000 1080" preserveAspectRatio="xMinYMin slice"><path d="M95,702
+c-2.7,0,-7.17,-2.7,-13.5,-8c-5.8,-5.3,-9.5,-10,-9.5,-14
+c0,-2,0.3,-3.3,1,-4c1.3,-2.7,23.83,-20.7,67.5,-54
+c44.2,-33.3,65.8,-50.3,66.5,-51c1.3,-1.3,3,-2,5,-2c4.7,0,8.7,3.3,12,10
+s173,378,173,378c0.7,0,35.3,-71,104,-213c68.7,-142,137.5,-285,206.5,-429
+c69,-144,104.5,-217.7,106.5,-221
+l0 -0
+c5.3,-9.3,12,-14,20,-14
+H400000v40H845.2724
+s-225.272,467,-225.272,467s-235,486,-235,486c-2.7,4.7,-9,7,-19,7
+c-6,0,-10,-1,-12,-3s-194,-422,-194,-422s-65,47,-65,47z
+M834 80h400000v40h-400000z"></path></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2397em;"><span></span></span></span></span></span></span></span></span>. Concept scoring aggregates, which is why
+per-feature effects far below the threshold of a per-feature test are recovered.</p>
+<p><strong>Sample size</strong> asks whether bulk cohorts are large enough. <strong>Vocabulary coverage</strong> asks how far the
+vocabulary has to reach into a modality’s measured features, which is the question an incomplete
+annotation raises. A concept defined on fifty features but measured on twelve is scored on the
+twelve.</p>
+<p>A regime the estimator cannot be run in is reported with its reason rather than as an empty cell. A
+coverage low enough that no concept reaches the minimum number of features leaves nothing to score,
+and that is a result about the regime.</p>
+<h2 id="giving-the-simulation-the-shape-of-real-data">Giving the simulation the shape of real data</h2>
+<p><code>chorale_data_profile()</code> measures the six properties from any matrix and returns them as one object.
+It stores summaries rather than data: no sample identifier enters it, and no covariate left
+unnamed.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">profile</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_data_profile</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">assay</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> my_matrix</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> col_data</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> my_design</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                                covariates</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"phenotype"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "sex"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                                layer</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "PROT"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>Passing the profile to <code>chorale_simulate()</code> replaces the observation model with it and leaves the
+latent structure untouched. Each simulated feature is read through a real feature’s quantile grid,
+so the values that come out have the distribution a real feature had. The map is monotone, so the
+sign and the ordering of a planted design response survive it. The design is drawn from the
+cells the real cohort populated, so a cell no sample occupied stays empty.</p>
+<p>Correlation enters separately, as directions drawn at random in feature space with Gaussian scores
+whose variances follow the profile’s eigenvalues, scaled until the leading direction carries the
+share of variance the profile records. Those scores are Gaussian, so they add covariance without
+adding anything a decomposition driven by non-Gaussianity could recover as a source.</p>
+<p><code>chorale_profile_agreement()</code> places a simulated matrix beside the real one on the same six
+properties, which is what a claim of realism is bounded to.</p>
+<h2 id="recovery-against-a-withheld-pairing">Recovery against a withheld pairing</h2>
+<p>Where two modalities were measured on the same individuals, the pairing can be withheld and used
+afterwards. <code>chorale_destroy_pairing()</code> presents the two modalities under their own sample
+identifiers, encodes them as though disjoint, and only then uses the pairing to ask whether a
+concept scored in one tracks the same concept scored in the other.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">r</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_destroy_pairing</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">paired_a</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> paired_b</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> design</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> sets</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> sets</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                             n_random</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 200</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">r</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">concept_summary</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#>   n_concepts paired_upper_bound recovered_agreement random_baseline</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 1          4             0.8827              0.8827          0.2713</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#>   placement_between_bounds fraction_partner_correct</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 1                        1                        1</span></span></code></pre>
+<p>Three quantities frame the result. The <strong>paired upper bound</strong> is the best alignment the pairing
+admits, which is what any method knowing the pairing could reach. The <strong>random baseline</strong> is the
+mean over one-to-one relabellings of the concepts drawn at random. The <strong>recovered agreement</strong> is
+the identity the vocabulary asserts, concept for concept by name, computed without a paired sample
+ever having been seen. A placement of 1 means the identity is the correspondence the pairing shows.</p>
+<p>The agreement is a signed correlation, because a concept score has a fixed orientation. A larger
+score means a larger weighted mean of the features carrying the concept, so two modalities that rank
+the same state in opposite directions have not recovered it. Random alignment is therefore a
+baseline and not a bound. A vocabulary whose names line up while the biology does not places below
+it, and the placement reports that as a negative value rather than clipping it to zero.</p>
+<p>Per-concept results say where that holds and where it does not.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">r</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">concept_recovery</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#>   concept self_agreement best_partner best_agreement partner_correct</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 1    beta         0.9764         beta         0.9764            TRUE</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 2   alpha         0.9739        alpha         0.9739            TRUE</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 3   gamma         0.9737        gamma         0.9737            TRUE</span></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC">#> 4   delta         0.6067        delta         0.6067            TRUE</span></span></code></pre>
+<p>The benchmark takes any two modalities measured on the same individuals and any vocabulary, so it is
+a property of the estimator rather than of one collection.</p>
+<h2 id="validating-families-and-joint-transfer">Validating families and joint transfer</h2>
+<p>Concept recovery alone does not validate the newer group and joint analyses.
+Their simulations need distinct targets.</p>
+<p>For a concept family, plant modest concordant shifts across several overlapping
+concepts and compare them with families whose members point in opposite
+directions. Recovery means the concordant family statistic gains power while the
+discordant sum cancels, with family-wise error controlled under a complete
+null. Because the definitions overlap, every member must reuse the same signed
+permutation draw; independent null draws would be an invalid benchmark.</p>
+<p>For a joint state, plant a low-rank pattern over several concept columns in
+every modality, then assess four properties separately:</p>
+<ol>
+<li>reconstruction over observed entries;</li>
+<li>loading stability across starts and sample perturbations;</li>
+<li>calibrated phenotype evidence on the fitted scores; and</li>
+<li>leave-one-modality-out prediction in a modality excluded from fitting.</li>
+</ol>
+<p>The fourth is the strongest test of cross-modality portability. It still does
+not prove a component is a unique latent mechanism: sign, order, and rotations
+remain non-identifiable, and more than one low-rank basis can describe the same
+reconstruction. Simulations should therefore compare loading subspaces or
+matched directions, not raw component labels.</p>
+<p>Coverage missing by modality must also be planted explicitly. Joint-state
+selection currently uses a zero-filled matrix for reproducibility selection and
+the observed-entry mask for fitting. A validation should vary that coverage
+pattern so selection artefacts are not mistaken for biological rank.</p>
+<h2 id="conditions-of-applicability">Conditions of applicability</h2>
+<p>Recovery measured under borrowed marginals holds for marginals resembling the profiled ones. A
+modality whose distribution or missingness differs materially requires its own profile.</p>
+<p>A concept reaches a modality only through the identifiers or classes that modality carries. A
+lipidome resolves at the level of lipid class, not lipid species, and a metabolome with no class
+mapping cannot be scored on a pathway vocabulary.</p>
+<p>The effect size a curve is drawn against is a shift in each member feature. A concept score
+aggregates its members, so the same curve read as though the unit were the concept score would
+overstate what is being asked of the data by about the square root of the concept’s size.</p>
+<p>Correlation outside the planted concepts is reproduced as its eigenspectrum, through directions
+drawn at random in feature space. Those directions carry no biological grouping, so a modality whose
+dominant axis has a biological identity is reproduced in the share of variance that axis carries and
+not in which features it uses.</p>
+<p>Concept-space recovery measured against a withheld pairing is measured where a pairing exists.
+Whether it holds in a collection assembled from separate deposits is what the pairing benchmark
+bounds rather than what it establishes.</p></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Why CHORALE exists · CHORALE</title><meta name="description" content="What can be learned when omics modalities were measured on different individuals."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why" aria-current="page">Why</a><a href="/chorale/how-it-works">How it works</a><a href="/chorale/input-format">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body"><h1 id="why-chorale-exists">Why CHORALE exists</h1>
+<p class="lede">What can be learned when omics modalities were measured on different individuals.</p>
+<p>CHORALE is for collections in which each omics modality was measured on a
+different set of individuals. It does not invent sample pairs. It changes the
+question to one the observed data can answer.</p>
+<h2 id="what-is-missing">What is missing</h2>
+<p>If one cohort supplies a transcriptome and another a proteome, there is no row
+describing the same person twice. An individual-level joint profile is therefore
+not merely unknown: it is not observed and cannot be recovered without
+additional assumptions or paired bridge data. Methods that require matched
+rows, shared features, or a translation learned from paired examples do not
+apply directly.</p>
+<h2 id="the-common-reference-frame">The common reference frame</h2>
+<p>CHORALE connects modalities through a vocabulary of named biological concepts.
+A concept is a feature set chosen for a stated reason, such as a pathway or a
+cell-type signature. Every modality is scored on the same vocabulary before the
+phenotype is consulted.</p>
+<p>This produces a common table shape: samples by concepts. The measurements that
+created the scores may be different, but each column has a declared biological
+meaning. Coverage remains explicit because a modality contributes to a concept
+only when it measures enough of its members.</p>
+<h2 id="two-questions-from-one-encoding">Two questions from one encoding</h2>
+<p>The common encoding supports two complementary analyses.</p>
+<p><strong>Concept evidence asks a prespecified question.</strong> Within each modality, does a
+named concept change with the phenotype after adjustment for shared covariates?
+The adjusted effects are combined by inverse-variance weighting. This is a
+meta-analysis: each modality estimates an effect that it could have estimated
+alone, and integration improves the evidence when modalities agree.</p>
+<p><strong>Joint-state analysis asks a multivariate question.</strong> Do several concepts vary
+together across the stacked collection? CHORALE standardises concept scores
+within modality, optionally removes modality-local nuisance effects, and fits a
+low-rank representation over the observed entries. The resulting components
+are directions through concept space shared by construction. They are fitted
+summaries, not uniquely identified mechanisms.</p>
+<h2 id="three-safeguards-against-easy-stories">Three safeguards against easy stories</h2>
+<p>Concept families test whether overlapping concepts move together without
+pretending they are independent. Leave-one-modality-out transfer asks whether a
+joint direction estimated from the other modalities predicts phenotype in a
+cohort that contributed none of its samples or assay structure. Free dimensions
+retain coordinated variation that the vocabulary cannot name.</p>
+<p>These answer different questions. A concept can be supported without belonging
+to a strong joint component; a joint component can be significant without every
+modality carrying it equally; and a free dimension can be real while remaining
+biologically unnamed.</p>
+<h2 id="what-significance-means">What significance means</h2>
+<p>The design is held fixed during calibration. CHORALE fits the reduced model
+without the effect under test, exchanges its residuals, and rebuilds the score.
+This Freedman—Lane procedure preserves the observed relation between phenotype
+and adjusting covariates. Family-wise p-values protect against any false call in
+the tested family, while q-values estimate the false-discovery proportion among
+calls. Neither is a causal claim.</p>
+<h2 id="what-a-result-can-establish">What a result can establish</h2>
+<p>A supported concept is an adjusted phenotype association in a named piece of
+biology, measured in the modalities listed in its row, at a stated error rate.
+A transferred joint component is a multiconcept direction fitted without the
+held-out modality that still predicts its phenotype. Neither result reconstructs
+an individual’s missing modalities or orders cause and consequence.</p>
+<p>An absence of significant rows also has several meanings. The analysis may not
+have been supplied, the quantity may not have been estimable, or it may have
+been tested and failed to beat its null. CHORALE reports these states separately
+because only the last is a statistical negative result.</p></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

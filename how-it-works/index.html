@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>How the estimator works · CHORALE</title><meta name="description" content="One common encoding followed by concept, family, joint-state, transfer, and free-dimension analyses."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why">Why</a><a href="/chorale/how-it-works" aria-current="page">How it works</a><a href="/chorale/input-format">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body"><h1 id="how-the-estimator-works">How the estimator works</h1>
+<p class="lede">One common encoding followed by concept, family, joint-state, transfer, and free-dimension analyses.</p>
+<p>CHORALE first creates one common representation and then asks several different
+questions of it. Keeping those questions separate is essential: they have
+different estimands, null distributions, and interpretations.</p>
+<h2 id="1-fix-the-vocabulary-and-measure-coverage">1. Fix the vocabulary and measure coverage</h2>
+<p><code>chorale_concepts()</code> builds the vocabulary before any phenotype result is
+examined. Genes and proteins reach concepts through identifier mappings. Lipids
+reach compatible pathway concepts through lipid class. A custom named list of
+feature identifiers works as well.</p>
+<p>Coverage is recorded for every concept and modality. “Not expressed” means that
+the modality contains fewer than the requested number of concept members. It
+does not mean that the biological process is absent.</p>
+<h2 id="2-put-each-modality-on-an-appropriate-scale">2. Put each modality on an appropriate scale</h2>
+<p><code>chorale_transform()</code> handles within-feature measurement scale: count-like data
+receive a variance-stabilising transform, skewed positive intensities receive
+<code>log1p</code>, and already symmetric data are left unchanged. Samples must already be
+normalised within modality for library size, total intensity, or the equivalent
+platform-specific exposure.</p>
+<p>Each feature is then centred and scaled across the samples of its own modality.
+This prevents a high-abundance feature from dominating solely because of its
+unit or baseline.</p>
+<h2 id="3-score-the-concepts-without-reading-the-phenotype">3. Score the concepts without reading the phenotype</h2>
+<p>For each sample, a concept score is the weighted mean of the standardised
+features that carry that concept. Scores are standardised again within modality.
+<code>chorale_encode()</code> does not consult the design, so a phenotype contrast cannot
+choose or rotate the representation that will later be tested.</p>
+<p>From here the workflow branches.</p>
+<h2 id="branch-a-named-concept-evidence">Branch A: named concept evidence</h2>
+<h3 id="4a-estimate-an-adjusted-effect-in-each-modality">4A. Estimate an adjusted effect in each modality</h3>
+<p><code>chorale_concept_evidence()</code> regresses each concept score on the phenotype and
+the covariates that all modalities can represent consistently. Continuous
+covariates contribute standardised slopes. Categorical covariates contribute
+treatment contrasts over shared levels.</p>
+<p>The effect is measured in standard deviations of the concept score. An effect
+of 0.8 means that, after adjustment, the compared phenotype level is estimated
+to sit 0.8 concept-score standard deviations above the reference level.</p>
+<h3 id="5a-combine-but-keep-disagreement-visible">5A. Combine, but keep disagreement visible</h3>
+<p>Effects are combined by inverse-variance weighting. A precise modality receives
+more weight; opposite directions cancel. <code>sign_agreement</code> reports the fraction
+of modalities pointing with the combined effect. <code>heterogeneity_p</code> tests for
+more disagreement than the standard errors predict. A small value warns against
+one common effect. A large value only says that disagreement was not detected;
+with few modalities the test has limited power.</p>
+<h3 id="6a-calibrate-and-attribute">6A. Calibrate and attribute</h3>
+<p>Freedman—Lane residual permutations hold the design fixed. The reduced model
+without the tested term is fitted, its residuals are exchanged within any
+declared exchangeability blocks, and the full model is refitted to the rebuilt
+score. One permutation is shared across concepts in a modality, preserving the
+dependence caused by overlapping feature sets.</p>
+<p><code>p_value</code> is concept-specific. <code>p_family</code> compares the concept with the largest
+statistic anywhere in the vocabulary and controls family-wise error. <code>q_value</code>
+estimates the false-discovery rate among concepts at least this extreme.</p>
+<p>Overlapping neighbours are then regressed from each concept score.
+<code>attributed_z</code> asks whether the signal remains with that concept rather than
+with the neighbourhood it shares.</p>
+<h2 id="branch-b-families-of-related-concepts">Branch B: families of related concepts</h2>
+<p><code>chorale_concept_families()</code> groups concepts from their Jaccard overlap using
+complete linkage. Family construction uses only the vocabulary and therefore
+precedes testing. Every pair in a multi-concept family must meet the overlap
+threshold; ungrouped concepts remain as singleton families.</p>
+<p><code>chorale_family_evidence()</code> sums the signed concept statistics and divides by
+the square root of family size. Agreement accumulates and opposing directions
+cancel. Calibration reuses the signed per-concept permutation array, which is
+necessary because the family members overlap. A significant family means that
+its members move together as a group; it does not imply that every member is
+individually significant.</p>
+<h2 id="branch-c-one-low-rank-state-over-the-stacked-collection">Branch C: one low-rank state over the stacked collection</h2>
+<p><code>chorale_joint_state()</code> starts from the same concept scores but estimates a
+different object. Each concept is centred and scaled within each modality.
+Optional modality-local nuisance columns—such as a batch recorded only in one
+cohort—are regressed out before stacking. The phenotype is never allowed in
+that nuisance list.</p>
+<p>The score blocks are stacked by row. A concept unavailable in one modality is
+stored as missing, not as zero, and carries no weight in the alternating
+ridge-regularised least-squares fit. The result is a low-rank approximation with
+one score per sample and one loading per concept.</p>
+<p>Stacking supplies more observations and broader concept coverage than any
+single modality. It does not by itself identify a unique biological mechanism.
+Component sign is arbitrary, component order can change between fits, and
+different low-rank solutions may describe similar reconstructions. Interpret a
+component through its stability, loadings, phenotype evidence, per-modality
+effects, and transfer—not through its label alone.</p>
+<p><code>chorale_joint_evidence()</code> regresses the joint component scores on phenotype,
+shared covariates, and modality. The modality term prevents differences in
+cohort composition from masquerading as phenotype effects. Residual permutations
+take place within modality. The same component is also described within each
+modality, but those local effects are context, not a filtering rule.</p>
+<h2 id="branch-d-test-the-direction-where-it-was-not-fitted">Branch D: test the direction where it was not fitted</h2>
+<p><code>chorale_joint_transfer()</code> requires at least three modalities. It leaves one
+modality out, fits the joint state on the remainder, projects the held-out
+concept scores onto those loadings, and tests the projected scores in the
+held-out design.</p>
+<p>Each held-out decomposition has arbitrary order and sign. Components are
+matched one-to-one to a full-data reference by the absolute correlation of
+their concept loadings. <code>loading_agreement</code> retains the signed correlation. A
+negative value means that the held-out fit points opposite to the reference;
+the effect sign must be interpreted with that orientation. <code>p_value</code> is a
+component-specific permutation p-value, not a family-wise correction over all
+transferred components.</p>
+<p>Transfer reduces one important explanation: structure unique to the held-out
+assay could not have produced loadings fitted without that assay. It still does
+not prove causality or eliminate confounding shared across studies.</p>
+<h2 id="branch-e-variation-outside-the-vocabulary">Branch E: variation outside the vocabulary</h2>
+<p>The concept-score span is projected from each analysis matrix. ICA is fitted to
+the residual, producing free dimensions that are orthogonal to the concept
+scores. The count is selected by reproducibility under restarts and subsampling,
+bounded by parallel analysis and sample size.</p>
+<p>If the realised concept-score matrix has full row rank, it spans the centred
+sample space and leaves no residual to decompose. Having at least as many
+concepts as samples makes full row rank possible, but does not guarantee it.
+An empty free-dimension table can therefore mean “not estimable because no
+residual remained,” not “tested and absent.” Read <code>variance.tsv</code> first.</p>
+<h2 id="what-the-controls-do">What the controls do</h2>
+<p>Phenotype residual permutations calibrate the reported tests. The modality
+shuffle is descriptive because it changes feature support, cohort sizes, and
+design composition; it carries no p-value. Initialisation stability reports
+whether free dimensions reappear. <code>chorale_concept_specificity()</code> separately
+tests whether shared covariates drive the vocabulary as strongly as phenotype.</p>
+<p>Controls do not rescue an unsuitable design. Exchangeability blocks, phenotype
+reference, nuisance variables, and the vocabulary are study decisions that must
+be justified before reading significance.</p></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

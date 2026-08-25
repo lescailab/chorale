@@ -1,0 +1,321 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>The input data · CHORALE</title><meta name="description" content="Matrices, sample tables, organisms, phenotypes, nuisance variables, and exchangeability."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why">Why</a><a href="/chorale/how-it-works">How it works</a><a href="/chorale/input-format" aria-current="page">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body wide"><h1 id="the-input-data">The input data</h1>
+<p class="lede">Matrices, sample tables, organisms, phenotypes, nuisance variables, and exchangeability.</p>
+<p>Two tables go in per modality: a feature-by-sample matrix of measurements, and a sample table with
+one row per sample. Nothing about the organism, the assay or the condition is assumed, and no column
+name beyond the two below is required.</p>
+<p>The modalities are measured on different individuals, so what connects them is a fixed vocabulary of
+named biological concepts rather than a shared sample. A concept is a set of features that belong
+together for a stated biological reason, and every modality is scored on the same concepts. A
+modality therefore has to supply two things: measurements its samples can be compared on, and
+feature identifiers that reach the vocabulary.</p>
+<h2 id="the-container-the-tables-become">The container the tables become</h2>
+<p><code>chorale_load()</code> puts the two tables into a
+<a href="https://bioconductor.org/packages/SummarizedExperiment">SummarizedExperiment</a>, which is the
+container every later step reads:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">se</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_load</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">matrix</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> samples</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">SummarizedExperiment</span><span style="color:#A0111F;--shiki-dark:#FF9492">::</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">assay</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">se</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)    </span><span style="color:#66707B;--shiki-dark:#BDC4CC"># the measurements</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">SummarizedExperiment</span><span style="color:#A0111F;--shiki-dark:#FF9492">::</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">colData</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">se</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)  </span><span style="color:#66707B;--shiki-dark:#BDC4CC"># the sample table</span></span></code></pre>
+<p>This is Bioconductor’s standard structure for a feature-by-sample assay with its sample annotation,
+and using it has three consequences. The measurements and the sample table are one object, so they
+cannot be subset, reordered or filtered out of alignment with one another. Feature and sample
+identifiers stay bound to the numbers rather than living in a separate vector. And a study whose
+data already sit in a <code>SummarizedExperiment</code> is in the right shape, as is one using a subclass such
+as a <code>DESeqDataSet</code> or a <code>SingleCellExperiment</code>:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">se</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_load</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">SummarizedExperiment</span><span style="color:#A0111F;--shiki-dark:#FF9492">::</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">assay</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">existing</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#622CBC;--shiki-dark:#DBB7FF">                   as.data.frame</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">SummarizedExperiment</span><span style="color:#A0111F;--shiki-dark:#FF9492">::</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">colData</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">existing</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)))</span></span></code></pre>
+<p><code>chorale_load()</code> is the route in because it also resolves the design labels into one vocabulary, as
+described below. An object built by hand can be passed to <code>chorale_concept_fit()</code> directly, provided
+its <code>colData</code> already carries the required columns in canonical form.</p>
+<h2 id="the-measurement-matrix">The measurement matrix</h2>
+<p>Features in rows, samples in columns, and <code>colnames(matrix)</code> equal to <code>samples$sample_id</code> in the
+same order. A modality is whatever was measured on its own set of samples: a transcriptome, a
+proteome, a lipidome, a panel of variant dosages. Each is one matrix and one call.</p>
+<p>Row names are the feature identifiers, and they are what reaches the vocabulary of concepts. Gene
+and protein modalities are mapped to Entrez identifiers by
+<a href="https://lescailab.github.io/chorale/reference/chorale_map"><code>chorale_map()</code></a>,
+from Ensembl identifiers, symbols or UniProt accessions. A lipidome is declared with
+<code>feature_space = "lipid"</code> and reaches the same concepts through its class names instead.</p>
+<p>How many features a modality has for a concept decides whether it can be scored on that concept at
+all. <code>chorale_concepts()</code> reports that count for every concept and every modality, so a modality
+whose annotation reaches little of the vocabulary is visible before anything is fitted rather than
+afterwards as an absence of results.</p>
+<p>Missing values are permitted. Each feature is centred and scaled before decomposition, and an entry
+that is not finite afterwards is set to the feature mean, so a feature observed in few samples
+contributes little and adds noise in its place. Filter on detection rate before loading.</p>
+<h2 id="the-scale-each-matrix-is-on">The scale each matrix is on</h2>
+<p>Two different jobs are involved, and only the second is done for you.</p>
+<p><strong>Between samples.</strong> Samples must already be comparable within the modality, because standardisation
+acts on a feature across samples and cannot remove a difference in library size or in total ion
+current. Apply the modality’s own normalisation first: size factors, CPM or TPM for sequencing
+counts, total-intensity or median scaling for mass spectrometry.</p>
+<p><strong>Within a feature.</strong> The measurement scale is read from the matrix, so no particular unit is
+required. <code>transform = "auto"</code>, the default, chooses per modality:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>What the matrix holds</th><th>Applied</th><th>Reason</th></tr></thead><tbody><tr><td>Integer counts spanning orders of magnitude: raw sequencing counts, spectral counts</td><td><code>vst</code></td><td>Under Anscombe’s transform a Poisson variance no longer grows with the mean, so a highly expressed feature stops dominating an axis for no biological reason.</td></tr><tr><td>Positive continuous values, right-skewed: TPM, FPKM, RPKM, normalised LFQ intensities, peak areas</td><td><code>log</code></td><td>Label-free intensities span orders of magnitude. <code>log1p</code> is used, which keeps zeros finite.</td></tr><tr><td>Values already on a symmetric scale: log ratios, log intensities, z-scores, variant dosages</td><td><code>none</code></td><td>Already symmetric, and a further transform would distort it.</td></tr></tbody></table>
+<p>The rule is mechanical. Any negative value means the matrix is already on a symmetric scale and
+nothing is applied. Otherwise, whole numbers whose 99th percentile exceeds five times their median
+take the variance-stabilising transform; a skewness above one with the same spread takes the
+logarithm; anything else is left alone. What was applied is recorded in the fit.</p>
+<p>Where the matrix is not what its distribution suggests, say it explicitly, one value per modality:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">fit</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_concept_fit</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">containers</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> sets</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                           transform</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">RNA</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "vst"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> PROT</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "log"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> METAB</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "none"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">))</span></span></code></pre>
+<h2 id="what-every-modality-must-carry">What every modality must carry</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Column</th><th>Meaning</th></tr></thead><tbody><tr><td><code>sample_id</code></td><td>Unique within the modality, and matching the matrix column names in order.</td></tr><tr><td><code>phenotype</code></td><td>The contrast being estimated, on at least two levels.</td></tr></tbody></table>
+<p>The phenotype is a condition of entry rather than a covariate. The estimand is a contrast, so a
+modality that cannot express one cannot contribute to it, and a run whose modalities do not all
+carry it stops with that named as the reason.</p>
+<p>The column need not literally be called <code>phenotype</code>. Its role and reference
+level are analysis settings:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">control</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_control</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  phenotype_column</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "outcome"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  phenotype_reference</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "reference"</span></span>
+<span class="line"><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">fit</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_concept_fit</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">containers</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> sets</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> control</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> control</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>The phenotype may be any estimable categorical comparison: treatment response,
+exposure group, genotype class, time category, or another study-defined outcome.
+Every modality must contain the declared reference and at least one comparison
+level.</p>
+<h2 id="what-every-other-column-does">What every other column does</h2>
+<p>Every remaining column is a possible covariate. Eligible covariates enter the model the concept
+score is regressed on, so the reported phenotype effect is adjusted for them. Excluded covariates
+are reported with a reason: absent modality, incompatible type or levels, excessive missingness, or
+lack of joint estimability.</p>
+<p>How a covariate is read follows from its type in the sample table, so the type is what needs getting
+right.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Stored as</th><th>Read as</th><th>What it contributes</th></tr></thead><tbody><tr><td>Character or factor</td><td>Categorical</td><td>One adjusted coefficient per level beyond a common reference, on the levels every modality realises.</td></tr><tr><td>Numeric in every modality</td><td>Continuous</td><td>One adjusted slope after the covariate is standardised.</td></tr><tr><td>A number stored as text</td><td>Categorical</td><td>The values become levels, so two cohorts recording the same age as <code>6</code> and <code>6.0</code> share none. A continuous covariate stored as text is read this way, which is the common mistake.</td></tr></tbody></table>
+<p>The design is read as supplied. A study that wants a continuous covariate treated in bands supplies
+the bands as a column of their own, which keeps the choice of cut points with the person who knows
+what they mean.</p>
+<p>Two column names are treated as bookkeeping rather than biology and never anchor a comparison:
+<code>sample_id</code> and <code>modality</code>. A column holding a distinct value for nearly every sample identifies
+the sample rather than grouping it, and is dropped for the same reason.</p>
+<h2 id="one-set-of-words-for-the-design-labels">One set of words for the design labels</h2>
+<p>Cohorts assembled by different groups can record the same thing differently. CHORALE maps only
+unambiguous general labels, such as <code>ctrl</code> to <code>control</code> and <code>male</code> to <code>M</code>. Study-specific meanings
+are never guessed.</p>
+<p>Labels are therefore resolved as the data are read.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Covariate</th><th>Resolves to</th></tr></thead><tbody><tr><td><code>phenotype</code></td><td><code>case</code>, <code>control</code></td></tr><tr><td><code>sex</code></td><td><code>F</code>, <code>M</code></td></tr><tr><td><code>genotype</code></td><td><code>carrier</code>, <code>non-carrier</code></td></tr></tbody></table>
+<p>The registry holds only terms general across biology. Names particular to one organism, model or
+study are absent by design, since a tool carrying the labels of the data it was built on fits
+nothing else. A study whose labels are not covered supplies its own:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">registry</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_label_registry</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">()</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">registry</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">phenotype</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">registry</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">phenotype</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "study_case"</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "case"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">registry</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">treatment</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"drug"</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "treated"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "placebo"</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "untreated"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">se</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_load</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">matrix</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> design</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> labels</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> registry</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>A label the registry does not recognise is left as it is. Two cohorts using different unrecognised
+labels for the same thing share no level, which is a silent way to recover nothing, so
+<code>chorale_check_design()</code> reports what a collection can and cannot anchor on before anything is
+fitted.</p>
+<h2 id="genotype-beside-phenotype">Genotype beside phenotype</h2>
+<p>Where a design records genotype separately from phenotype status, the phenotype remains the contrast
+being estimated and genotype enters as one more covariate the effect is adjusted for. A study whose
+primary contrast <em>is</em> the genotype puts it in the <code>phenotype</code> column, since that column names the
+role rather than the measurement.</p>
+<h2 id="organism-and-annotation">Organism and annotation</h2>
+<p>Nothing in the estimator is tied to an organism. Gene identifiers are mapped through whichever
+Bioconductor annotation the study needs, and the curated vocabulary is retrieved for whichever
+species it describes.</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC"># Mouse-native collections and mouse annotation.</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">mouse_map</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_map</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">rownames</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">matrix</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> from</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "ENSEMBL"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                         orgdb</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "org.Mm.eg.db"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">mouse_sets</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_genesets</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">species</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "Mus musculus"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> db_species</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "MM"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#66707B;--shiki-dark:#BDC4CC"># Human collections and human annotation.</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">feature_map</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_map</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">rownames</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">matrix</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> from</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "ENSEMBL"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                           orgdb</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "org.Hs.eg.db"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">sets</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_genesets</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">species</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "Homo sapiens"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> db_species</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "HS"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>Another annotated organism uses its Bioconductor <code>OrgDb</code>. Curated collections
+can come from a compatible source database or be supplied as custom Entrez sets:</p>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">other_map</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_map</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#622CBC;--shiki-dark:#DBB7FF">rownames</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">matrix</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> from</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "SYMBOL"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                         orgdb</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "org.Species.eg.db"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">custom_sets</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> list</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  concept_a</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"101"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "102"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "103"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "104"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "105"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  concept_b</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"201"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "202"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "203"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "204"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "205"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">sets</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_genesets</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">collections</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> character</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">()</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#702C00;--shiki-dark:#FFB757"> custom</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#702C00;--shiki-dark:#FFB757"> custom_sets</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">                         min_size</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 5</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>The vocabulary is an argument, so a collection can be analysed in curated pathways, in cell type
+signatures, in a set of concepts defined for the study, or in any combination of them. What the
+vocabulary contains bounds what the concept channel can express, which is why it is chosen before
+the data are looked at.</p>
+<p>The lipid-to-pathway table takes its compound annotation from one organism, but it is keyed on set
+names that are the same across species. A lipid is therefore placed in the set a study of any
+organism would use, wherever that pathway exists in it. A table of the same shape built for another
+organism is supplied in its place.</p>
+<h2 id="conditions-on-what-is-supplied">Conditions on what is supplied</h2>
+<p>Matrices are normalised within each modality before they are loaded. A cross-modal transformation
+that uses the intended answer, or constructed sample pairs, puts information into the scores that
+the design is then asked to find in them, so scoring must see each modality on its own. Batch and
+study variables belong in the design, where their effects are adjusted and reported.</p>
+<h2 id="shared-covariates-local-nuisance-and-exchangeability">Shared covariates, local nuisance, and exchangeability</h2>
+<p>These three ideas are related but not interchangeable.</p>
+<ul>
+<li>A <strong>shared covariate</strong> is represented compatibly in every modality and enters
+the regression model for concept and joint evidence.</li>
+<li>A <strong>modality-local nuisance variable</strong> is recorded only for one modality. It
+can be removed from that modality’s concept scores before joint stacking.</li>
+<li>An <strong>exchangeability block</strong> states which samples may exchange residuals under
+permutation. It describes sampling or dependence, not merely adjustment.</li>
+</ul>
+<pre class="astro-code astro-code-themes github-light-high-contrast github-dark-high-contrast" style="background-color:#ffffff;--shiki-dark-bg:#0a0c10;color:#0e1116;--shiki-dark:#f0f3f6; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;" tabindex="0" data-language="r"><code><span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">state</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_joint_state</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  fit</span><span style="color:#A0111F;--shiki-dark:#FF9492">$</span><span style="color:#702C00;--shiki-dark:#FFB757">encoding</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  n_components</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#023B95;--shiki-dark:#91CBFF"> 2</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  nuisance</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> list</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#702C00;--shiki-dark:#FFB757">modality_a</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"local_batch"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "processing_day"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">))</span></span>
+<span class="line"><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">control</span><span style="color:#A0111F;--shiki-dark:#FF9492"> &#x3C;-</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> chorale_control</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span></span>
+<span class="line"><span style="color:#702C00;--shiki-dark:#FFB757">  exchangeability_blocks</span><span style="color:#A0111F;--shiki-dark:#FF9492"> =</span><span style="color:#622CBC;--shiki-dark:#DBB7FF"> c</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">(</span><span style="color:#032563;--shiki-dark:#ADDCFF">"subject_group"</span><span style="color:#A0111F;--shiki-dark:#FF9492">,</span><span style="color:#032563;--shiki-dark:#ADDCFF"> "processing_block"</span><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span>
+<span class="line"><span style="color:#0E1116;--shiki-dark:#F0F3F6">)</span></span></code></pre>
+<p>Do not infer exchangeability blocks from every design column. A continuous age
+column would create one-sample blocks and prevent meaningful permutation.
+Declare only restrictions justified by the way observations were sampled or
+processed. Missing nuisance values are not imputed: samples unavailable to the
+local nuisance model retain their original score.</p>
+<h2 id="preflight-checklist">Preflight checklist</h2>
+<p>Before fitting, verify that matrix columns match <code>sample_id</code>, the phenotype
+contrast exists in every modality, numeric covariates are stored as numeric,
+identifier mapping reaches the intended concepts, and all transformations and
+normalisations are recorded. Run <code>chorale_check_design()</code> and inspect
+<code>chorale_concepts()$coverage</code>. These checks distinguish a weak biological signal
+from a question the inputs never made estimable.</p></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Function reference · CHORALE</title><meta name="description" content="Every exported function, its arguments and what it returns."><link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'&gt;&lt;text y='13' font-size='14'&gt;◇&lt;/text&gt;&lt;/svg&gt;"><script>
+  (() => {
+    const s = localStorage.getItem('chorale-theme');
+    if (s) document.documentElement.setAttribute('data-theme', s);
+  })();
+</script><link rel="stylesheet" href="/chorale/_astro/how-it-works.CkcXIn2k.css"></head><body><header class="site"><div class="wrap row"><a class="brand" href="/chorale/">CHO<span>RALE</span></a><nav class="main"><a href="/chorale/why">Why</a><a href="/chorale/how-it-works">How it works</a><a href="/chorale/input-format">Input data</a><a href="/chorale/tutorial">Tutorial</a><a href="/chorale/outputs">Outputs</a><a href="/chorale/methods">Methods</a><a href="/chorale/simulation">Simulation and validation</a><a href="/chorale/reference">Reference</a><a href="https://github.com/lescailab/chorale">GitHub</a><button class="tbtn" id="theme" type="button" aria-label="Switch between light and dark">◐</button></nav></div></header><main class="wrap"><div class="doc"><div class="body wide"><h1 id="function-reference">Function reference</h1>
+<p class="lede">Every exported function, its arguments and what it returns. Generated from the package sources.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Function</th><th>Purpose</th></tr></thead><tbody><tr><td><a href="./chorale_added_value"><code>chorale_added_value</code></a></td><td>Whether a concept needed more than one modality</td></tr><tr><td><a href="./chorale_check_design"><code>chorale_check_design</code></a></td><td>What a collection of designs can support, before anything is fitted</td></tr><tr><td><a href="./chorale_concept_evidence"><code>chorale_concept_evidence</code></a></td><td>Whether each concept changes with the configured phenotype contrast</td></tr><tr><td><a href="./chorale_concept_example"><code>chorale_concept_example</code></a></td><td>A collection with named concepts planted in it</td></tr><tr><td><a href="./chorale_concept_families"><code>chorale_concept_families</code></a></td><td>Groups of concepts that describe the same biology</td></tr><tr><td><a href="./chorale_concept_fit"><code>chorale_concept_fit</code></a></td><td>Estimate the shared state of a collection through its concepts</td></tr><tr><td><a href="./chorale_concept_specificity"><code>chorale_concept_specificity</code></a></td><td>Compare the phenotype with what a nuisance covariate reaches</td></tr><tr><td><a href="./chorale_concepts"><code>chorale_concepts</code></a></td><td>The named concepts a collection can be scored on</td></tr><tr><td><a href="./chorale_control"><code>chorale_control</code></a></td><td>Analysis settings recorded with a CHORALE fit</td></tr><tr><td><a href="./chorale_data_profile"><code>chorale_data_profile</code></a></td><td>Summarise the properties of a real matrix a simulation must reproduce</td></tr><tr><td><a href="./chorale_destroy_pairing"><code>chorale_destroy_pairing</code></a></td><td>Recover a correspondence that is known, with the pairing withheld</td></tr><tr><td><a href="./chorale_encode"><code>chorale_encode</code></a></td><td>Score every modality on the shared concepts, and keep what they miss</td></tr><tr><td><a href="./chorale_family_evidence"><code>chorale_family_evidence</code></a></td><td>Whether a family of concepts moves with the phenotype as a group</td></tr><tr><td><a href="./chorale_fixture"><code>chorale_fixture</code></a></td><td>Read a committed test fixture</td></tr><tr><td><a href="./chorale_free_dimensions"><code>chorale_free_dimensions</code></a></td><td>Coordinated variation that no concept explains</td></tr><tr><td><a href="./chorale_gates"><code>chorale_gates</code></a></td><td>Whether a collection meets the conditions the method rests on</td></tr><tr><td><a href="./chorale_geneset_matrix"><code>chorale_geneset_matrix</code></a></td><td>Place a modality’s features in the vocabulary</td></tr><tr><td><a href="./chorale_geneset_registry"><code>chorale_geneset_registry</code></a></td><td>Registry of curated collections a vocabulary can be built from</td></tr><tr><td><a href="./chorale_genesets"><code>chorale_genesets</code></a></td><td>Retrieve the concepts a collection is scored on</td></tr><tr><td><a href="./chorale_joint_concepts"><code>chorale_joint_concepts</code></a></td><td>What each component of the joint state is made of</td></tr><tr><td><a href="./chorale_joint_evidence"><code>chorale_joint_evidence</code></a></td><td>Whether a jointly estimated component changes with the phenotype</td></tr><tr><td><a href="./chorale_joint_state"><code>chorale_joint_state</code></a></td><td>One latent state estimated from every modality at once</td></tr><tr><td><a href="./chorale_joint_transfer"><code>chorale_joint_transfer</code></a></td><td>Whether a jointly estimated direction predicts phenotype in a modality that</td></tr><tr><td>did not contribute to it</td><td></td></tr><tr><td><a href="./chorale_label_registry"><code>chorale_label_registry</code></a></td><td>The vocabulary the design covariates are read in</td></tr><tr><td><a href="./chorale_lipid_class"><code>chorale_lipid_class</code></a></td><td>Lipid class of each feature in a lipidome</td></tr><tr><td><a href="./chorale_load"><code>chorale_load</code></a></td><td>Load a single-modality assay into a chorale container</td></tr><tr><td><a href="./chorale_map"><code>chorale_map</code></a></td><td>Harmonise feature identifiers to Entrez gene identifiers</td></tr><tr><td><a href="./chorale_metabolite_matrix"><code>chorale_metabolite_matrix</code></a></td><td>Place a lipidome’s features in the vocabulary</td></tr><tr><td><a href="./chorale_metabolite_pathways"><code>chorale_metabolite_pathways</code></a></td><td>Pathway membership of lipid classes</td></tr><tr><td><a href="./chorale_n_factors"><code>chorale_n_factors</code></a></td><td>How many components a modality can support</td></tr><tr><td><a href="./chorale_null"><code>chorale_null</code></a></td><td>Permutation calibration and stability diagnostics</td></tr><tr><td><a href="./chorale_plant"><code>chorale_plant</code></a></td><td>Plant named concepts in a simulated collection</td></tr><tr><td><a href="./chorale_profile_agreement"><code>chorale_profile_agreement</code></a></td><td>Compare two matrices on the properties a simulation must reproduce</td></tr><tr><td><a href="./chorale_report"><code>chorale_report</code></a></td><td>Emit interpretable outputs from a concept fit</td></tr><tr><td><a href="./chorale_score_concepts"><code>chorale_score_concepts</code></a></td><td>Score a fit against the concepts that were planted in it</td></tr><tr><td><a href="./chorale_select_factors"><code>chorale_select_factors</code></a></td><td>Choose how many free dimensions the data support</td></tr><tr><td><a href="./chorale_set_overlap"><code>chorale_set_overlap</code></a></td><td>Largest overlap of each planting set with any scoring set</td></tr><tr><td><a href="./chorale_signature_terms"><code>chorale_signature_terms</code></a></td><td>Design terms a simulated signature is written over</td></tr><tr><td><a href="./chorale_simulate"><code>chorale_simulate</code></a></td><td>Simulate disjoint multi-modal data with known shared latent structure</td></tr><tr><td><a href="./chorale_transform"><code>chorale_transform</code></a></td><td>Put a modality on the scale its measurement model implies</td></tr><tr><td><a href="./chorale_validate_concepts"><code>chorale_validate_concepts</code></a></td><td>Recovery of planted concepts across a grid of regimes</td></tr></tbody></table></div><aside class="toc"><p>On this page</p><nav id="toc"></nav></aside></div></main><footer class="site"><div class="wrap"><p>Source, issues, and review history are available on<a href="https://github.com/lescailab/chorale">GitHub</a>.</p><p>Released under the MIT licence. Documentation built with Astro.</p></div></footer><script>
+  // theme
+  const btn = document.getElementById('theme');
+  btn?.addEventListener('click', () => {
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    const cur = document.documentElement.getAttribute('data-theme') || (dark ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('chorale-theme', next);
+  });
+
+  // table of contents, built from the headings actually present
+  const holder = document.getElementById('toc');
+  const body = document.querySelector('.doc .body');
+  if (holder && body) {
+    const hs = [...body.querySelectorAll('h2, h3')].filter(h => h.id);
+    if (hs.length < 2) { holder.closest('aside')?.remove(); }
+    else {
+      hs.forEach(h => {
+        const a = document.createElement('a');
+        a.href = '#' + h.id;
+        a.textContent = h.textContent;
+        if (h.tagName === 'H3') a.className = 'lvl3';
+        holder.appendChild(a);
+      });
+      const links = new Map([...holder.querySelectorAll('a')].map(a => [a.getAttribute('href').slice(1), a]));
+      const seen = new Set();
+      const spy = new IntersectionObserver(es => {
+        es.forEach(e => e.isIntersecting ? seen.add(e.target.id) : seen.delete(e.target.id));
+        links.forEach(a => a.classList.remove('active'));
+        const first = hs.find(h => seen.has(h.id));
+        if (first) links.get(first.id)?.classList.add('active');
+      }, { rootMargin: '-72px 0px -70% 0px' });
+      hs.forEach(h => spy.observe(h));
+    }
+  }
+
+  // wrap tables so they scroll inside themselves
+  document.querySelectorAll('main table').forEach(t => {
+    if (t.parentElement?.classList.contains('tablewrap')) return;
+    const w = document.createElement('div'); w.className = 'tablewrap';
+    t.replaceWith(w); w.appendChild(t);
+  });
+
+  // reveal on scroll
+  const io = new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script></body></html>
