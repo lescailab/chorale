@@ -296,6 +296,15 @@ chorale_residualise_scores <- function(scores, design, columns, modality) {
 #' supply carry no weight, so a component is built from what each modality
 #' actually measures rather than from an imputed value standing in for it.
 #'
+#' `ridge` is not a regularisation parameter to tune. It sits several orders of
+#' magnitude below the unit variance the standardised scores and loadings carry,
+#' so it decides the fit of a row holding fewer observations than there are
+#' components and leaves a well-covered row alone. `tol` is a relative change in
+#' the residual sum of squares, so a collection of any size stops at the same
+#' point, and `converged` records whether the tolerance or `max_iter` ended the
+#' alternation: a fit that ran out of iterations is visible rather than reported
+#' as fitted.
+#'
 #' @keywords internal
 #' @noRd
 chorale_weighted_lowrank <- function(z, observed, k, seed = 1L, tol = 1e-6,
@@ -308,6 +317,10 @@ chorale_weighted_lowrank <- function(z, observed, k, seed = 1L, tol = 1e-6,
   filled <- z
   filled[!observed] <- 0
   set.seed(seed)
+  # The initialisation is deterministic, so the alternating fit below has no
+  # random component and `seed` does not change what this function returns. It
+  # is set anyway so that a caller reading the signature is not left thinking
+  # the fit has an unseeded random start.
   start <- svd(filled, nu = k, nv = k)
   scores <- start$u %*% diag(start$d[seq_len(k)], nrow = k)
   loadings <- start$v

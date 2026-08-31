@@ -322,6 +322,11 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
     design <- encoding$designs[[held]]
     design <- design[match(rownames(projected), design$sample_id), ,
                      drop = FALSE]
+    # The signature resolver takes a collection and reports what its members
+    # share. Here there is one modality, so the design is passed twice: a design
+    # shares everything with itself, and the covariates that come back are the
+    # ones this modality can anchor on by itself. The test is within the held-out
+    # cohort alone, so nothing about the training modalities belongs in it.
     spec <- chorale_resolve_signature(
       list(design, design),
       phenotype_column = control$phenotype_column,
@@ -338,6 +343,10 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
         projected, design, spec, anchor = spec$phenotype, blocks = blocks,
         seed = seed + 1000L * b)
       p <- chorale_adjusted_profile(permuted, design, spec)
+      # The null is built on the first phenotype contrast. With a two-level
+      # phenotype, which is what the estimand is defined on, that is the only
+      # one; a phenotype with more levels would have its further contrasts read
+      # against this one's null.
       term <- intersect(anchor_terms, colnames(p$z))[1]
       null_z[b, ] <- abs(p$z[, term])
     }
@@ -406,8 +415,20 @@ chorale_project_modality <- function(encoding, modality, loadings, nuisance,
   scores <- scale(scores)
   scores[!is.finite(scores)] <- 0
 
+  # At least one more shared concept than there are components. Below that the
+  # projection is undetermined; at exactly that many it is a solve rather than a
+  # fit, reproducing the scores with no residual whatever the loadings say, so
+  # the coordinates would carry no evidence that the direction describes this
+  # modality at all. Either way the modality is reported as not projectable,
+  # which is the case for a layer whose coverage of the vocabulary is thin.
   common <- intersect(colnames(scores), rownames(loadings))
   if (length(common) < ncol(loadings) + 1L) return(NULL)
+  # The coordinates of each held-out sample in the space the loadings span,
+  # restricted to the concepts this modality measures. The loadings are
+  # orthonormal over the whole vocabulary but not over a subset of it, so the
+  # cross-product has to be inverted rather than assumed to be the identity; the
+  # small addition to its diagonal only keeps the solve defined where two
+  # retained concepts happen to load almost identically.
   u <- loadings[common, , drop = FALSE]
   projected <- scores[, common, drop = FALSE] %*% u %*%
     solve(crossprod(u) + 1e-8 * diag(ncol(u)))
@@ -452,6 +473,11 @@ chorale_match_components <- function(fitted, reference) {
   # solve_LSAP minimises, and the pairing wanted is the one maximising
   # agreement whichever way each component happens to point.
   cost <- max(abs(agreement)) - abs(agreement)
+  # solve_LSAP needs at least as many columns as rows. A held-out fit can carry
+  # more components than the reference, so the cost matrix is padded to a square
+  # with the worst cost in every added column: a component assigned to one of
+  # those columns is one the reference has no partner for, and it is reported
+  # below with an agreement of NA rather than forced onto a reference name.
   square <- matrix(max(cost), nrow = nrow(cost),
                    ncol = max(ncol(cost), nrow(cost)))
   square[, seq_len(ncol(cost))] <- cost

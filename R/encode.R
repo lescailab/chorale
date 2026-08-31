@@ -89,6 +89,12 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
     # whole centred sample space. The projection then reproduces the assay and
     # the residual is numerical dust. Having at least as many concepts as
     # samples makes this possible but does not guarantee the required rank.
+    #
+    # The threshold separates that dust from a real residual by many orders of
+    # magnitude: a residual carrying any signal holds a share of order one,
+    # while a reproduced assay leaves floating-point error. Without the test the
+    # dust is factorised and its components are reported as coordinated
+    # variation the vocabulary has no name for.
     residual_share <- if (total > 0) sum(residual^2) / total else 0
     exhausted <- !is.finite(residual_share) || residual_share < 1e-8
     ceiling_k <- if (exhausted) 0L else {
@@ -248,9 +254,15 @@ chorale_concept_scores <- function(x, membership) {
   if (ncol(w) == 0) {
     return(list(scores = empty, weights = w, dropped = dropped))
   }
+  # Dividing each concept's weights by their total makes the score a weighted
+  # mean rather than a sum, which is what puts a concept of twenty features and
+  # one of four hundred on the same scale.
   w <- sweep(w, 2, mass, `/`)
   raw <- x[, shared, drop = FALSE] %*% w
 
+  # A concept whose score does not vary carries no contrast and would divide by
+  # zero when standardised. It is dropped and named in `dropped`, so its absence
+  # from the vocabulary is a recorded fact rather than a silent gap.
   sdv <- apply(raw, 2, stats::sd)
   constant <- !is.finite(sdv) | sdv == 0
   dropped <- c(dropped, colnames(raw)[constant])
@@ -259,6 +271,9 @@ chorale_concept_scores <- function(x, membership) {
   if (ncol(raw) == 0) {
     return(list(scores = empty, weights = w, dropped = dropped))
   }
+  # scale() attaches the centre and spread it used. They are stripped because
+  # this matrix is written into the fit and saved, and an attribute carrying one
+  # value per concept would travel with every score matrix for no reader.
   scores <- scale(raw)
   attr(scores, "scaled:center") <- NULL
   attr(scores, "scaled:scale") <- NULL
@@ -290,6 +305,14 @@ chorale_concept_reconstruction <- function(x, scores) {
 }
 
 #' Share of a modality's variance each concept carries on its own
+#'
+#' Each concept is regressed on alone, so the shares describe concepts one at a
+#' time and do not partition the modality's variance: curated concepts overlap,
+#' so two concepts sharing features both claim the variance they share and the
+#' column sums to more than the concept channel carries. The share that channel
+#' carries jointly is `concept_share` in the variance table, which is computed
+#' from the projection onto the span of all of them.
+#'
 #' @keywords internal
 #' @noRd
 chorale_concept_variance <- function(x, scores, modality) {

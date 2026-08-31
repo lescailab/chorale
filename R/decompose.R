@@ -45,6 +45,19 @@ chorale_transform <- function(mat, transform = c("auto", "none", "log", "vst")) 
       # Negative values are already on a symmetric scale, typically a log ratio.
       transform <- "none"
     } else {
+      # Three properties decide the transform, and each is deliberately coarse:
+      # the question is which measurement family a matrix belongs to, not a
+      # precise characterisation of it. `whole` tolerates the rounding a count
+      # matrix picks up from being written and read as a double. `spread` is the
+      # 99th percentile over the median or over 1, whichever is larger, so a
+      # matrix whose median is zero does not divide by it; above 5 the upper
+      # tail sits at least five times the typical value, a spread wide enough
+      # that centring alone leaves the largest features dominating a factor.
+      # `skew` is the third standardised moment, whose sign and rough
+      # size separate a right-skewed intensity distribution from a symmetric
+      # one; the 1e-9 floor only guards a constant matrix. `spread` gates both
+      # transforms, so a narrow count matrix is left alone rather than
+      # transformed for the sake of being whole.
       whole <- all(abs(finite - round(finite)) < 1e-8)
       spread <- stats::quantile(finite, 0.99) / max(stats::quantile(finite, 0.5), 1)
       skew <- mean(((finite - mean(finite)) / max(stats::sd(finite), 1e-9))^3)
@@ -197,6 +210,10 @@ chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
   set.seed(seed)
   null <- matrix(NA_real_, nrow = n_perm, ncol = length(observed))
   for (b in seq_len(n_perm)) {
+    # Each feature is permuted independently, which is what makes this the
+    # parallel-analysis null rather than a resampling of whole samples:
+    # permuting rows would leave the feature-feature covariance intact and there
+    # would be nothing for an eigenvalue to stand above.
     xb <- apply(x, 2, sample)
     d <- svd(xb, nu = 0, nv = 0)$d^2 / max(n - 1L, 1L)
     null[b, seq_along(d)] <- d
@@ -284,6 +301,12 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
 
   for (i in seq_len(n_init)) {
     set.seed(seed + i)
+    # `method = "C"` rather than fastICA's default `"R"`, because the medoid
+    # selection below needs twenty initialisations and the R implementation is
+    # too slow to run that many. The tolerance is tightened from fastICA's 1e-4
+    # and the cap raised from its 200 to match: a looser tolerance leaves runs
+    # stopping at different points, which the agreement matrix below would
+    # report as unstable components when the instability is the optimiser's.
     fit <- try(
       fastICA::fastICA(basis, n.comp = n_factors, method = "C",
                        maxit = 500, tol = 1e-5, verbose = FALSE),
@@ -317,6 +340,9 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
       cor_mat <- abs(suppressWarnings(stats::cor(runs[[valid[a]]],
                                                    runs[[valid[b]]])))
       cor_mat[!is.finite(cor_mat)] <- 0
+      # Absolute correlation, then a one-to-one assignment: ICA identifies
+      # neither the sign nor the order of its components, so two runs recovering
+      # the same subspace can look unrelated until their columns are paired.
       assignment <- clue::solve_LSAP(cor_mat, maximum = TRUE)
       value <- mean(cor_mat[cbind(seq_len(nrow(cor_mat)),
                                   as.integer(assignment))])
@@ -330,6 +356,10 @@ chorale_ica <- function(x, n_factors, n_init = 20L, seed = 1L,
   }
 
   # Loadings in feature space: regress each feature on the recovered sources.
+  # This is what returns the fit to the original features after the
+  # factorisation ran in the reduced basis, and it is also why the basis change
+  # is invisible downstream. Only the slopes are kept: the intercept is a
+  # feature's mean, which the centring has already removed from `x`.
   coefs <- stats::coef(stats::lm(x ~ best$scores))
   loadings <- t(coefs[-1, , drop = FALSE])
   colnames(loadings) <- paste0("factor_", seq_len(n_factors))
@@ -407,6 +437,10 @@ chorale_assign <- function(stat) {
 #' @noRd
 chorale_ginv <- function(m, tol = sqrt(.Machine$double.eps)) {
   s <- svd(m)
+  # Singular values are cut relative to the largest, as MASS::ginv does, so the
+  # cut does not depend on the scale of the input. It is a rank decision, and it
+  # is what makes the inverse defined for the rank-deficient Gram matrix that
+  # overlapping concepts produce.
   keep <- s$d > max(tol * s$d[1], 0)
   s$v[, keep, drop = FALSE] %*% (t(s$u[, keep, drop = FALSE]) / s$d[keep])
 }
@@ -427,7 +461,16 @@ chorale_candidate_covariates <- function(designs) {
   all_cols <- unique(unlist(lapply(designs, colnames)))
   candidates <- setdiff(all_cols, bookkeeping)
   # A column holding a distinct value for nearly every sample identifies the
-  # sample rather than grouping it, so it cannot serve as a contrast.
+  # sample rather than grouping it, so it cannot serve as a contrast. The
+  # threshold is nine tenths rather than all of them because a table can carry a
+  # handful of repeated identifiers by accident. A numeric column is exempt: it
+  # contributes a single slope however many values it realises, so having one
+  # per sample costs it nothing.
+  #
+  # A covariate is kept where any one modality can group on it. Whether every
+  # modality can is decided later, in chorale_resolve_signature(), which reports
+  # the reason a covariate was excluded; deciding it here would drop the
+  # covariate silently.
   keep <- vapply(candidates, function(cv) {
     any(vapply(designs, function(d) {
       if (!cv %in% colnames(d)) return(FALSE)

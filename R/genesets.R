@@ -129,6 +129,9 @@ chorale_genesets <- function(collections = c("hallmark", "reactome", "cell_type"
       collection = spec$collection,
       subcollection = spec$subcollection
     )
+    # msigdbr renamed this column from `entrez_gene` to `ncbi_gene`. Both are
+    # accepted so the package works against either release, and neither name is
+    # required by the version bound in DESCRIPTION.
     id_col <- if ("ncbi_gene" %in% names(tbl)) "ncbi_gene" else "entrez_gene"
     tbl <- tbl[!is.na(tbl[[id_col]]), , drop = FALSE]
     split_sets <- split(as.character(tbl[[id_col]]), tbl$gs_name)
@@ -194,6 +197,10 @@ chorale_geneset_matrix <- function(feature_ids, sets, weights = NULL,
     if (!is.data.frame(mapping) || !all(required %in% names(mapping))) {
       rlang::abort("`mapping` must contain id, ENTREZID and weight columns.")
     }
+    # The mapped path is a loop over features and sets rather than a matrix
+    # product, because a feature contributes a different fractional weight to
+    # each gene it maps to and the sum is over those targets. It runs once per
+    # modality when the vocabulary is built, never inside a permutation loop.
     mat <- matrix(0, nrow = length(feature_ids), ncol = length(sets),
                   dimnames = list(feature_ids, names(sets)))
     by_id <- split(mapping, as.character(mapping$id))

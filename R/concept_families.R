@@ -49,6 +49,11 @@ chorale_concept_families <- function(concepts, min_overlap = 0.25,
                       family_size = 1L, stringsAsFactors = FALSE))
   }
 
+  # The full pairwise Jaccard distance, which is quadratic in the vocabulary
+  # size: a thousand concepts is around half a million intersections and takes
+  # seconds, but a vocabulary an order of magnitude larger would not be built
+  # this way. It is computed once per run, before anything is tested, so it is
+  # not inside any permutation loop.
   members <- lapply(sets, unique)
   sizes <- lengths(members)
   distance <- matrix(1, n, n, dimnames = list(names_kept, names_kept))
@@ -62,6 +67,11 @@ chorale_concept_families <- function(concepts, min_overlap = 0.25,
   }
   diag(distance) <- 0
 
+  # Complete linkage, not average or single: under complete linkage a cluster's
+  # diameter is the largest distance inside it, so cutting at `1 - min_overlap`
+  # guarantees that every pair within a family overlaps at least that much.
+  # Single linkage would chain concepts together through intermediates that
+  # overlap nothing else in the family.
   tree <- stats::hclust(stats::as.dist(distance), method = "complete")
   cut <- stats::cutree(tree, h = 1 - min_overlap)
   size <- table(cut)
@@ -128,6 +138,12 @@ chorale_family_evidence <- function(evidence, families,
     columns <- match(keys[at], colnames(directional_null))
 
     groups <- split(seq_along(at), fam)
+    # The square root of the family size puts families of different size on one
+    # scale, which is what the sum of independent unit-variance statistics would
+    # need. The members here are not independent, and the normalisation is not
+    # what makes the statistic valid: the null below sums the same members of
+    # the same resamples, so whatever dependence they have is in the reference
+    # distribution rather than assumed away by the divisor.
     statistic <- vapply(groups, function(g) {
       abs(sum(signed[at][g], na.rm = TRUE)) / sqrt(length(g))
     }, numeric(1))

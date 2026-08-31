@@ -645,6 +645,10 @@ chorale_report_analysis_status <- function(family_evidence, joint_state,
 #' @noRd
 chorale_write <- function(x, path, file) {
   f <- file.path(path, file)
+  # Unquoted, because concept and family names come from curated collections and
+  # carry no tabs or newlines, and quoting would make every table awkward to
+  # read with a shell tool. A vocabulary supplied through `custom` whose names
+  # contain a tab would break this.
   utils::write.table(x, f, sep = "\t", row.names = FALSE, quote = FALSE)
   f
 }
@@ -723,6 +727,11 @@ chorale_column_label <- function(x) {
 chorale_format_column <- function(x) {
   if (!is.numeric(x)) return(as.character(x))
   out <- character(length(x))
+  # Below a thousandth, rounding to four places would print every p-value in the
+  # tail as 0 and lose the ordering between them, so those switch to scientific
+  # notation. The cut sits above the smallest attainable p-value of any
+  # reasonable permutation count, so the values it catches are the ones a reader
+  # wants to compare.
   small <- is.finite(x) & x != 0 & abs(x) < 1e-3
   out[small] <- format(signif(x[small], 2), scientific = TRUE, trim = TRUE)
   rest <- is.finite(x) & !small

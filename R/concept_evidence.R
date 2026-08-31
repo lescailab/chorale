@@ -109,6 +109,15 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
   blocks <- lapply(designs, chorale_exchangeability_blocks,
                    columns = control$exchangeability_blocks)
   for (b in seq_len(n_permutations)) {
+    # One seed per (permutation, modality), spaced 1000 apart so the two indices
+    # cannot produce the same seed for two different pairs. A collision would
+    # give two modalities the same exchange, which is a dependence between
+    # modalities the observed data do not have.
+    #
+    # Within a permutation, one exchange serves every concept of a modality:
+    # curated concepts share features and their scores are dependent, and
+    # drawing per concept would destroy exactly the dependence the maximum below
+    # has to account for.
     permuted_scores <- Map(function(m, d, block, i) {
       chorale_freedman_lane_scores(
         encoding$encodings[[m]]$concept_scores, d, spec, anchor = anchor,
@@ -130,6 +139,12 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
     null_max[b] <- max(v, na.rm = TRUE)
   }
 
+  # The observed statistic is counted into both numerator and denominator, which
+  # is what makes the p-value valid rather than merely the share of resamples
+  # exceeding it: without it a p-value of exactly zero is attainable and the
+  # test is anti-conservative (Phipson and Smyth 2010). It is also why nothing
+  # below `1 / (n_permutations + 1)` is reportable, so `n_permutations` has to
+  # be large enough to reach the threshold the result will be read against.
   joint <- observed$joint
   statistic <- abs(joint$joint_z)
   joint$p_value <- vapply(seq_along(statistic), function(i) {
@@ -280,6 +295,14 @@ chorale_combine_modalities <- function(per_modality) {
     q <- if (nrow(d) > 1 && total > 0) sum(w * (d$effect - effect)^2) else NA_real_
     het <- if (is.finite(q)) stats::pchisq(q, df = nrow(d) - 1,
                                            lower.tail = FALSE) else NA_real_
+    # The attribution statistics are combined by Stouffer's weighted sum of z
+    # rather than by inverse variance like the effects above. They cannot be
+    # combined the same way: an effect estimated after the neighbouring concepts
+    # have been regressed out is on a different scale in each modality, since
+    # each has its own neighbourhood, so the effects are not estimates of one
+    # quantity and their standard errors are not comparable. Weighting the
+    # statistics by the square root of the same precisions keeps the ordering of
+    # the modalities without asserting they measure the same effect.
     attributed <- if (all(is.na(d$attributed_z))) NA_real_ else {
       wa <- w[is.finite(d$attributed_z)]
       za <- d$attributed_z[is.finite(d$attributed_z)]
@@ -342,6 +365,9 @@ chorale_neighbour_residual <- function(scores, membership, min_overlap = 0.1) {
     n_neighbours[i] <- length(neighbours)
     max_jaccard[i] <- max(j)
     if (length(neighbours) == 0) next
+    # Every neighbour enters at once rather than the strongest one, because a
+    # concept can share a signal with several overlapping sets at the same time
+    # and removing them one at a time would leave that signal in.
     z <- scores[, neighbours, drop = FALSE]
     fit <- stats::lm.fit(cbind(1, z), scores[, i])
     out[, i] <- fit$residuals
@@ -458,6 +484,11 @@ chorale_freedman_lane_scores <- function(scores, design, spec, blocks, seed,
   }
 
   set.seed(seed)
+  # One permutation of the rows, applied to every concept at once: `order_new`
+  # is built first and then used to index the whole residual matrix. Permuting
+  # each concept separately would break the dependence between concepts that
+  # share features, which is the dependence the family-wise maximum and the
+  # family statistic both rest on.
   order_new <- seq_len(nrow(scores))
   for (lv in unique(blocks)) {
     at <- which(blocks == lv)

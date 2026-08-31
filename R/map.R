@@ -60,6 +60,9 @@ chorale_map <- function(ids, from = "SYMBOL", orgdb = "org.Mm.eg.db") {
                       weight = numeric()))
   }
 
+  # The weight of every row of an input identifier sums to one, so a feature
+  # matching several genes contributes one feature's worth spread across them
+  # rather than counting once in each concept those genes belong to.
   n_matches <- stats::ave(matched$id, matched$id, FUN = length)
   matched$weight <- 1 / as.numeric(n_matches)
   matched[, c("id", "ENTREZID", "weight")]

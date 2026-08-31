@@ -168,6 +168,10 @@ chorale_concept_modality_shuffle <- function(containers, fit, n_shuffles, seed) 
   features <- lapply(containers, function(se) {
     rownames(SummarizedExperiment::assay(se))
   })
+  # Pooling requires one feature space, so the collection is restricted to the
+  # features every modality measures. This is the first of the three reasons the
+  # result is descriptive: below ten shared features there is nothing to pool
+  # and the control is reported as inapplicable rather than run on a handful.
   common <- Reduce(intersect, features)
   if (length(common) < 10) {
     return(list(applicable = FALSE, statistic = NA_real_, p_value = NA_real_,
@@ -186,6 +190,8 @@ chorale_concept_modality_shuffle <- function(containers, fit, n_shuffles, seed) 
   pooled_design <- do.call(rbind, lapply(designs, function(d) {
     d[, shared_columns, drop = FALSE]
   }))
+  # Two modalities may reuse an identifier, and the pooled table would then
+  # carry two rows under one name, which chorale_load() refuses.
   colnames(pooled) <- pooled_design$sample_id <-
     make.unique(as.character(pooled_design$sample_id))
 
@@ -193,6 +199,11 @@ chorale_concept_modality_shuffle <- function(containers, fit, n_shuffles, seed) 
   null <- rep(NA_real_, n_shuffles)
   for (b in seq_len(n_shuffles)) {
     set.seed(seed + b)
+    # Labels are dealt out evenly and without regard to the design, which is the
+    # second and third reasons the result is descriptive: a shuffled modality
+    # keeps neither its original sample count nor its phenotype composition, so
+    # the precision of the regressions it supports is not the precision the
+    # observed fit had.
     assignment <- sample(rep(names(containers), length.out = ncol(pooled)))
     shuffled <- lapply(names(containers), function(m) {
       keep <- which(assignment == m)
