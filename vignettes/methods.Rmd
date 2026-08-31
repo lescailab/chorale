@@ -344,8 +344,9 @@ Curated concepts overlap, so attribution requires the overlap structure to be ca
 inference, which is what the family-wise permutation and the neighbour-adjusted statistic do.
 
 ICA free dimensions rely on stable non-Gaussian structure. `chorale_gates()`
-reports non-Gaussianity and modality-difference diagnostics, but a diagnostic
-passing is not proof that an individual free axis is identified.
+reports non-Gaussianity and modality-difference diagnostics, read on the same
+transformed scale the encoder consumes, but a diagnostic passing is not proof
+that an individual free axis is identified.
 
 A coordinated phenotype shift supports an association with the named concept.
 Ordering cause and consequence requires timing, mediation or perturbation.

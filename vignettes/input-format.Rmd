@@ -105,12 +105,19 @@ fit <- chorale_concept_fit(containers, sets,
 
 | Column | Meaning |
 |---|---|
-| `sample_id` | Unique within the modality, and matching the matrix column names in order. |
+| `sample_id` | Unique across the collection, and matching the matrix column names in order. |
 | `phenotype` | The contrast being estimated, on at least two levels. |
 
 The phenotype is a condition of entry rather than a covariate. The estimand is a contrast, so a
 modality that cannot express one cannot contribute to it, and a run whose modalities do not all
 carry it stops with that named as the reason.
+
+The identifier has to be unique across the whole collection and not only within a modality, since
+the design stands in for matched individuals only where there are none.
+`chorale_check_disjoint()` reports every identifier carried by more than one modality, and
+`chorale_concept_fit()` and `chorale_gates()` run it and warn. The warning does not stop the run:
+two independent studies can give one name to two individuals, and only the analyst can say which
+of the two a collision is.
 
 The column need not literally be called `phenotype`. Its role and reference
 level are analysis settings:
@@ -272,6 +279,6 @@ local nuisance model retain their original score.
 Before fitting, verify that matrix columns match `sample_id`, the phenotype
 contrast exists in every modality, numeric covariates are stored as numeric,
 identifier mapping reaches the intended concepts, and all transformations and
-normalisations are recorded. Run `chorale_check_design()` and inspect
-`chorale_concepts()$coverage`. These checks distinguish a weak biological signal
+normalisations are recorded. Run `chorale_check_design()` and
+`chorale_check_disjoint()`, and inspect `chorale_concepts()$coverage`. These checks distinguish a weak biological signal
 from a question the inputs never made estimable.
