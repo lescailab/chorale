@@ -57,3 +57,19 @@ test_that("chorale_ica returns loadings on the original features", {
   expect_equal(rownames(fit$loadings), colnames(x))
   expect_equal(rownames(fit$scores), rownames(x))
 })
+
+test_that("a matrix with no detectable structure supports no components", {
+  set.seed(11)
+  noise <- scale(matrix(stats::rnorm(50L * 4L), 50L, 4L))
+  expect_identical(chorale_n_factors(noise, n_perm = 100L), 0L)
+})
+
+test_that("the count is capped by the sample size and by max_factors", {
+  set.seed(12)
+  n <- 40L
+  x <- scale(matrix(stats::rt(n * 3L, df = 3), n, 3L) %*%
+               matrix(stats::rnorm(3L * 60L), 3L, 60L) +
+               matrix(stats::rnorm(n * 60L), n, 60L))
+  expect_lte(chorale_n_factors(x, n_perm = 50L), floor(n / 5))
+  expect_lte(chorale_n_factors(x, n_perm = 50L, max_factors = 2L), 2L)
+})

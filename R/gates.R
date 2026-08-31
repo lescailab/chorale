@@ -36,6 +36,10 @@
 #'   `containers` holds bare matrices; taken from the containers otherwise.
 #' @param control A [chorale_control()] object. `alpha`, `n_init`,
 #'   `n_factors_quantile` and `max_factors` are read from it.
+#' @param transform Per-modality scale handling, as in [chorale_transform()].
+#'   The diagnostics are read on the scale the estimator consumes, so the
+#'   default `"auto"` is the same choice [chorale_encode()] makes and an
+#'   override here has to be repeated there for the two to agree.
 #' @param n_factors Optional named integer vector fixing the component count
 #'   per modality. Taken from the detectability condition where absent.
 #' @param n_surrogate Integer number of Gaussian surrogates the non-Gaussianity
@@ -46,6 +50,10 @@
 #'
 #' @returns An object of class `chorale_gates`: a list of one data frame per
 #'   condition, plus `n_factors`, the component count each modality supports.
+#'   That count is what parallel analysis returned and may be zero. The
+#'   distributional diagnostics cannot be computed on no components, so where it
+#'   is zero they are read on one component instead. `transform` records the
+#'   scale each modality was read on.
 #'
 #' @examples
 #' \dontrun{
@@ -56,6 +64,7 @@
 #' @export
 chorale_gates <- function(containers, designs = NULL,
                           control = chorale_control(),
+                          transform = "auto",
                           n_factors = NULL, n_surrogate = 100L,
                           n_perm = 200L, seed = 1L) {
   if (!is.list(containers) || length(containers) < 1) {
@@ -76,15 +85,46 @@ chorale_gates <- function(containers, designs = NULL,
       as.data.frame(SummarizedExperiment::colData(x))
     })
   }
+  # Every table below is labelled by modality, and the disjointness check names
+  # the modalities a colliding identifier came from, so a supplied `designs`
+  # carries the names of the collection or the labels are guesses.
+  if (is.null(names(designs))) {
+    if (length(designs) != length(containers)) {
+      rlang::abort(paste0("`designs` must be named, or hold one entry per ",
+                          "modality in the order `containers` gives them."))
+    }
+    names(designs) <- names(containers)
+  }
+  if (!setequal(names(designs), names(containers))) {
+    rlang::abort(paste0(
+      "`designs` names different modalities from `containers`: ",
+      paste(sort(setdiff(names(designs), names(containers))), collapse = ", "),
+      " against ",
+      paste(sort(setdiff(names(containers), names(designs))), collapse = ", "),
+      "."))
+  }
+  designs <- designs[names(containers)]
 
-  # Samples by features, centred and scaled, which is what both the estimator
-  # and the surrogate construction expect.
-  xs <- lapply(assays, function(a) {
-    x <- t(as.matrix(a))
-    x[!is.finite(x)] <- 0
-    x <- scale(x)
-    x[, apply(x, 2, function(col) all(is.finite(col))), drop = FALSE]
+  # The design stands in for matched individuals only where there are none, so
+  # the assumption is checked on the collection before anything is read from it.
+  chorale_warn_shared_samples(designs)
+
+  # A gate answered on a scale the estimator never reads is a statement about a
+  # different matrix. The matrix is therefore built by the same function the
+  # encoder builds it with, so the two cannot differ in the transform, in the
+  # centring, or in what happens to an entry that is not finite.
+  transform_of <- chorale_transform_spec(transform, names(containers))
+  analysis <- lapply(names(assays), function(m) {
+    chorale_analysis_matrix(assays[[m]], transform = transform_of[[m]])
   })
+  names(analysis) <- names(assays)
+  applied <- data.frame(
+    modality = names(analysis),
+    transform = vapply(analysis, `[[`, character(1), "applied"),
+    stringsAsFactors = FALSE)
+  rownames(applied) <- NULL
+
+  xs <- lapply(analysis, `[[`, "matrix")
 
   detect <- chorale_gate_detectability(xs, n_perm = n_perm,
                                        quantile = control$n_factors_quantile,
@@ -93,18 +133,25 @@ chorale_gates <- function(containers, designs = NULL,
   if (is.null(n_factors)) {
     n_factors <- stats::setNames(detect$n_factors, detect$modality)
   }
+  # Parallel analysis returns zero where nothing clears its null, and the
+  # detectability table reports that count unaltered. The distributional
+  # diagnostics need a component to be computed on at all, so where the count is
+  # zero they are read on one, which is a floor this caller sets rather than one
+  # the count carries.
+  fit_factors <- stats::setNames(
+    pmax(1L, as.integer(n_factors[names(xs)])), names(xs))
 
   ica_fn <- chorale_gate_ica(n_init = control$n_init, consensus = control$consensus)
   ng <- lapply(names(xs), function(m) {
     chorale_gate_nongaussianity(
-      xs[[m]], as.integer(n_factors[[m]]), m, ica_fn,
+      xs[[m]], fit_factors[[m]], m, ica_fn,
       seed = as.integer(seed), n_surrogate = as.integer(n_surrogate),
       alpha = control$alpha)
   })
   names(ng) <- names(xs)
 
   gate_fits <- lapply(names(xs), function(m) {
-    chorale_ica(xs[[m]], as.integer(n_factors[[m]]),
+    chorale_ica(xs[[m]], fit_factors[[m]],
                 n_init = control$n_init, seed = as.integer(seed),
                 consensus = control$consensus)
   })
@@ -133,6 +180,7 @@ chorale_gates <- function(containers, designs = NULL,
     factor_stability = factor_stability,
     detectability = detect,
     anchor_richness = chorale_gate_anchors(designs),
+    transform = applied,
     n_factors = n_factors
   )
   class(out) <- "chorale_gates"
@@ -381,6 +429,8 @@ print.chorale_gates <- function(x, ...) {
   print(x$modality_difference[, c("pair", "pooled_KS_D", "pooled_KS_p",
                                   "pct_pairs_indistinguishable", "verdict")],
         row.names = FALSE)
+  cat("\nscale each modality was read on\n")
+  print(x$transform, row.names = FALSE)
   cat("\ndetectability\n")
   print(x$detectability, row.names = FALSE)
   cat("\nphenotype estimability and design rank\n")

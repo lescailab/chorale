@@ -20,7 +20,15 @@ chorale_joint_state(
 \item{encoding}{A \code{chorale_encode} object.}
 
 \item{n_components}{Number of components. \code{NULL}, the default, selects by
-reproducibility under subsampling with \code{\link[=chorale_select_factors]{chorale_select_factors()}}.}
+reproducibility under subsampling with \code{\link[=chorale_select_factors]{chorale_select_factors()}}, held to
+the same settings the encoder selects free dimensions under:
+\code{n_select_init}, \code{n_subsample}, \code{subsample_fraction} and \code{reproducibility}
+from \code{control}. The selector needs a complete matrix, so it is run on the
+stacked scores with the unobserved entries filled with zero, while the fit
+itself uses the observed entries alone. The reproducibility of the selected
+rank is therefore a property of the coverage-filled matrix, and a
+collection whose coverage is sparse should be read with that in mind or
+given \code{n_components} directly.}
 
 \item{max_components}{Ceiling on the number selected.}
 

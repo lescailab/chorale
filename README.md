@@ -54,22 +54,22 @@ Each concept carries its adjusted phenotype effect in every modality
 that expresses it, the combined statistic, agreement diagnostics,
 family-wise and false-discovery control, and the statistic that survives
 adjustment for overlapping neighbours. A high heterogeneity p-value
-means that disagreement was not detected; it does not prove that the
-effects are identical.
+means that excess disagreement was not detected, which with few
+modalities the test has little power to do.
 
-A joint component is a fitted direction over concepts, not an identified
-mechanism. Its sign and label are arbitrary, so it is interpreted
-through its loadings, calibrated phenotype evidence, per-modality
-effects, and leave-one-modality-out transfer. Coordinated variation no
-concept explains is reported separately as free dimensions.
+A joint component is a fitted direction over concepts. Its sign and
+label are arbitrary, so it is interpreted through its loadings,
+calibrated phenotype evidence, per-modality effects, and
+leave-one-modality-out transfer. Coordinated variation no concept
+explains is reported separately as free dimensions.
 
 ## Status
 
-This branch is a production candidate for external review, not a stable
-or CRAN release. Validation includes planted-concept simulations,
-complete-null calibration, recovery measured against a withheld pairing,
-deterministic tests, package checks, and site builds. Conditions of
-applicability are stated in the [methods
+This branch is a production candidate for external review. Validation
+includes planted-concept simulations, complete-null calibration,
+recovery measured against a withheld pairing, deterministic tests,
+package checks, and site builds. Conditions of applicability are stated
+in the [methods
 documentation](https://lescailab.github.io/chorale/methods).
 
 ## Installation
@@ -107,8 +107,8 @@ fit$evidence$joint[, c("concept", "n_modalities", "joint_z",
 #> 2   quiet            2  0.2657            1.0  0.9112
 #> 3   other            2  0.1165            0.5  0.9112
 
-# The same encoding can be analysed jointly. This does not happen implicitly:
-# component count and nuisance adjustment remain explicit decisions.
+# The same encoding can be analysed jointly. Component count and nuisance
+# adjustment are decisions of the call.
 state <- chorale_joint_state(fit$encoding, n_components = 1)
 chorale_joint_evidence(state, n_permutations = 199)$components
 #>   component           term  share    effect        se        z p_value p_family

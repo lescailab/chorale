@@ -19,7 +19,7 @@ biological concepts. It then estimates concept-level phenotype effects,
 concept-family effects, a low-rank joint representation of the stacked concept
 scores, held-out transfer of those directions, and phenotype-linked free
 dimensions outside the vocabulary. These are separate estimands sharing one
-encoding, not interchangeable versions of one result.
+encoding, and each is reported against its own null.
 
 A concept is a set of features defined before results are inspected. The
 modalities are measured on different individuals, so the vocabulary supplies a
@@ -221,7 +221,8 @@ statistics \(Z_c^{(b)}\) already generated for concept inference. This retains
 dependence induced by shared features. `p_value` compares a family with its own
 null; `p_family` compares it with the largest family statistic in each
 permutation; `q_value` estimates FDR over families. A supported family is a
-group-level result and does not imply that each member is supported.
+group-level result, and support for any one member is read from the concept
+table.
 
 ## Joint low-rank state
 
@@ -244,21 +245,27 @@ only \(\Omega_{ic}=1\):
 The small ridge makes each update solvable even when a row or column has fewer
 observations than components. Zero-filled singular vectors initialise the
 algorithm, but unobserved entries never enter its update objective. Automatic
-component selection currently applies reproducibility selection to the
-zero-filled stacked matrix; where coverage differs sharply, inspect that
-selection and compare prespecified counts.
+component selection applies reproducibility selection to the
+zero-filled stacked matrix, under the reproducibility settings carried in
+`chorale_control()`. Coverage therefore enters the chosen rank and nothing else,
+and a collection whose coverage differs sharply between modalities is given a
+prespecified count instead.
 
 After convergence, a rotation orders the fitted rank-one terms by the variance
-they carry. This does not make the factors unique: \(UV^T\) is the fitted
-reconstruction, and signs, rotations, or nearly equivalent low-rank solutions
-can describe similar data. The component share is the squared norm of its
+they carry, which fixes a reproducible representation within the fitted
+subspace. \(UV^T\) is the fitted reconstruction, and signs, rotations or nearly
+equivalent low-rank solutions can describe similar data, so the basis itself is
+one of many. The component share is the squared norm of its
 rank-one approximation over observed entries divided by the observed squared
 score norm. With missing entries these shares need not form an exact partition,
 because cross-terms over the observation mask may remain.
 
 Stacking increases the number and diversity of observed rows and allows each
-concept to contribute wherever it is measured. It does not identify a direction
-merely because the vocabulary dimension exceeds one modality's sample count.
+concept to contribute wherever it is measured, so a direction over the whole
+vocabulary becomes estimable where it is not estimable within one modality.
+Estimability is not identification. Stability, loadings, phenotype evidence and
+transfer are empirical diagnostics that support the interpretation of a fitted
+direction, and none of them establishes that the direction is unique.
 
 ## Evidence for a joint component
 
@@ -291,8 +298,8 @@ U_h = Z_h^{(C)} V^{(C)}
 
 The projected scores are tested in the held-out design with Freedman--Lane
 permutations. At least three modalities are required so the training set remains
-joint. The returned `p_value` is component-specific, not max-statistic or FDR
-control over the transfer table.
+joint. The returned `p_value` is component-specific; max-statistic and FDR
+control are not applied across the transfer table.
 
 Each held-out fit has independent sign and order. Its loadings are matched
 one-to-one to a full-data reference by the assignment maximising absolute
@@ -344,8 +351,10 @@ Curated concepts overlap, so attribution requires the overlap structure to be ca
 inference, which is what the family-wise permutation and the neighbour-adjusted statistic do.
 
 ICA free dimensions rely on stable non-Gaussian structure. `chorale_gates()`
-reports non-Gaussianity and modality-difference diagnostics, but a diagnostic
-passing is not proof that an individual free axis is identified.
+reports non-Gaussianity and modality-difference diagnostics, read on the same
+transformed scale the encoder consumes. Those diagnostics describe the space the
+decomposition operates in; identification of an individual free axis is a
+separate question they leave open.
 
 A coordinated phenotype shift supports an association with the named concept.
 Ordering cause and consequence requires timing, mediation or perturbation.
@@ -367,5 +376,6 @@ al. 2020).
 
 The observed-entry joint fit is an alternating regularised low-rank
 approximation. A reconstruction can be stable while a particular factor basis
-is not unique. The transfer analysis is a held-out assessment of the
-implemented fitted directions, not a separate identifiability theorem.
+is not unique. The transfer analysis is a held-out assessment of the fitted
+directions, and its evidence is empirical rather than an identifiability
+result.

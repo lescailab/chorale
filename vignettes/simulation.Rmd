@@ -1,6 +1,6 @@
 ---
 title: "Simulation and validation"
-description: "What planted concepts, borrowed observation models and a withheld pairing establish, and what they do not."
+description: "What planted concepts, borrowed observation models and a withheld pairing establish, and the conditions each holds under."
 site_order: 7
 site_wide: true
 output:
@@ -26,7 +26,7 @@ answer two questions that no real cohort can. Are the concepts that move with th
 ones that get called? And does a concept scored in one modality track the same concept scored in
 another?
 
-## What a simulation has to reproduce, and what it does not
+## What a simulation has to reproduce
 
 The estimator reads a normalised feature-by-sample matrix. Fragment bias, retention time, ionisation
 efficiency and isotope envelopes are modelled upstream of that matrix, and normalisation removes or
@@ -40,8 +40,9 @@ measurement physics but the six properties of a prepared matrix the estimator ca
 5. non-Gaussianity relevant to the recovery of free dimensions;
 6. the design margins, including unpopulated cells and covariates recorded in only one cohort.
 
-A generator that reproduces these properties provides a useful observation-model stress test. Which
-properties of a real assay it does not capture bounds what recovery on it establishes.
+A generator reproducing these properties is an observation-model stress test, and its reach is the
+list above: recovery measured on it holds for assays whose six properties resemble the profiled
+ones.
 
 ## Three questions, three constructions
 
@@ -196,8 +197,8 @@ a property of the estimator rather than of one collection.
 
 ## Validating families and joint transfer
 
-Concept recovery alone does not validate the newer group and joint analyses.
-Their simulations need distinct targets.
+The group and joint analyses estimate different objects from the concept branch,
+so each needs its own planted target.
 
 For a concept family, plant modest concordant shifts across several overlapping
 concepts and compare them with families whose members point in opposite
@@ -214,16 +215,15 @@ every modality, then assess four properties separately:
 3. calibrated phenotype evidence on the fitted scores; and
 4. leave-one-modality-out prediction in a modality excluded from fitting.
 
-The fourth is the strongest test of cross-modality portability. It still does
-not prove a component is a unique latent mechanism: sign, order, and rotations
-remain non-identifiable, and more than one low-rank basis can describe the same
-reconstruction. Simulations should therefore compare loading subspaces or
-matched directions, not raw component labels.
+The fourth is the strongest test of cross-modality portability. Sign, order and
+rotations remain non-identifiable, and more than one low-rank basis can describe
+the same reconstruction, so the comparison is between loading subspaces or
+matched directions rather than between raw component labels.
 
-Coverage missing by modality must also be planted explicitly. Joint-state
-selection currently uses a zero-filled matrix for reproducibility selection and
-the observed-entry mask for fitting. A validation should vary that coverage
-pattern so selection artefacts are not mistaken for biological rank.
+Coverage missing by modality is planted explicitly as well. Joint-state
+selection uses a zero-filled matrix for reproducibility selection and the
+observed-entry mask for fitting, so a validation varies the coverage pattern and
+reads the selected rank against it.
 
 ## Conditions of applicability
 

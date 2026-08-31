@@ -129,7 +129,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 </section>
 
 <section class="band prose reveal">
-  <h2>What it gives you where the same individuals were never measured twice</h2>
+  <h2>What the method gives where the same individuals were never measured twice</h2>
   <div class="cards">
     <div class="card">
       <span class="num">01</span>
@@ -157,7 +157,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       <p>The concept scores of every modality share their columns, so they stack into one matrix of
          every sample against every concept and are decomposed once. The direction that comes out
          uses the samples and observed concept coverage of the whole collection. It is a fitted
-         low-rank summary, not a uniquely identified mechanism.</p>
+         low-rank summary rather than a uniquely identified mechanism, read through its loadings,
+         its stability and its transfer.</p>
     </div>
     <div class="card">
       <span class="num">05</span>
@@ -231,7 +232,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p>
     The result is a fitted direction over the whole vocabulary. Stacking increases the number and
     diversity of observed rows and allows concepts with incomplete coverage to contribute where
-    they are measured; it does not make an individual component uniquely identifiable. A concept a
+    they are measured, which makes a direction over the whole vocabulary estimable where one
+    modality could not estimate it; estimability is not identification. A concept a
     modality cannot express is missing rather than zero: after centring
     within modality, zero would be a claim that the modality measured exactly average, so the entry
     carries no weight instead and the narrowest layer never bounds the vocabulary.
@@ -250,9 +252,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     <code>chorale_joint_transfer()</code> holds each modality out, estimates the state from the
     rest, and projects the held-out cohort onto loadings containing none of it. A permutation asks
     whether structure could arise by chance under this design; transfer asks whether it survives in
-    a cohort sharing no individual, batch, assay or preparation with the one that produced it. It is
-    evidence of portability beyond modality-specific structure, while remaining an association
-    rather than a causal claim.
+    a cohort sharing no individual, batch, assay or preparation with the one that produced it. What
+    survives that is portability beyond modality-specific structure, measured as an association
+    across cohorts.
   </p>
 </section>
 

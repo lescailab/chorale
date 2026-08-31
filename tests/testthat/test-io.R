@@ -129,3 +129,78 @@ test_that("chorale_check_design says what a collection can anchor on", {
   expect_equal(attr(chk, "usable"), "phenotype")
 })
 
+
+
+test_that("chorale_check_disjoint is silent on disjoint modalities", {
+  mk <- function(ids) {
+    m <- matrix(stats::rnorm(20 * length(ids)), 20,
+                dimnames = list(paste0("g", 1:20), ids))
+    d <- data.frame(sample_id = ids,
+                    phenotype = rep(c("control", "case"), length.out = length(ids)),
+                    stringsAsFactors = FALSE)
+    chorale_load(m, d)
+  }
+  containers <- list(a = mk(paste0("a", 1:6)), b = mk(paste0("b", 1:6)))
+  collisions <- expect_silent(chorale_check_disjoint(containers))
+  expect_equal(nrow(collisions), 0L)
+  expect_silent(chorale_warn_shared_samples(containers))
+})
+
+test_that("chorale_check_disjoint names identifiers two modalities share", {
+  mk <- function(ids) {
+    m <- matrix(stats::rnorm(20 * length(ids)), 20,
+                dimnames = list(paste0("g", 1:20), ids))
+    d <- data.frame(sample_id = ids,
+                    phenotype = rep(c("control", "case"), length.out = length(ids)),
+                    stringsAsFactors = FALSE)
+    chorale_load(m, d)
+  }
+  containers <- list(a = mk(c("s1", "s2", "s3", "s4")),
+                     b = mk(c("s3", "s4", "b5", "b6")))
+  collisions <- chorale_check_disjoint(containers)
+  expect_equal(collisions$sample_id, c("s3", "s4"))
+  expect_true(all(collisions$n_modalities == 2L))
+  expect_true(all(collisions$modalities == "a, b"))
+  expect_warning(chorale_warn_shared_samples(containers),
+                 class = "chorale_shared_samples")
+})
+
+test_that("a modality carrying no identifier is reported as unchecked", {
+  mk <- function(ids) {
+    m <- matrix(stats::rnorm(20 * length(ids)), 20,
+                dimnames = list(paste0("g", 1:20), ids))
+    data.frame(sample_id = ids, stringsAsFactors = FALSE)
+  }
+  designs <- list(a = mk(paste0("a", 1:4)), b = data.frame(x = 1:4))
+  expect_warning(collisions <- chorale_check_disjoint(designs),
+                 class = "chorale_unchecked_disjointness")
+  # An empty table is not a verdict on the modality that could not be checked.
+  expect_equal(nrow(collisions), 0L)
+  expect_equal(attr(collisions, "unchecked"), "b")
+
+  # Where no modality carries one, there is nothing to check at all.
+  expect_error(
+    chorale_check_disjoint(list(a = data.frame(x = 1:3),
+                                b = data.frame(x = 1:3))),
+    "disjointness cannot be checked")
+})
+
+test_that("the collection-level check reaches the fit and the gates", {
+  skip_if_not_installed("fastICA")
+  fx <- chorale_concept_example(n_samples = 40L, n_features = 60L,
+                                n_modalities = 2L, seed = 1L)
+  shared <- fx$containers
+  # Give the second modality one of the first modality's identifiers.
+  cd <- SummarizedExperiment::colData(shared[[2]])
+  first <- SummarizedExperiment::colData(shared[[1]])$sample_id[1]
+  cd$sample_id[1] <- first
+  SummarizedExperiment::colData(shared[[2]]) <- cd
+  expect_warning(
+    chorale_concept_fit(shared, fx$sets, n_free = 1L, n_permutations = 19L,
+                        n_init = 2L),
+    class = "chorale_shared_samples")
+  expect_warning(
+    chorale_gates(shared, control = chorale_control(n_init = 2L),
+                  n_surrogate = 2L, n_perm = 5L),
+    class = "chorale_shared_samples")
+})

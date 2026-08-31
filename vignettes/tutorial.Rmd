@@ -99,8 +99,9 @@ concepts <- chorale_concepts(containers, sets, min_features = 5)
 concepts$coverage
 ```
 
-Coverage answers whether the question can be asked. It does not report whether
-a process is active. Every synthetic modality expresses every concept here.
+Coverage answers whether the question can be asked: it reports how far each
+modality's annotation reaches into a concept, rather than whether a process is
+active. Every synthetic modality expresses every concept here.
 
 ## 3. Fit the common encoding and concept evidence
 
@@ -136,8 +137,8 @@ fit$evidence$per_modality[
 
 The effect is measured in standard deviations of the concept score after
 adjustment. The z-statistic divides that effect by its uncertainty and therefore
-grows with precision. A large `heterogeneity_p` is not proof that modality
-effects are identical; it means this test did not detect excess disagreement.
+grows with precision. A large `heterogeneity_p` means this test detected no
+excess disagreement, which across three modalities it has little power to do.
 
 ## 4. Test overlapping concepts as families
 
@@ -155,7 +156,8 @@ family_evidence$families[, c(
 `process_core` and `process_extension` form one supported family. Their signed
 statistics accumulate because they point the same way. `immune` and `quiet`
 also overlap, but their family does not beat the family-wise null. Family
-significance does not require every member to be individually significant.
+significance is a group-level result, and each member is read from the concept
+table on its own.
 
 ## 5. Estimate and test the joint state
 
@@ -189,7 +191,7 @@ joint_evidence$per_modality
 ```
 
 Per-modality effects show where the fitted component is carried. They are
-descriptive and are not a requirement for the joint p-value.
+descriptive context and do not enter the joint p-value.
 
 ## 6. Transfer the direction to held-out modalities
 
@@ -213,7 +215,7 @@ joint_transfer$transfer[, c(
 this example can attain. `component` is the full-data reference label;
 `fitted_component` is its name inside that held-out fit. A negative
 `loading_agreement` indicates reversed orientation. Transfer `p_value` is
-component-specific and is not corrected across every transferred component.
+component-specific; correction across the transfer table is not applied.
 
 ## 7. Read variation outside the vocabulary
 

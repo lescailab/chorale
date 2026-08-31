@@ -8,6 +8,7 @@ chorale_gates(
   containers,
   designs = NULL,
   control = chorale_control(),
+  transform = "auto",
   n_factors = NULL,
   n_surrogate = 100L,
   n_perm = 200L,
@@ -24,6 +25,11 @@ chorale_gates(
 \item{control}{A \code{\link[=chorale_control]{chorale_control()}} object. \code{alpha}, \code{n_init},
 \code{n_factors_quantile} and \code{max_factors} are read from it.}
 
+\item{transform}{Per-modality scale handling, as in \code{\link[=chorale_transform]{chorale_transform()}}.
+The diagnostics are read on the scale the estimator consumes, so the
+default \code{"auto"} is the same choice \code{\link[=chorale_encode]{chorale_encode()}} makes and an
+override here has to be repeated there for the two to agree.}
+
 \item{n_factors}{Optional named integer vector fixing the component count
 per modality. Taken from the detectability condition where absent.}
 
@@ -38,6 +44,10 @@ condition.}
 \value{
 An object of class \code{chorale_gates}: a list of one data frame per
 condition, plus \code{n_factors}, the component count each modality supports.
+That count is what parallel analysis returned and may be zero. The
+distributional diagnostics cannot be computed on no components, so where it
+is zero they are read on one component instead. \code{transform} records the
+scale each modality was read on.
 }
 \description{
 This function reports whether phenotype and shared-design effects can be

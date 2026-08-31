@@ -73,9 +73,8 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
     se <- containers[[m]]
     an <- assay_name %||% SummarizedExperiment::assayNames(se)[1]
     mat <- SummarizedExperiment::assay(se, an)
-    tf <- chorale_transform(mat, transform = transform_of[[m]])
-    x <- scale(t(tf$matrix))
-    x[!is.finite(x)] <- 0
+    analysis <- chorale_analysis_matrix(mat, transform = transform_of[[m]])
+    x <- analysis$matrix
 
     scored <- chorale_concept_scores(x, concepts$membership[[m]])
     scores <- scored$scores
@@ -169,7 +168,7 @@ chorale_encode <- function(containers, concepts, n_free = "auto",
       free_loadings = free_loadings,
       concept_weights = scored$weights,
       analysis_matrix = x,
-      transform = tf$applied,
+      transform = analysis$applied,
       stability = if (is.null(free)) data.frame() else free$stability,
       selection = selected,
       n_free = ncol(free_scores),

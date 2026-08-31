@@ -27,7 +27,7 @@ stands between the data and the answer.}
 \item{seed}{Integer seed.}
 }
 \value{
-An integer count, at least two.
+An integer count, zero where no component clears the null.
 }
 \description{
 The number of factors is the one parameter the estimator cannot infer from
@@ -42,6 +42,12 @@ modality's own marginals rather than against an assumed noise level.
 The count is a property of the cohort rather than of the feature space: a
 modality with few samples supports few components whatever the number of
 features measured.
+
+A matrix whose eigenvalues never reach the permuted null returns zero. That
+is the answer parallel analysis gave, and reporting it is what keeps a
+diagnostic from being read on components the data did not support. A caller
+that must run a decomposition whatever the count raises the floor itself,
+where the choice is visible.
 }
 \examples{
 sim <- chorale_simulate(n_modalities = 2, n_features = 80,
