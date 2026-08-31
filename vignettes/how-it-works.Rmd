@@ -13,8 +13,8 @@ vignette: >
 ---
 
 CHORALE first creates one common representation and then asks several different
-questions of it. Keeping those questions separate is essential: they have
-different estimands, null distributions, and interpretations.
+questions of it. Those questions have different estimands, null distributions
+and interpretations, and are reported separately for that reason.
 
 ## 1. Fix the vocabulary and measure coverage
 
@@ -24,8 +24,9 @@ reach compatible pathway concepts through lipid class. A custom named list of
 feature identifiers works as well.
 
 Coverage is recorded for every concept and modality. “Not expressed” means that
-the modality contains fewer than the requested number of concept members. It
-does not mean that the biological process is absent.
+the modality contains fewer than the requested number of concept members, so the
+term describes the reach of the assay's annotation rather than the state of the
+biology.
 
 ## 2. Put each modality on an appropriate scale
 
@@ -97,15 +98,15 @@ threshold; ungrouped concepts remain as singleton families.
 the square root of family size. Agreement accumulates and opposing directions
 cancel. Calibration reuses the signed per-concept permutation array, which is
 necessary because the family members overlap. A significant family means that
-its members move together as a group; it does not imply that every member is
-individually significant.
+its members move together as a group; whether any one of them is significant on
+its own is read from the concept table.
 
 ## Branch C: one low-rank state over the stacked collection
 
 `chorale_joint_state()` starts from the same concept scores but estimates a
 different object. Each concept is centred and scaled within each modality.
-Optional modality-local nuisance columns—such as a batch recorded only in one
-cohort—are regressed out before stacking. The phenotype is never allowed in
+Optional modality-local nuisance columns, such as a batch recorded only in one
+cohort, are regressed out before stacking. The phenotype is never allowed in
 that nuisance list.
 
 The score blocks are stacked by row. A concept unavailable in one modality is
@@ -114,11 +115,10 @@ ridge-regularised least-squares fit. The result is a low-rank approximation with
 one score per sample and one loading per concept.
 
 Stacking supplies more observations and broader concept coverage than any
-single modality. It does not by itself identify a unique biological mechanism.
-Component sign is arbitrary, component order can change between fits, and
-different low-rank solutions may describe similar reconstructions. Interpret a
-component through its stability, loadings, phenotype evidence, per-modality
-effects, and transfer—not through its label alone.
+single modality. Component sign is arbitrary, component order can change between
+fits, and different low-rank solutions may describe similar reconstructions, so a
+component carries a mechanism only as far as its stability, loadings, phenotype
+evidence, per-modality effects and transfer take it. Its label carries none.
 
 `chorale_joint_evidence()` regresses the joint component scores on phenotype,
 shared covariates, and modality. The modality term prevents differences in
@@ -141,9 +141,10 @@ the effect sign must be interpreted with that orientation. `p_value` is a
 component-specific permutation p-value, not a family-wise correction over all
 transferred components.
 
-Transfer reduces one important explanation: structure unique to the held-out
-assay could not have produced loadings fitted without that assay. It still does
-not prove causality or eliminate confounding shared across studies.
+Transfer removes one explanation: structure unique to the held-out assay could
+not have produced loadings fitted without that assay. Confounding shared across
+the contributing studies survives it, and so does the distinction between
+association and cause.
 
 ## Branch E: variation outside the vocabulary
 
@@ -155,8 +156,8 @@ bounded by parallel analysis and sample size.
 If the realised concept-score matrix has full row rank, it spans the centred
 sample space and leaves no residual to decompose. Having at least as many
 concepts as samples makes full row rank possible, but does not guarantee it.
-An empty free-dimension table can therefore mean “not estimable because no
-residual remained,” not “tested and absent.” Read `variance.tsv` first.
+An empty free-dimension table therefore has two readings, “not estimable because
+no residual remained” and “tested and absent”, which `variance.tsv` separates.
 
 ## What the controls do
 
@@ -166,6 +167,6 @@ design composition; it carries no p-value. Initialisation stability reports
 whether free dimensions reappear. `chorale_concept_specificity()` separately
 tests whether shared covariates drive the vocabulary as strongly as phenotype.
 
-Controls do not rescue an unsuitable design. Exchangeability blocks, phenotype
-reference, nuisance variables, and the vocabulary are study decisions that must
-be justified before reading significance.
+Exchangeability blocks, phenotype reference, nuisance variables and the
+vocabulary are study decisions, and the calibration is conditional on them.
+Significance is read against those decisions rather than in place of them.

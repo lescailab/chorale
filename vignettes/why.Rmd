@@ -13,8 +13,8 @@ vignette: >
 ---
 
 CHORALE is for collections in which each omics modality was measured on a
-different set of individuals. It does not invent sample pairs. It changes the
-question to one the observed data can answer.
+different set of individuals. It changes the question to one the observed data
+can answer, and answers it on the samples as they were collected.
 
 ## What is missing
 
@@ -51,16 +51,18 @@ alone, and integration improves the evidence when modalities agree.
 together across the stacked collection? CHORALE standardises concept scores
 within modality, optionally removes modality-local nuisance effects, and fits a
 low-rank representation over the observed entries. The resulting components
-are directions through concept space shared by construction. They are fitted
-summaries, not uniquely identified mechanisms.
+are directions through concept space shared by construction, and they are
+fitted summaries of the collection. Identifying a mechanism from one of them
+requires stability, loadings, phenotype evidence and held-out transfer.
 
-## Three safeguards against easy stories
+## Three checks on an interpretation
 
-Concept families test whether overlapping concepts move together without
-pretending they are independent. Leave-one-modality-out transfer asks whether a
-joint direction estimated from the other modalities predicts phenotype in a
-cohort that contributed none of its samples or assay structure. Free dimensions
-retain coordinated variation that the vocabulary cannot name.
+Concept families test whether overlapping concepts move together, carrying
+their overlap through the inference rather than assuming it away.
+Leave-one-modality-out transfer asks whether a joint direction estimated from
+the other modalities predicts phenotype in a cohort that contributed none of its
+samples or assay structure. Free dimensions retain coordinated variation that
+the vocabulary cannot name.
 
 These answer different questions. A concept can be supported without belonging
 to a strong joint component; a joint component can be significant without every
@@ -74,15 +76,17 @@ without the effect under test, exchanges its residuals, and rebuilds the score.
 This Freedman--Lane procedure preserves the observed relation between phenotype
 and adjusting covariates. Family-wise p-values protect against any false call in
 the tested family, while q-values estimate the false-discovery proportion among
-calls. Neither is a causal claim.
+calls. Both are error rates over the vocabulary the run tested.
 
 ## What a result can establish
 
 A supported concept is an adjusted phenotype association in a named piece of
 biology, measured in the modalities listed in its row, at a stated error rate.
 A transferred joint component is a multiconcept direction fitted without the
-held-out modality that still predicts its phenotype. Neither result reconstructs
-an individual's missing modalities or orders cause and consequence.
+held-out modality that still predicts its phenotype. Both are associations
+measured across cohorts: reconstructing an individual's missing modalities needs
+paired data, and ordering cause and consequence needs timing, mediation or
+perturbation.
 
 An absence of significant rows also has several meanings. The analysis may not
 have been supplied, the quantity may not have been estimable, or it may have

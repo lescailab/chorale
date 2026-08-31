@@ -73,7 +73,7 @@ contributes little and adds noise in its place. Filter on detection rate before 
 
 ## The scale each matrix is on
 
-Two different jobs are involved, and only the second is done for you.
+Two different jobs are involved, and the estimator does the second.
 
 **Between samples.** Samples must already be comparable within the modality, because standardisation
 acts on a feature across samples and cannot remove a difference in library size or in total ion

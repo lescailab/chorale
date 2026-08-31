@@ -1,6 +1,6 @@
 ---
 title: "Outputs and how to read them"
-description: "Every table the report writes, what each column means, and what it does not establish."
+description: "Every table the report writes, what each column means, and what each one establishes."
 site_order: 5
 site_wide: true
 output:
@@ -46,8 +46,8 @@ Four columns decide how much a supported concept is worth, and they answer diffe
 `joint_z` says how strong the combined evidence is. `sign_agreement` says whether the modalities
 agree; a large statistic with agreement of 0.5 is one modality carrying the others.
 `heterogeneity_p` tests for excess disagreement. A small value warns against one
-common effect; a large value does not prove equality, especially with few
-modalities. `attributed_z` says
+common effect; a large value reports that excess disagreement was not detected,
+which with few modalities the test has little power to do. `attributed_z` says
 whether the signal belongs to the concept or to the concepts it overlaps.
 
 `p_family` and `q_value` control different things and neither is a correction applied to the other.
@@ -106,12 +106,12 @@ carried here.
 | `outside_vocabulary` | Whether the dimension is called at the configured level. |
 | `top_features` | The features loading on it most heavily. |
 
-`top_features` describes a dimension; it does not identify it. A free dimension has no name, and
+`top_features` describes a dimension rather than naming it. A free dimension has no name, and
 naming it from its loadings is the reader's inference rather than the method's output.
 
 The concept channel is fitted first, so the free dimensions hold only what is orthogonal to every
 concept score. A phenotype-linked direction that shares its direction with a concept is carried by
-that concept and does not appear here.
+that concept and appears in the concept table instead.
 
 ## `added_value.tsv`: whether integration was needed
 
@@ -182,8 +182,9 @@ with `family` and `family_size`. A singleton is retained rather than discarded.
 | `q_value` | Estimated FDR over the tested families. |
 | `members` | Semicolon-separated concepts contributing to the row. |
 
-A supported family says its members move coherently as a group. It does not say
-that every listed concept is individually supported or independently measured.
+A supported family says its members move coherently as a group. Support for any
+one listed concept is read from `concepts.tsv`, and members overlap by
+construction rather than measuring independent things.
 
 ## Joint-state audit files
 
@@ -211,7 +212,7 @@ adjusted effect within each modality as context.
 The joint effect sign reverses if the component is reoriented. Read magnitude
 and calibrated error rates first, then define direction from loadings. A
 component can be significant jointly while being weak in one modality; local
-effects are reported, not used as a hidden inclusion rule.
+effects are reported as context and do not enter the inclusion rule.
 
 ## `joint_transfer.tsv`
 
