@@ -52,8 +52,9 @@ together across the stacked collection? CHORALE standardises concept scores
 within modality, optionally removes modality-local nuisance effects, and fits a
 low-rank representation over the observed entries. The resulting components
 are directions through concept space shared by construction, and they are
-fitted summaries of the collection. Identifying a mechanism from one of them
-requires stability, loadings, phenotype evidence and held-out transfer.
+fitted summaries of the collection. Stability, loadings, phenotype evidence and
+held-out transfer support the interpretation of such a summary without
+establishing that it is a uniquely identified mechanism.
 
 ## Three checks on an interpretation
 

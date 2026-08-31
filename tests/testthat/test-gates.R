@@ -95,12 +95,66 @@ test_that("the gates read a modality on the scale the encoder consumes", {
 
   # The matrix each diagnostic is read on is the matrix the encoder builds.
   for (m in names(containers)) {
-    tf <- chorale_transform(SummarizedExperiment::assay(containers[[m]]))
-    gate_x <- scale(t(tf$matrix))
-    gate_x[!is.finite(gate_x)] <- 0
+    gate_x <- chorale_analysis_matrix(
+      SummarizedExperiment::assay(containers[[m]]))$matrix
     expect_equal(unname(gate_x),
                  unname(enc$encodings[[m]]$analysis_matrix))
   }
+})
+
+test_that("a missing value reaches the gates as it reaches the encoder", {
+  skip_if_not_installed("fastICA")
+  containers <- count_collection(n_features = 40L, n_samples = 20L, seed = 3L)
+  # A feature measured in only part of the cohort, and one measured nowhere.
+  for (m in names(containers)) {
+    a <- SummarizedExperiment::assay(containers[[m]])
+    a[1L, 1:5] <- NA_real_
+    a[2L, ] <- NA_real_
+    SummarizedExperiment::assay(containers[[m]]) <- a
+  }
+
+  sets <- list(one = paste0("g", 1:20), two = paste0("g", 21:35))
+  cc <- chorale_concepts(containers, sets, min_features = 5L)
+  enc <- chorale_encode(containers, cc, n_free = 1L, n_init = 2L)
+
+  for (m in names(containers)) {
+    gate_x <- chorale_analysis_matrix(
+      SummarizedExperiment::assay(containers[[m]]))$matrix
+    expect_equal(unname(gate_x), unname(enc$encodings[[m]]$analysis_matrix))
+    # Substitution happens after standardisation, so the filled entry is the
+    # standardised mean and the measured values keep their own mean and spread.
+    expect_true(all(is.finite(gate_x)))
+    expect_equal(unname(gate_x[, 2L]), rep(0, nrow(gate_x)))
+    measured <- gate_x[6:nrow(gate_x), 1L]
+    expect_equal(mean(measured), mean(scale(
+      SummarizedExperiment::assay(containers[[m]])[1L, 6:ncol(
+        SummarizedExperiment::assay(containers[[m]]))])[, 1]),
+      tolerance = 1e-8)
+  }
+
+  expect_silent(chorale_gates(containers, control = chorale_control(n_init = 2L),
+                              n_surrogate = 2L, n_perm = 5L))
+})
+
+test_that("gates refuse designs that name different modalities", {
+  containers <- count_collection(n_features = 30L, n_samples = 12L)
+  designs <- lapply(containers, function(x) {
+    as.data.frame(SummarizedExperiment::colData(x))
+  })
+  names(designs) <- c("a", "wrong")
+  expect_error(
+    chorale_gates(containers, designs = designs,
+                  control = chorale_control(n_init = 2L),
+                  n_surrogate = 2L, n_perm = 5L),
+    "names different modalities")
+
+  # An unnamed list of the right length takes the collection's names in order.
+  bare <- unname(designs)
+  expect_error(
+    chorale_gates(containers, designs = bare[1],
+                  control = chorale_control(n_init = 2L),
+                  n_surrogate = 2L, n_perm = 5L),
+    "must be named")
 })
 
 test_that("the gate transform can be overridden per modality", {

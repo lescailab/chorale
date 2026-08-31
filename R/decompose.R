@@ -70,6 +70,32 @@ chorale_transform <- function(mat, transform = c("auto", "none", "log", "vst")) 
   list(matrix = out, applied = transform)
 }
 
+#' The matrix a modality is read on
+#'
+#' The transform its measurement model implies, then centring and scaling by
+#' feature, then the substitution of a standardised feature's mean for anything
+#' that is not finite. Order matters: standardising first and substituting
+#' afterwards leaves the mean and variance of a feature decided by the values
+#' that were measured, where substituting first would let the filler move both.
+#'
+#' Every part of the package that reads an assay reads it through this function,
+#' so a diagnostic and the estimator it describes cannot drift onto different
+#' matrices.
+#'
+#' @param mat A features-by-samples numeric matrix.
+#' @param transform One of `"auto"`, `"none"`, `"log"` or `"vst"`.
+#'
+#' @returns A list with `matrix`, the samples-by-features analysis matrix, and
+#'   `applied`, the transform used.
+#' @keywords internal
+#' @noRd
+chorale_analysis_matrix <- function(mat, transform = "auto") {
+  tf <- chorale_transform(mat, transform = transform)
+  x <- scale(t(tf$matrix))
+  x[!is.finite(x)] <- 0
+  list(matrix = x, applied = tf$applied)
+}
+
 #' Resolve the transform requested for every modality
 #' @keywords internal
 #' @noRd

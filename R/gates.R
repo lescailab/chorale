@@ -85,34 +85,46 @@ chorale_gates <- function(containers, designs = NULL,
       as.data.frame(SummarizedExperiment::colData(x))
     })
   }
+  # Every table below is labelled by modality, and the disjointness check names
+  # the modalities a colliding identifier came from, so a supplied `designs`
+  # carries the names of the collection or the labels are guesses.
+  if (is.null(names(designs))) {
+    if (length(designs) != length(containers)) {
+      rlang::abort(paste0("`designs` must be named, or hold one entry per ",
+                          "modality in the order `containers` gives them."))
+    }
+    names(designs) <- names(containers)
+  }
+  if (!setequal(names(designs), names(containers))) {
+    rlang::abort(paste0(
+      "`designs` names different modalities from `containers`: ",
+      paste(sort(setdiff(names(designs), names(containers))), collapse = ", "),
+      " against ",
+      paste(sort(setdiff(names(containers), names(designs))), collapse = ", "),
+      "."))
+  }
+  designs <- designs[names(containers)]
 
   # The design stands in for matched individuals only where there are none, so
   # the assumption is checked on the collection before anything is read from it.
   chorale_warn_shared_samples(designs)
 
   # A gate answered on a scale the estimator never reads is a statement about a
-  # different matrix. The transform is therefore resolved and applied here
-  # exactly as chorale_encode() resolves and applies it, so the components these
-  # diagnostics are read on are the components the free dimensions come from.
+  # different matrix. The matrix is therefore built by the same function the
+  # encoder builds it with, so the two cannot differ in the transform, in the
+  # centring, or in what happens to an entry that is not finite.
   transform_of <- chorale_transform_spec(transform, names(containers))
-  transformed <- lapply(names(assays), function(m) {
-    chorale_transform(assays[[m]], transform = transform_of[[m]])
+  analysis <- lapply(names(assays), function(m) {
+    chorale_analysis_matrix(assays[[m]], transform = transform_of[[m]])
   })
-  names(transformed) <- names(assays)
+  names(analysis) <- names(assays)
   applied <- data.frame(
-    modality = names(transformed),
-    transform = vapply(transformed, `[[`, character(1), "applied"),
+    modality = names(analysis),
+    transform = vapply(analysis, `[[`, character(1), "applied"),
     stringsAsFactors = FALSE)
   rownames(applied) <- NULL
 
-  # Samples by features, centred and scaled, which is what both the estimator
-  # and the surrogate construction expect.
-  xs <- lapply(transformed, function(tf) {
-    x <- t(tf$matrix)
-    x[!is.finite(x)] <- 0
-    x <- scale(x)
-    x[, apply(x, 2, function(col) all(is.finite(col))), drop = FALSE]
-  })
+  xs <- lapply(analysis, `[[`, "matrix")
 
   detect <- chorale_gate_detectability(xs, n_perm = n_perm,
                                        quantile = control$n_factors_quantile,

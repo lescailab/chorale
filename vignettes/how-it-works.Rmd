@@ -116,9 +116,10 @@ one score per sample and one loading per concept.
 
 Stacking supplies more observations and broader concept coverage than any
 single modality. Component sign is arbitrary, component order can change between
-fits, and different low-rank solutions may describe similar reconstructions, so a
-component carries a mechanism only as far as its stability, loadings, phenotype
-evidence, per-modality effects and transfer take it. Its label carries none.
+fits, and different low-rank solutions may describe similar reconstructions, so
+a fitted component is not a uniquely identified mechanism. Stability, loadings,
+phenotype evidence, per-modality effects and transfer are what its
+interpretation rests on. Its label carries nothing.
 
 `chorale_joint_evidence()` regresses the joint component scores on phenotype,
 shared covariates, and modality. The modality term prevents differences in

@@ -157,7 +157,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       <p>The concept scores of every modality share their columns, so they stack into one matrix of
          every sample against every concept and are decomposed once. The direction that comes out
          uses the samples and observed concept coverage of the whole collection. It is a fitted
-         low-rank summary, read through its loadings, its stability and its transfer.</p>
+         low-rank summary rather than a uniquely identified mechanism, read through its loadings,
+         its stability and its transfer.</p>
     </div>
     <div class="card">
       <span class="num">05</span>
@@ -231,7 +232,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   <p>
     The result is a fitted direction over the whole vocabulary. Stacking increases the number and
     diversity of observed rows and allows concepts with incomplete coverage to contribute where
-    they are measured, which makes a direction over the whole vocabulary estimable. A concept a
+    they are measured, which makes a direction over the whole vocabulary estimable where one
+    modality could not estimate it; estimability is not identification. A concept a
     modality cannot express is missing rather than zero: after centring
     within modality, zero would be a claim that the modality measured exactly average, so the entry
     carries no weight instead and the narrowest layer never bounds the vocabulary.

@@ -14,7 +14,9 @@ names are the identifiers.}
 \value{
 A data frame with one row per identifier carried by more than one
 modality, giving the identifier, the number of modalities carrying it and
-their names. Empty where the collection is disjoint.
+their names. Empty where the collection is disjoint. Attribute \code{unchecked}
+names the modalities that carry no identifier, which are reported on by
+neither an empty result nor a populated one.
 }
 \description{
 The whole method rests on the modalities being measured on disjoint sets of

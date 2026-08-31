@@ -326,7 +326,9 @@ chorale_check_design <- function(designs, labels = chorale_label_registry()) {
 #'
 #' @returns A data frame with one row per identifier carried by more than one
 #'   modality, giving the identifier, the number of modalities carrying it and
-#'   their names. Empty where the collection is disjoint.
+#'   their names. Empty where the collection is disjoint. Attribute `unchecked`
+#'   names the modalities that carry no identifier, which are reported on by
+#'   neither an empty result nor a populated one.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 30, seed = 1)
@@ -353,9 +355,19 @@ chorale_check_disjoint <- function(containers) {
   if (length(missing_ids) == length(ids)) {
     rlang::abort("No modality carries a `sample_id`; disjointness cannot be checked.")
   }
+  if (length(missing_ids) > 0) {
+    # A modality with no identifier collides with nothing, which reads as a
+    # disjoint collection and is instead a collection that was not checked.
+    rlang::warn(paste0(
+      "No `sample_id` in ", paste(missing_ids, collapse = ", "),
+      ". Disjointness is reported for the remaining modalities only, so these ",
+      "carry no verdict either way."),
+      class = "chorale_unchecked_disjointness")
+  }
 
   empty <- data.frame(sample_id = character(), n_modalities = integer(),
                       modalities = character(), stringsAsFactors = FALSE)
+  attr(empty, "unchecked") <- missing_ids
   all_ids <- unlist(ids, use.names = FALSE)
   shared <- unique(all_ids[duplicated(all_ids)])
   if (length(shared) == 0) return(empty)
@@ -371,6 +383,7 @@ chorale_check_disjoint <- function(containers) {
     stringsAsFactors = FALSE
   )
   rownames(out) <- NULL
+  attr(out, "unchecked") <- missing_ids
   out
 }
 

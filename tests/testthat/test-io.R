@@ -165,6 +165,26 @@ test_that("chorale_check_disjoint names identifiers two modalities share", {
                  class = "chorale_shared_samples")
 })
 
+test_that("a modality carrying no identifier is reported as unchecked", {
+  mk <- function(ids) {
+    m <- matrix(stats::rnorm(20 * length(ids)), 20,
+                dimnames = list(paste0("g", 1:20), ids))
+    data.frame(sample_id = ids, stringsAsFactors = FALSE)
+  }
+  designs <- list(a = mk(paste0("a", 1:4)), b = data.frame(x = 1:4))
+  expect_warning(collisions <- chorale_check_disjoint(designs),
+                 class = "chorale_unchecked_disjointness")
+  # An empty table is not a verdict on the modality that could not be checked.
+  expect_equal(nrow(collisions), 0L)
+  expect_equal(attr(collisions, "unchecked"), "b")
+
+  # Where no modality carries one, there is nothing to check at all.
+  expect_error(
+    chorale_check_disjoint(list(a = data.frame(x = 1:3),
+                                b = data.frame(x = 1:3))),
+    "disjointness cannot be checked")
+})
+
 test_that("the collection-level check reaches the fit and the gates", {
   skip_if_not_installed("fastICA")
   fx <- chorale_concept_example(n_samples = 40L, n_features = 60L,

@@ -261,9 +261,11 @@ score norm. With missing entries these shares need not form an exact partition,
 because cross-terms over the observation mask may remain.
 
 Stacking increases the number and diversity of observed rows and allows each
-concept to contribute wherever it is measured. A direction becomes estimable
-where the vocabulary dimension exceeds one modality's sample count; whether it is
-identified is settled by stability, loadings, phenotype evidence and transfer.
+concept to contribute wherever it is measured, so a direction over the whole
+vocabulary becomes estimable where it is not estimable within one modality.
+Estimability is not identification. Stability, loadings, phenotype evidence and
+transfer are empirical diagnostics that support the interpretation of a fitted
+direction, and none of them establishes that the direction is unique.
 
 ## Evidence for a joint component
 
