@@ -103,6 +103,10 @@ chorale_resolve_signature <- function(designs, phenotype_column = "phenotype",
       next
     }
     vals <- lapply(designs, `[[`, cv)
+    # Half missing in any one modality is the point at which the covariate costs
+    # more than it anchors: the complete-case model that later estimates the
+    # phenotype effect would lose those samples from every concept, so admitting
+    # the covariate would shrink the cohort the whole vocabulary is tested in.
     missing_share <- vapply(vals, function(v) mean(is.na(v)), numeric(1))
     if (any(missing_share > 0.5)) {
       excluded[[length(excluded) + 1L]] <- data.frame(
@@ -208,6 +212,14 @@ chorale_resolve_signature <- function(designs, phenotype_column = "phenotype",
   # every modality after the blocks already retained. This catches duplicate
   # encodings (for example a continuous age and bins derived from it), nested
   # batches and other rank deficiencies without discarding the phenotype model.
+  #
+  # The pass is greedy and therefore order-dependent: of two covariates that are
+  # collinear with each other, whichever `shared` lists first is kept and the
+  # other is excluded as not jointly estimable. That order is the order the
+  # design tables list their columns. The phenotype is seeded first so it can
+  # never be the one dropped, which is the only ordering guarantee that matters
+  # for the estimand; among the secondary covariates the choice is arbitrary and
+  # the excluded table records what went.
   selected <- phenotype_column
   for (cv in setdiff(shared, phenotype_column)) {
     trial <- c(selected, cv)
@@ -254,11 +266,21 @@ chorale_signature_matrix <- function(design, spec, include = spec$covariates) {
              ". A covariate carried in the signature must have an entry in its levels."),
       class = "chorale_unresolved_covariate")
   }
+  # The dummy coding is written out rather than obtained from model.matrix()
+  # because the term names have to be predictable from the resolved signature
+  # alone: chorale_anchor_terms() builds the same names without a design in
+  # hand, and the permutation loop looks effects up by them. model.matrix()
+  # would also drop incomplete rows and re-derive factor levels per modality,
+  # where the levels here are the ones the whole collection shares, ordered with
+  # the reference first.
   blocks <- list()
   term_covariate <- character()
   for (cv in intersect(spec$covariates, include)) {
     lv <- spec$levels[[cv]]
     if (length(lv) == 1L && is.na(lv)) {
+      # A continuous covariate enters standardised, so its coefficient is the
+      # effect of one standard deviation and is comparable with a categorical
+      # contrast and across modalities that record it on different ranges.
       v <- suppressWarnings(as.numeric(design[[cv]]))
       z <- as.numeric(scale(v))
       blocks[[cv]] <- matrix(z, ncol = 1L, dimnames = list(NULL, cv))
@@ -268,6 +290,9 @@ chorale_signature_matrix <- function(design, spec, include = spec$covariates) {
       block <- vapply(lv[-1L], function(one) as.numeric(v == one), numeric(n))
       if (is.null(dim(block))) block <- matrix(block, ncol = 1L)
       colnames(block) <- paste0(cv, "=", lv[-1L])
+      # A missing label leaves the whole block missing rather than reading as
+      # the reference level, so the sample drops out of the complete-case fit
+      # instead of being counted as a control.
       block[is.na(v), ] <- NA_real_
       blocks[[cv]] <- block
       term_covariate <- c(term_covariate, rep(cv, ncol(block)))
@@ -292,10 +317,19 @@ chorale_adjusted_profile <- function(scores, design, spec) {
   covariance <- vector("list", ncol(scores))
   names(covariance) <- colnames(scores)
 
+  # Two paths, the same estimator. Where every response is observed on the same
+  # samples they share one model matrix, so one QR decomposition serves all of
+  # them and the cross-product inverse is formed once; with a vocabulary of a
+  # thousand concepts and a permutation loop around this call, that is the
+  # difference between minutes and hours. The per-column loop below is the
+  # fallback for a collection where responses differ in which samples they carry,
+  # and gives the same numbers a column at a time.
   common_ok <- stats::complete.cases(mm$x) & stats::complete.cases(scores)
   common_x <- mm$x[common_ok, , drop = FALSE]
   if (sum(common_ok) > ncol(common_x) && qr(common_x)$rank == ncol(common_x)) {
     fit <- stats::lm.fit(common_x, scores[common_ok, , drop = FALSE])
+    # chol2inv on the QR's R factor is (X'X)^-1 without forming X'X, which is
+    # better conditioned than inverting the cross-product directly.
     inv <- chol2inv(qr.R(fit$qr))
     # A single response column comes back as a vector rather than a matrix, so
     # both are restored to matrices before anything indexes them by column.
@@ -328,6 +362,10 @@ chorale_adjusted_profile <- function(scores, design, spec) {
     covariance[[j]] <- v
   }
 
+  # A statistic that could not be formed is zero rather than missing, so a term
+  # the model could not estimate contributes nothing to a maximum taken over
+  # concepts instead of propagating NA through it. `estimable` above is what
+  # records that the zero is an absence and not a null result.
   z <- effects / se
   z[!is.finite(z)] <- 0
   list(effects = effects, se = se, z = z, estimable = estimable,

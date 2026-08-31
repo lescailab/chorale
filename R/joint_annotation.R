@@ -166,6 +166,10 @@ chorale_leading_family <- function(v, families, n_members) {
   absent <- list(family = NA_character_, share = NA_real_,
                  members = NA_character_)
   if (is.null(families)) return(absent)
+  # Loading mass is the squared loading, so it is the concept's contribution to
+  # the component's norm and a share of it sums to one across the vocabulary.
+  # Using the absolute loading instead would give a quantity whose shares depend
+  # on how many concepts load weakly.
   weight <- v^2
   total <- sum(weight)
   if (!is.finite(total) || total <= 0) return(absent)

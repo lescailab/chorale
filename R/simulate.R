@@ -215,7 +215,13 @@ chorale_simulate <- function(n_modalities = 3,
     }
     if (imbalance > 0) {
       # Thin each cell independently per modality, so the modalities realise the
-      # design in different proportions.
+      # design in different proportions. The single extra draw sets a thinning
+      # rate for this modality somewhere in `[0, imbalance)`, so the modalities
+      # differ in how much they were thinned as well as in which samples went;
+      # a fixed rate would thin them all equally and leave the proportions
+      # matching. Thinning is abandoned where it would leave too few samples for
+      # the factor count, since an unfittable modality is not the case this
+      # argument exists to produce.
       keep <- stats::runif(nrow(cells)) > imbalance * stats::runif(1)
       if (sum(keep) >= 2 * n_total_factors) cells <- cells[keep, , drop = FALSE]
     }
@@ -432,6 +438,10 @@ chorale_sim_contrasts <- function(cells, terms) {
 #' @noRd
 chorale_signed_contrast <- function(v, control_first = FALSE) {
   if (is.numeric(v)) {
+    # Rescaled onto the observed range rather than standardised, so a numeric
+    # covariate spans the same half-unit a two-level factor does and one
+    # signature weight means the same thing on either. A covariate the cohort
+    # holds constant contributes nothing rather than dividing by a zero range.
     ok <- is.finite(v)
     if (!any(ok)) return(rep(0, length(v)))
     rng <- range(v[ok])
@@ -439,6 +449,10 @@ chorale_signed_contrast <- function(v, control_first = FALSE) {
     out[!ok] <- 0
     return(as.numeric(out))
   }
+  # Levels are sorted, so the same covariate produces the same contrast in every
+  # modality whatever order its design table happens to list the samples in. A
+  # signature is shared across modalities and would otherwise mean opposite
+  # things in two of them.
   ch <- as.character(v)
   lev <- sort(unique(ch[!is.na(ch)]))
   if (length(lev) < 2) return(rep(0, length(ch)))
@@ -448,6 +462,10 @@ chorale_signed_contrast <- function(v, control_first = FALSE) {
     is_control[is.na(is_control)] <- FALSE
     if (any(is_control) && !all(is_control)) lev <- c(lev[is_control], lev[!is_control])
   }
+  # Levels are placed evenly across the range, so a covariate with more of them
+  # spans the same interval rather than a wider one and cannot carry a larger
+  # design response for the sole reason of having more levels. A label the
+  # design does not resolve sits at the midpoint, contributing nothing.
   pos <- seq(-0.5, 0.5, length.out = length(lev))
   out <- pos[match(ch, lev)]
   out[is.na(out)] <- 0
@@ -496,6 +514,11 @@ chorale_supplied_loadings <- function(l, p_m, n_shared_factors, n_private_factor
     } else {
       rep(0, nrow(l))
     }
+    # Pure means the largest competing loading is a quarter of the feature's
+    # own, and purity is relative rather than absolute so a weakly loaded
+    # feature can qualify. The twenty kept are the most strongly loaded of
+    # those, which is enough to check a recovered factor against and short
+    # enough to read.
     pure <- which(own > 0 & other <= 0.25 * own)
     markers[[k]] <- utils::head(pure[order(-own[pure])], 20L)
   }
@@ -533,6 +556,12 @@ chorale_marginal_donors <- function(x, profile, identity_map = FALSE) {
 
   donor <- sample(usable, p_m, replace = p_m > length(usable))
   sim_spread <- apply(x, 1, stats::sd)
+  # Rank-match the two: the donors are sorted by their real spread and dealt out
+  # in the rank order of the simulated features' spread, so the widest simulated
+  # feature gets the widest real marginal. `order(order(v))` is the rank of `v`,
+  # so the left-hand indexing writes the sorted donors back in that rank order.
+  # Without this the assignment is independent of the signal and a feature
+  # carrying a planted effect can land on a marginal too narrow to show it.
   donor[order(order(sim_spread))] <- donor[order(profile$feature$spread[donor])]
   donor
 }
@@ -563,8 +592,18 @@ chorale_apply_marginals <- function(x, profile, donor) {
   out <- matrix(NA_real_, nrow = p_m, ncol = n_m)
   for (i in seq_len(p_m)) {
     d <- donor[i]
+    # Ranks over `n + 1` rather than over `n`, so the largest value maps inside
+    # the grid instead of onto its last point; `ties.method = "first"` keeps the
+    # map injective, which a shared rank would not.
     r <- rank(x[i, ], ties.method = "first") / (n_m + 1)
+    # `rule = 2` clamps anything outside the grid to its ends. With the
+    # plotting position above nothing falls outside, so this only guards a
+    # donor whose grid is shorter than the probability range.
     mapped <- stats::approx(probs, q[d, ], xout = r, rule = 2)$y
+    # Missingness is applied to the lowest mapped values, reproducing the
+    # abundance dependence the real matrices have. At least two values are kept
+    # observed whatever the donor's rate, since a feature with fewer cannot be
+    # standardised and would be dropped rather than simulated.
     k <- floor(n_m * profile$feature$missing[d])
     if (is.finite(k) && k > 0) {
       mapped[order(mapped)[seq_len(min(k, n_m - 2L))]] <- NA_real_
@@ -631,6 +670,13 @@ chorale_calibrate_background <- function(base, bg, shape, target) {
     if (sum(e) <= 0) return(NA_real_)
     e[1] / sum(e)
   }
+  # The grid is logarithmic and starts at zero, because the amplitude is a
+  # multiple of the signal scale and its useful range spans orders of magnitude:
+  # a tenth of the signal barely moves the spectrum, and a few hundred times it
+  # is where the background has taken the spectrum over entirely. Fifteen points
+  # over that range resolve the leading share more finely than the differences
+  # between real layers, and each one costs a decomposition, so the grid is not
+  # made denser.
   grid <- c(0, 10^seq(-1, 2.5, length.out = 15))
   achieved <- vapply(grid, leading, numeric(1))
   ok <- is.finite(achieved)

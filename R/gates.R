@@ -213,15 +213,31 @@ chorale_gate_design <- function(designs, control = chorale_control()) {
 }
 
 #' Anderson--Darling statistic against a fitted normal distribution
+#'
+#' The mean and standard deviation are estimated from the same sample the
+#' statistic is computed on, so the tabulated critical values for a fully
+#' specified normal do not apply. That does not matter here: the statistic is
+#' never read against a table, only against the Gaussian surrogates
+#' `chorale_gate_nongaussianity()` puts through this same function, which
+#' estimate their parameters the same way.
+#'
 #' @keywords internal
 #' @noRd
 chorale_ad_normal <- function(x) {
   x <- sort(as.numeric(x[is.finite(x)]))
   n <- length(x)
+  # Below five values the statistic is dominated by the parameters estimated
+  # from them, and a constant vector has no distribution to compare.
   if (n < 5L || stats::sd(x) == 0) return(NA_real_)
   z <- (x - mean(x)) / stats::sd(x)
+  # The tails are clamped off 0 and 1 because a value far enough out returns
+  # exactly 0 or 1 in double precision and its logarithm is infinite, which
+  # would make one extreme observation the whole statistic.
   p <- pmin(1 - 1e-12, pmax(1e-12, stats::pnorm(z)))
   i <- seq_len(n)
+  # A-squared as Anderson and Darling define it: `mean` supplies the 1/n, and
+  # `rev(p)` pairs the ith order statistic from the bottom with the ith from the
+  # top, which is what the second term of the sum asks for.
   -n - mean((2 * i - 1) * (log(p) + log(1 - rev(p))))
 }
 
@@ -236,12 +252,20 @@ chorale_gate_nongaussianity <- function(x, k, modality, estimator,
   set.seed(seed)
   surrogate <- numeric(n_surrogate)
   for (b in seq_len(n_surrogate)) {
-    # Preserve location, scale and matrix dimensions while removing
-    # non-Gaussian marginal structure.
+    # The surrogate matches the observed matrix in its shape and in being
+    # centred and scaled per feature, and in nothing else: it carries neither
+    # the covariance nor the marginals of the data. That is deliberate. The
+    # question is what departure from normality the estimator manufactures from
+    # independent Gaussian noise of this size, since ICA maximises
+    # non-Gaussianity and will report some at any shape, and the observed value
+    # is only interpretable against that floor.
     gx <- matrix(stats::rnorm(length(x)), nrow = nrow(x), ncol = ncol(x))
     gs <- estimator(scale(gx), k, seed + b)
     surrogate[b] <- stats::median(apply(gs, 2, chorale_ad_normal), na.rm = TRUE)
   }
+  # The median across components rather than the largest: a modality is being
+  # described by what its components typically look like, and a maximum would
+  # let one heavy-tailed component answer for all of them.
   value <- stats::median(obs, na.rm = TRUE)
   p <- (1 + sum(surrogate >= value)) / (1 + n_surrogate)
   summary <- data.frame(
@@ -258,6 +282,20 @@ chorale_gate_nongaussianity <- function(x, k, modality, estimator,
 }
 
 #' R-native cross-modality distribution diagnostic
+#'
+#' Two readings per pair. The pooled test throws every component's scores of one
+#' modality against every component's of the other, which answers whether the two
+#' modalities produce scores of the same shape at all. The per-pair tests then
+#' count how many individual component pairs are indistinguishable, which the
+#' pooled test cannot show.
+#'
+#' Neither is a test in the inferential sense, which is why the verdict column
+#' records the role. The scores within a modality are not independent draws, so
+#' a Kolmogorov--Smirnov p-value computed on thousands of them is far smaller
+#' than the evidence warrants, and the per-pair share is a proportion over a
+#' grid of dependent tests with no multiplicity correction. Both are read as
+#' descriptions of shape, and neither gates a fit.
+#'
 #' @keywords internal
 #' @noRd
 chorale_gate_modality_difference <- function(sources, alpha = 0.05) {
@@ -265,6 +303,12 @@ chorale_gate_modality_difference <- function(sources, alpha = 0.05) {
   rows <- list()
   for (i in seq_along(mods)) for (j in seq_along(mods)) {
     if (j <= i) next
+    # Each modality's components are standardised before being flattened into
+    # one vector, so the pooled comparison is about the shape of the score
+    # distributions and not about a component of one modality carrying more
+    # variance than a component of the other. The asymptotic form of the test is
+    # used because the exact one is intractable at these lengths, and its
+    # p-value is read as a description for the reasons above.
     a <- as.numeric(scale(sources[[i]]))
     b <- as.numeric(scale(sources[[j]]))
     ks <- suppressWarnings(stats::ks.test(a, b, exact = FALSE))
@@ -322,6 +366,9 @@ chorale_gate_detectability <- function(xs, n_perm = 200L, quantile = 0.95,
     n <- nrow(x)
     p <- ncol(x)
     ev <- svd(x, nu = 0, nv = 0)$d^2 / max(n - 1L, 1L)
+    # The noise level is the median eigenvalue rather than the mean: the spikes
+    # the threshold exists to find are in the upper tail, and a mean would let
+    # them raise the level they are being compared with.
     sigma2 <- stats::median(ev)
     gamma <- p / n
     threshold <- sigma2 * (1 + sqrt(gamma))
@@ -365,6 +412,13 @@ chorale_gate_anchors <- function(designs) {
   # Coarsen from every shared covariate down to the phenotype alone, so a
   # collection that cannot support the finest anchoring is still reported at
   # the level it can support.
+  #
+  # Covariates are dropped from the end of `others`, which is the order the
+  # design tables list their columns. The sequence of coarsenings therefore
+  # depends on that order: it is a ladder from finest to coarsest, not a search
+  # for the best anchoring at each size. A collection with several secondary
+  # covariates should be read as one path through them rather than as the
+  # richest anchoring available at each level.
   others <- setdiff(candidates, "phenotype")
   levels_of <- lapply(seq(length(others), 0), function(k) {
     c("phenotype", utils::head(others, k))

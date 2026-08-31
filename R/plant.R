@@ -117,6 +117,11 @@ chorale_plant <- function(profiles, membership, plant_sets, score_sets,
   }
   n_concepts <- nrow(chosen)
 
+  # The planting has to be reproducible from `seed`, which means setting the
+  # global generator, and a function that leaves the caller's random stream
+  # displaced is a poor neighbour in a script that draws from it afterwards. The
+  # previous state is therefore restored on exit, including the case where the
+  # caller had never drawn a random number and the variable did not exist.
   old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
     get(".Random.seed", envir = .GlobalEnv)
   } else {
@@ -307,11 +312,23 @@ chorale_plant_loadings <- function(profile, membership, sets,
     }
     n_carry <- max(1L, round(member_fraction * length(members)))
     carriers <- sample(members, n_carry)
+    # Loadings are drawn uniformly rather than fixed, so a planted factor has
+    # the uneven loading profile a real one has and the members are not all
+    # equally recoverable. The range keeps every carrier above the background
+    # standard deviation, so a member is always distinguishable from a
+    # non-member, and within a factor of three of each other, so no single
+    # feature is the factor.
     l[carriers, k] <- l[carriers, k] + stats::runif(n_carry, 0.5, 1.5)
 
     # Loading mass outside the set, so a recovered factor is not a clean set
     # indicator and the pathway channel has to find the set among features that
     # do not belong to it.
+    #
+    # `leak_fraction` is the share of the loaded features that lie outside the
+    # set, so it is a property of the result rather than of the members. Solving
+    # n_leak / (n_carry + n_leak) = leak_fraction for n_leak gives the ratio
+    # below; taking leak_fraction * n_carry directly would make the realised
+    # share smaller than the one asked for.
     n_leak <- round(leak_fraction / (1 - leak_fraction) * n_carry)
     outside <- setdiff(seq_len(p), members)
     n_leak <- min(n_leak, length(outside))
@@ -335,6 +352,9 @@ chorale_plant_loadings <- function(profile, membership, sets,
   # A private factor occupies a block of features of its own, so it is
   # recoverable without corresponding to any pathway or to any other modality.
   if (n_private_factors > 0) {
+    # Two per cent of the features, or ten, whichever is larger. The share keeps
+    # a private factor comparable with a curated set on a real feature space,
+    # and the floor keeps it recoverable on the small matrices the tests run on.
     block <- max(10L, round(0.02 * p))
     for (j in seq_len(n_private_factors)) {
       idx <- sample(seq_len(p), min(block, p))
@@ -347,6 +367,13 @@ chorale_plant_loadings <- function(profile, membership, sets,
 
 
 #' Probability that a member of the truth set outranks a non-member
+#'
+#' Computed from the rank sum rather than by comparing every pair: the
+#' Mann--Whitney U divided by the number of pairs is exactly that probability,
+#' and it costs one sort rather than `n1 * n0` comparisons over a vocabulary of
+#' a thousand concepts. Ties count as half, which `rank()` gives by averaging
+#' them.
+#'
 #' @keywords internal
 #' @noRd
 chorale_rank_auc <- function(score, is_truth) {
@@ -378,8 +405,16 @@ chorale_spread_signature <- function(n_concepts, terms) {
     sig[, 1] <- 1
     return(sig)
   }
+  # Angles over a half turn rather than a whole one: a signature and its
+  # negation are the same direction with the phenotype groups swapped, so the
+  # second half of the circle would repeat directions already placed. The
+  # endpoint is dropped, since an angle of pi is the first direction reversed.
   angles <- seq(0, pi, length.out = n_concepts + 1L)[seq_len(n_concepts)]
   for (k in seq_len(n_concepts)) {
+    # Every concept loads on the phenotype, which is the term the estimand is
+    # defined on, and takes one secondary term as its partner, cycling through
+    # them. Two concepts sharing a partner still differ, because their angles
+    # do; the cycle spreads them over the terms rather than distinguishing them.
     partner <- ((k - 1L) %% (n - 1L)) + 2L
     sig[k, 1] <- cos(angles[k])
     sig[k, partner] <- sin(angles[k])

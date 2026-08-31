@@ -272,6 +272,13 @@ chorale_check_design <- function(designs, labels = chorale_label_registry()) {
     varies <- vapply(designs[present], function(d) {
       length(unique(stats::na.omit(d[[cv]]))) >= 2
     }, logical(1))
+    # Reported as continuous only where a modality realises more than two
+    # values, which is narrower than the rule the fit applies:
+    # chorale_covariate_kind() calls any numeric covariate continuous and gives
+    # it one standardised slope. The difference is in what is shown, not in what
+    # is usable. A numeric covariate taking two values reads to an analyst as a
+    # contrast, so its two values are listed rather than the word continuous,
+    # and `can_anchor` agrees with the fit either way.
     numeric_all <- all(vapply(designs[present], function(d) {
       is.numeric(d[[cv]]) && length(unique(stats::na.omit(d[[cv]]))) > 2
     }, logical(1)))

@@ -64,6 +64,9 @@ chorale_select_factors <- function(x, max_factors = 10L, counts = NULL,
   if (subsample_fraction <= 0 || subsample_fraction >= 1) {
     rlang::abort("`subsample_fraction` must lie strictly between 0 and 1.")
   }
+  # A centred matrix has at most `n - 1` independent directions, and at most one
+  # per feature, so no candidate count above either is meaningful whatever the
+  # caller asked for.
   ceiling_k <- min(as.integer(max_factors), nrow(x) - 1L, ncol(x))
   counts <- counts %||% seq_len(max(ceiling_k, 1L))
   counts <- sort(unique(as.integer(counts)))
@@ -75,6 +78,10 @@ chorale_select_factors <- function(x, max_factors = 10L, counts = NULL,
     return(out)
   }
 
+  # Four is the smallest subsample a factorisation can be attempted on, and is
+  # the floor this function validates its own input against. A subsample below
+  # it would fail rather than report a low agreement, and a failure is read here
+  # as an unrecoverable count.
   n_keep <- max(4L, floor(nrow(x) * subsample_fraction))
   rows <- lapply(counts, function(k) {
     reference <- try(chorale_single_ica(x, k, seed), silent = TRUE)
@@ -85,6 +92,11 @@ chorale_select_factors <- function(x, max_factors = 10L, counts = NULL,
         weakest = NA_real_, admissible = FALSE, stringsAsFactors = FALSE))
     }
 
+    # The strides keep three families of runs on seeds that cannot collide: the
+    # reference at `seed`, the initialisations at multiples of 1000, and the
+    # subsamples at multiples of 5000 offset by the candidate count. A collision
+    # would make two runs identical and report agreement that is really the same
+    # run compared with itself.
     init <- chorale_component_agreement(reference, lapply(
       seq_len(n_init), function(i) {
         try(chorale_single_ica(x, k, seed + 1000L * i), silent = TRUE)
@@ -121,6 +133,9 @@ chorale_select_factors <- function(x, max_factors = 10L, counts = NULL,
   # cannot be recovered at a smaller model will not be recovered at a larger
   # one, and an isolated admissible count above an inadmissible one is noise.
   admissible <- out$admissible
+  # cumprod over the admissibility flags is zero from the first inadmissible
+  # count onwards, so the selected count is the end of the leading run rather
+  # than the largest count that happens to be admissible.
   run <- cumprod(as.integer(admissible))
   selected <- if (any(run == 1L)) max(out$n_factors[run == 1L]) else 0L
 
