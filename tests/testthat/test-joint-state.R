@@ -247,3 +247,30 @@ test_that("the state reports no component where the collection carries none", {
   evidence <- chorale_joint_evidence(state, n_permutations = 19)
   expect_equal(nrow(evidence$components), 0L)
 })
+
+test_that("the joint rank is selected under the control's settings", {
+  skip_if_not_installed("fastICA")
+  fx <- chorale_concept_example(n_samples = 40L, n_features = 90L,
+                                n_modalities = 2L, n_concepts = 4L,
+                                n_planted = 2L, seed = 3L)
+  cc <- chorale_concepts(fx$containers, fx$sets, min_features = 5L)
+  enc <- chorale_encode(fx$containers, cc, n_free = 1L, n_init = 2L)
+
+  control <- chorale_control(n_select_init = 3L, n_subsample = 3L,
+                             subsample_fraction = 0.7, reproducibility = 0.5)
+  js <- chorale_joint_state(enc, control = control, seed = 1L)
+
+  # The rank the joint state reports is the rank the selector returns when it is
+  # run directly under the same settings on the same stacked scores.
+  stacked <- chorale_stack_concept_scores(enc, NULL, control$phenotype_column)
+  z <- stacked$scores
+  z[is.na(z)] <- 0
+  ceiling_k <- min(10L, nrow(z) - 1L, ncol(z))
+  sel <- chorale_select_factors(z, max_factors = ceiling_k,
+                                n_init = control$n_select_init,
+                                n_subsample = control$n_subsample,
+                                subsample_fraction = control$subsample_fraction,
+                                threshold = control$reproducibility, seed = 1L)
+  expect_equal(js$n_components, min(attr(sel, "selected"), ceiling_k))
+  expect_equal(attr(js$selection, "threshold"), control$reproducibility)
+})

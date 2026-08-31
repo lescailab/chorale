@@ -60,3 +60,54 @@ test_that("production gates report design rank and factor stability", {
   expect_equal(nrow(g$factor_stability), length(containers))
   expect_true(all(is.finite(g$factor_stability$mean_subspace_agreement)))
 })
+
+count_collection <- function(n_features = 60L, n_samples = 24L, seed = 1L) {
+  set.seed(seed)
+  mk <- function(tag) {
+    mu <- rep(2^stats::runif(n_features, 1, 12), times = n_samples)
+    a <- matrix(stats::rpois(n_features * n_samples, lambda = mu),
+                nrow = n_features,
+                dimnames = list(paste0("g", seq_len(n_features)),
+                                paste0(tag, seq_len(n_samples))))
+    d <- data.frame(sample_id = colnames(a),
+                    phenotype = rep(c("control", "case"), length.out = n_samples),
+                    stringsAsFactors = FALSE)
+    chorale_load(a, d)
+  }
+  list(a = mk("a"), b = mk("b"))
+}
+
+test_that("the gates read a modality on the scale the encoder consumes", {
+  skip_if_not_installed("fastICA")
+  containers <- count_collection()
+  g <- chorale_gates(containers, control = chorale_control(n_init = 2L),
+                     n_surrogate = 2L, n_perm = 5L)
+  # Counts spanning orders of magnitude take the variance-stabilising
+  # transform, which is what the encoder chooses for the same matrices.
+  expect_equal(g$transform$modality, names(containers))
+  expect_true(all(g$transform$transform == "vst"))
+
+  sets <- list(one = paste0("g", 1:20), two = paste0("g", 21:45))
+  cc <- chorale_concepts(containers, sets, min_features = 5L)
+  enc <- chorale_encode(containers, cc, n_free = 1L, n_init = 2L)
+  encoder_scale <- vapply(enc$encodings, `[[`, character(1), "transform")
+  expect_equal(g$transform$transform, unname(encoder_scale[g$transform$modality]))
+
+  # The matrix each diagnostic is read on is the matrix the encoder builds.
+  for (m in names(containers)) {
+    tf <- chorale_transform(SummarizedExperiment::assay(containers[[m]]))
+    gate_x <- scale(t(tf$matrix))
+    gate_x[!is.finite(gate_x)] <- 0
+    expect_equal(unname(gate_x),
+                 unname(enc$encodings[[m]]$analysis_matrix))
+  }
+})
+
+test_that("the gate transform can be overridden per modality", {
+  skip_if_not_installed("fastICA")
+  containers <- count_collection()
+  g <- chorale_gates(containers, control = chorale_control(n_init = 2L),
+                     transform = c(a = "log", b = "none"),
+                     n_surrogate = 2L, n_perm = 5L)
+  expect_equal(g$transform$transform, c("log", "none"))
+})

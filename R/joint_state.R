@@ -43,7 +43,15 @@
 #'
 #' @param encoding A `chorale_encode` object.
 #' @param n_components Number of components. `NULL`, the default, selects by
-#'   reproducibility under subsampling with [chorale_select_factors()].
+#'   reproducibility under subsampling with [chorale_select_factors()], held to
+#'   the same settings the encoder selects free dimensions under:
+#'   `n_select_init`, `n_subsample`, `subsample_fraction` and `reproducibility`
+#'   from `control`. The selector needs a complete matrix, so it is run on the
+#'   stacked scores with the unobserved entries filled with zero, while the fit
+#'   itself uses the observed entries alone. The reproducibility of the selected
+#'   rank is therefore a property of the coverage-filled matrix, and a
+#'   collection whose coverage is sparse should be read with that in mind or
+#'   given `n_components` directly.
 #' @param max_components Ceiling on the number selected.
 #' @param nuisance Optional named list, one entry per modality, giving design
 #'   columns of that modality to regress out of its scores before stacking. A
@@ -101,10 +109,19 @@ chorale_joint_state <- function(encoding, n_components = NULL,
   }
   selection <- NULL
   if (is.null(n_components)) {
+    # The selector needs a complete matrix, so a concept a modality cannot
+    # express is filled with zero here, which is that concept's within-modality
+    # mean. The fit below carries no weight on those entries. Coverage
+    # therefore enters the chosen rank and nothing else, and it enters under the
+    # settings the encoder selects free dimensions with rather than under a
+    # second set of defaults.
     filled <- z
     filled[!observed] <- 0
-    selection <- chorale_select_factors(filled, max_factors = ceiling_k,
-                                        seed = seed)
+    selection <- chorale_select_factors(
+      filled, max_factors = ceiling_k, n_init = control$n_select_init,
+      n_subsample = control$n_subsample,
+      subsample_fraction = control$subsample_fraction,
+      threshold = control$reproducibility, seed = seed)
     n_components <- attr(selection, "selected") %||% 0L
   }
   n_components <- min(as.integer(n_components), ceiling_k)

@@ -36,6 +36,10 @@
 #'   `containers` holds bare matrices; taken from the containers otherwise.
 #' @param control A [chorale_control()] object. `alpha`, `n_init`,
 #'   `n_factors_quantile` and `max_factors` are read from it.
+#' @param transform Per-modality scale handling, as in [chorale_transform()].
+#'   The diagnostics are read on the scale the estimator consumes, so the
+#'   default `"auto"` is the same choice [chorale_encode()] makes and an
+#'   override here has to be repeated there for the two to agree.
 #' @param n_factors Optional named integer vector fixing the component count
 #'   per modality. Taken from the detectability condition where absent.
 #' @param n_surrogate Integer number of Gaussian surrogates the non-Gaussianity
@@ -48,7 +52,8 @@
 #'   condition, plus `n_factors`, the component count each modality supports.
 #'   That count is what parallel analysis returned and may be zero. The
 #'   distributional diagnostics cannot be computed on no components, so where it
-#'   is zero they are read on one component instead.
+#'   is zero they are read on one component instead. `transform` records the
+#'   scale each modality was read on.
 #'
 #' @examples
 #' \dontrun{
@@ -59,6 +64,7 @@
 #' @export
 chorale_gates <- function(containers, designs = NULL,
                           control = chorale_control(),
+                          transform = "auto",
                           n_factors = NULL, n_surrogate = 100L,
                           n_perm = 200L, seed = 1L) {
   if (!is.list(containers) || length(containers) < 1) {
@@ -84,10 +90,25 @@ chorale_gates <- function(containers, designs = NULL,
   # the assumption is checked on the collection before anything is read from it.
   chorale_warn_shared_samples(designs)
 
+  # A gate answered on a scale the estimator never reads is a statement about a
+  # different matrix. The transform is therefore resolved and applied here
+  # exactly as chorale_encode() resolves and applies it, so the components these
+  # diagnostics are read on are the components the free dimensions come from.
+  transform_of <- chorale_transform_spec(transform, names(containers))
+  transformed <- lapply(names(assays), function(m) {
+    chorale_transform(assays[[m]], transform = transform_of[[m]])
+  })
+  names(transformed) <- names(assays)
+  applied <- data.frame(
+    modality = names(transformed),
+    transform = vapply(transformed, `[[`, character(1), "applied"),
+    stringsAsFactors = FALSE)
+  rownames(applied) <- NULL
+
   # Samples by features, centred and scaled, which is what both the estimator
   # and the surrogate construction expect.
-  xs <- lapply(assays, function(a) {
-    x <- t(as.matrix(a))
+  xs <- lapply(transformed, function(tf) {
+    x <- t(tf$matrix)
     x[!is.finite(x)] <- 0
     x <- scale(x)
     x[, apply(x, 2, function(col) all(is.finite(col))), drop = FALSE]
@@ -147,6 +168,7 @@ chorale_gates <- function(containers, designs = NULL,
     factor_stability = factor_stability,
     detectability = detect,
     anchor_richness = chorale_gate_anchors(designs),
+    transform = applied,
     n_factors = n_factors
   )
   class(out) <- "chorale_gates"
@@ -395,6 +417,8 @@ print.chorale_gates <- function(x, ...) {
   print(x$modality_difference[, c("pair", "pooled_KS_D", "pooled_KS_p",
                                   "pct_pairs_indistinguishable", "verdict")],
         row.names = FALSE)
+  cat("\nscale each modality was read on\n")
+  print(x$transform, row.names = FALSE)
   cat("\ndetectability\n")
   print(x$detectability, row.names = FALSE)
   cat("\nphenotype estimability and design rank\n")
