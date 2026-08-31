@@ -56,6 +56,9 @@ chorale_concept_fit <- function(containers, sets,
     names(containers) <- paste0("modality_", seq_along(containers))
   }
   control <- chorale_merge_control(control, list(...))
+  # The design stands in for matched individuals only where there are none, so
+  # the assumption is checked on the collection before anything is fitted.
+  chorale_warn_shared_samples(containers)
 
   concepts <- if (inherits(sets, "chorale_concepts")) {
     sets

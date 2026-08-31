@@ -46,6 +46,9 @@
 #'
 #' @returns An object of class `chorale_gates`: a list of one data frame per
 #'   condition, plus `n_factors`, the component count each modality supports.
+#'   That count is what parallel analysis returned and may be zero. The
+#'   distributional diagnostics cannot be computed on no components, so where it
+#'   is zero they are read on one component instead.
 #'
 #' @examples
 #' \dontrun{
@@ -77,6 +80,10 @@ chorale_gates <- function(containers, designs = NULL,
     })
   }
 
+  # The design stands in for matched individuals only where there are none, so
+  # the assumption is checked on the collection before anything is read from it.
+  chorale_warn_shared_samples(designs)
+
   # Samples by features, centred and scaled, which is what both the estimator
   # and the surrogate construction expect.
   xs <- lapply(assays, function(a) {
@@ -93,18 +100,25 @@ chorale_gates <- function(containers, designs = NULL,
   if (is.null(n_factors)) {
     n_factors <- stats::setNames(detect$n_factors, detect$modality)
   }
+  # Parallel analysis returns zero where nothing clears its null, and the
+  # detectability table reports that count unaltered. The distributional
+  # diagnostics need a component to be computed on at all, so where the count is
+  # zero they are read on one, which is a floor this caller sets rather than one
+  # the count carries.
+  fit_factors <- stats::setNames(
+    pmax(1L, as.integer(n_factors[names(xs)])), names(xs))
 
   ica_fn <- chorale_gate_ica(n_init = control$n_init, consensus = control$consensus)
   ng <- lapply(names(xs), function(m) {
     chorale_gate_nongaussianity(
-      xs[[m]], as.integer(n_factors[[m]]), m, ica_fn,
+      xs[[m]], fit_factors[[m]], m, ica_fn,
       seed = as.integer(seed), n_surrogate = as.integer(n_surrogate),
       alpha = control$alpha)
   })
   names(ng) <- names(xs)
 
   gate_fits <- lapply(names(xs), function(m) {
-    chorale_ica(xs[[m]], as.integer(n_factors[[m]]),
+    chorale_ica(xs[[m]], fit_factors[[m]],
                 n_init = control$n_init, seed = as.integer(seed),
                 consensus = control$consensus)
   })

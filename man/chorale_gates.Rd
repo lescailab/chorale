@@ -38,6 +38,9 @@ condition.}
 \value{
 An object of class \code{chorale_gates}: a list of one data frame per
 condition, plus \code{n_factors}, the component count each modality supports.
+That count is what parallel analysis returned and may be zero. The
+distributional diagnostics cannot be computed on no components, so where it
+is zero they are read on one component instead.
 }
 \description{
 This function reports whether phenotype and shared-design effects can be

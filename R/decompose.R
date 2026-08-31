@@ -138,6 +138,12 @@ chorale_feature_space <- function(feature_space, modalities) {
 #' modality with few samples supports few components whatever the number of
 #' features measured.
 #'
+#' A matrix whose eigenvalues never reach the permuted null returns zero. That
+#' is the answer parallel analysis gave, and reporting it is what keeps a
+#' diagnostic from being read on components the data did not support. A caller
+#' that must run a decomposition whatever the count raises the floor itself,
+#' where the choice is visible.
+#'
 #' @param x A samples-by-features numeric matrix, centred and scaled.
 #' @param n_perm Permutations forming the null.
 #' @param quantile Quantile of the null eigenvalues a component must exceed.
@@ -147,7 +153,7 @@ chorale_feature_space <- function(feature_space, modalities) {
 #'   stands between the data and the answer.
 #' @param seed Integer seed.
 #'
-#' @returns An integer count, at least two.
+#' @returns An integer count, zero where no component clears the null.
 #' @export
 #' @examples
 #' sim <- chorale_simulate(n_modalities = 2, n_features = 80,
@@ -178,7 +184,7 @@ chorale_n_factors <- function(x, n_perm = 100L, quantile = 0.95,
   if (!is.null(max_factors) && !is.na(max_factors)) {
     bound <- c(bound, as.integer(max_factors))
   }
-  as.integer(max(2L, min(bound)))
+  as.integer(max(0L, min(bound)))
 }
 
 #' The same matrix, given to the factorisation in the smaller basis

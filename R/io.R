@@ -304,3 +304,100 @@ chorale_check_design <- function(designs, labels = chorale_label_registry()) {
   attr(out, "usable") <- out$covariate[out$can_anchor]
   out
 }
+
+#' Whether any individual appears in more than one modality
+#'
+#' The whole method rests on the modalities being measured on disjoint sets of
+#' individuals: no sample is shared, so the comparison of phenotype effects is
+#' anchored on design information rather than on matched individuals. Each
+#' container is validated on its own by [chorale_load()], which cannot see that
+#' assumption because it holds across containers rather than within one.
+#'
+#' This collects every modality's `sample_id` values and reports each identifier
+#' carried by two or more of them. A collision is not necessarily a shared
+#' individual: independent studies reuse plain identifiers, so `S01` in one
+#' deposit and `S01` in another may be two animals with one name. It is
+#' therefore reported and not refused, and the analyst decides which of the two
+#' it is.
+#'
+#' @param containers A named list of [chorale_load()] containers, of design
+#'   tables carrying `sample_id`, or of feature-by-sample matrices whose column
+#'   names are the identifiers.
+#'
+#' @returns A data frame with one row per identifier carried by more than one
+#'   modality, giving the identifier, the number of modalities carrying it and
+#'   their names. Empty where the collection is disjoint.
+#' @export
+#' @examples
+#' sim <- chorale_simulate(n_modalities = 2, n_features = 30, seed = 1)
+#' containers <- Map(chorale_load, sim$modalities, sim$col_data)
+#' chorale_check_disjoint(containers)
+chorale_check_disjoint <- function(containers) {
+  if (!is.list(containers) || length(containers) < 1) {
+    rlang::abort("`containers` must be a list of modalities.")
+  }
+  if (is.null(names(containers))) {
+    names(containers) <- paste0("modality_", seq_along(containers))
+  }
+  ids <- lapply(containers, function(x) {
+    v <- if (inherits(x, "SummarizedExperiment")) {
+      SummarizedExperiment::colData(x)$sample_id
+    } else if (is.data.frame(x)) {
+      x$sample_id
+    } else {
+      colnames(as.matrix(x))
+    }
+    unique(as.character(stats::na.omit(v)))
+  })
+  missing_ids <- names(ids)[vapply(ids, length, integer(1)) == 0L]
+  if (length(missing_ids) == length(ids)) {
+    rlang::abort("No modality carries a `sample_id`; disjointness cannot be checked.")
+  }
+
+  empty <- data.frame(sample_id = character(), n_modalities = integer(),
+                      modalities = character(), stringsAsFactors = FALSE)
+  all_ids <- unlist(ids, use.names = FALSE)
+  shared <- unique(all_ids[duplicated(all_ids)])
+  if (length(shared) == 0) return(empty)
+
+  shared <- sort(shared)
+  carriers <- lapply(shared, function(id) names(ids)[vapply(ids, function(v) {
+    id %in% v
+  }, logical(1))])
+  out <- data.frame(
+    sample_id = shared,
+    n_modalities = vapply(carriers, length, integer(1)),
+    modalities = vapply(carriers, paste, character(1), collapse = ", "),
+    stringsAsFactors = FALSE
+  )
+  rownames(out) <- NULL
+  out
+}
+
+#' Warn where a collection is not on disjoint individuals
+#'
+#' The check informs rather than decides: a collision may be an accidental reuse
+#' of an identifier across independent studies, so the run continues and the
+#' analyst reads the names.
+#'
+#' @keywords internal
+#' @noRd
+chorale_warn_shared_samples <- function(containers) {
+  collisions <- chorale_check_disjoint(containers)
+  if (nrow(collisions) == 0) return(invisible(collisions))
+  shown <- utils::head(collisions, 5L)
+  lines <- paste0("  ", shown$sample_id, ": ", shown$modalities)
+  if (nrow(collisions) > nrow(shown)) {
+    lines <- c(lines, paste0("  and ", nrow(collisions) - nrow(shown),
+                             " further identifier(s)"))
+  }
+  rlang::warn(paste0(
+    "The modalities are not on disjoint samples: ", nrow(collisions),
+    " identifier(s) appear in more than one modality.\n",
+    paste(lines, collapse = "\n"),
+    "\nA shared identifier may be one individual measured twice, which the ",
+    "method does not assume, or the same name given to two individuals by two ",
+    "studies. Neither is decided here."),
+    class = "chorale_shared_samples")
+  invisible(collisions)
+}
