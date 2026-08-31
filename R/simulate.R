@@ -217,9 +217,11 @@ chorale_simulate <- function(n_modalities = 3,
       # Thin each cell independently per modality, so the modalities realise the
       # design in different proportions. The single extra draw sets a thinning
       # rate for this modality somewhere in `[0, imbalance)`, so the modalities
-      # differ in how much they were thinned as well as in which samples went;
-      # a fixed rate would thin them all equally and leave the proportions
-      # matching. Thinning is abandoned where it would leave too few samples for
+      # differ in expected sample count and not only in which rows happened to
+      # go. Per-row draws alone would already leave the realised proportions
+      # differing; what this adds is that one modality can be thinned far harder
+      # than another, which is the unequal-cohort case the argument is for.
+      # Thinning is abandoned where it would leave too few samples for
       # the factor count, since an unfittable modality is not the case this
       # argument exists to produce.
       keep <- stats::runif(nrow(cells)) > imbalance * stats::runif(1)

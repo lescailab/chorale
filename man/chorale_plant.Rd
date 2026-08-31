@@ -49,8 +49,10 @@ cross-modality partner.}
 \item{member_fraction}{Share of a set's features in a modality that carry the
 concept.}
 
-\item{leak_fraction}{Share of the concept's loading mass placed on features
-outside the set.}
+\item{leak_fraction}{Share of the features receiving the concept's signal
+that lie outside the set. A count, not a share of loading mass: carrier
+and leak amplitudes are drawn from the same distribution, so the two
+coincide in expectation but only the count is enforced.}
 
 \item{n_markers}{Members per concept made pure, so the pure features of a
 recovered dimension can be checked against the concept.}
@@ -88,10 +90,10 @@ concepts that were not planted stay quiet.
 
 Two dials govern how far a planted signal departs from a clean set
 indicator. \code{member_fraction} is the share of a set's features that carry the
-concept, and \code{leak_fraction} is the share of the concept's loading mass
-placed on features outside the set. A planted truth is therefore recorded as
-the features that actually received loading, not as the nominal pathway, and
-identifier mapping losses are absorbed the same way.
+concept, and \code{leak_fraction} is the share of the features receiving that
+concept's signal that lie outside the set. A planted truth is therefore
+recorded as the features that actually received loading, not as the nominal
+pathway, and identifier mapping losses are absorbed the same way.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

@@ -415,10 +415,12 @@ chorale_project_modality <- function(encoding, modality, loadings, nuisance,
   scores <- scale(scores)
   scores[!is.finite(scores)] <- 0
 
-  # Fewer shared concepts than components leaves the least-squares projection
-  # undetermined, so the modality is reported as not projectable rather than
-  # given coordinates the data do not fix. This is the case for a layer whose
-  # coverage of the vocabulary is thin.
+  # At least one more shared concept than there are components. Below that the
+  # projection is undetermined; at exactly that many it is a solve rather than a
+  # fit, reproducing the scores with no residual whatever the loadings say, so
+  # the coordinates would carry no evidence that the direction describes this
+  # modality at all. Either way the modality is reported as not projectable,
+  # which is the case for a layer whose coverage of the vocabulary is thin.
   common <- intersect(colnames(scores), rownames(loadings))
   if (length(common) < ncol(loadings) + 1L) return(NULL)
   # The coordinates of each held-out sample in the space the loadings span,

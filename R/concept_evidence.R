@@ -142,9 +142,9 @@ chorale_concept_evidence <- function(encoding, n_permutations = 999L,
   # The observed statistic is counted into both numerator and denominator, which
   # is what makes the p-value valid rather than merely the share of resamples
   # exceeding it: without it a p-value of exactly zero is attainable and the
-  # test is anti-conservative (Phipson and Smyth 2010). It is also why the
-  # smallest reportable value is one over one more than the count, which
-  # chorale_control() refuses to let fall below alpha.
+  # test is anti-conservative (Phipson and Smyth 2010). It is also why nothing
+  # below `1 / (n_permutations + 1)` is reportable, so `n_permutations` has to
+  # be large enough to reach the threshold the result will be read against.
   joint <- observed$joint
   statistic <- abs(joint$joint_z)
   joint$p_value <- vapply(seq_along(statistic), function(i) {

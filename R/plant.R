@@ -16,10 +16,10 @@
 #'
 #' Two dials govern how far a planted signal departs from a clean set
 #' indicator. `member_fraction` is the share of a set's features that carry the
-#' concept, and `leak_fraction` is the share of the concept's loading mass
-#' placed on features outside the set. A planted truth is therefore recorded as
-#' the features that actually received loading, not as the nominal pathway, and
-#' identifier mapping losses are absorbed the same way.
+#' concept, and `leak_fraction` is the share of the features receiving that
+#' concept's signal that lie outside the set. A planted truth is therefore
+#' recorded as the features that actually received loading, not as the nominal
+#' pathway, and identifier mapping losses are absorbed the same way.
 #'
 #' @param profiles A named list of [chorale_data_profile()] objects, one per
 #'   modality, carrying the real feature identifiers a pathway is defined on.
@@ -39,8 +39,10 @@
 #' @param min_features Features a set must match in a modality to reach it.
 #' @param member_fraction Share of a set's features in a modality that carry the
 #'   concept.
-#' @param leak_fraction Share of the concept's loading mass placed on features
-#'   outside the set.
+#' @param leak_fraction Share of the features receiving the concept's signal
+#'   that lie outside the set. A count, not a share of loading mass: carrier
+#'   and leak amplitudes are drawn from the same distribution, so the two
+#'   coincide in expectation but only the count is enforced.
 #' @param n_markers Members per concept made pure, so the pure features of a
 #'   recovered dimension can be checked against the concept.
 #' @param background_sd Standard deviation of the loadings of features carrying
@@ -312,23 +314,28 @@ chorale_plant_loadings <- function(profile, membership, sets,
     }
     n_carry <- max(1L, round(member_fraction * length(members)))
     carriers <- sample(members, n_carry)
-    # Loadings are drawn uniformly rather than fixed, so a planted factor has
-    # the uneven loading profile a real one has and the members are not all
-    # equally recoverable. The range keeps every carrier above the background
-    # standard deviation, so a member is always distinguishable from a
-    # non-member, and within a factor of three of each other, so no single
-    # feature is the factor.
+    # The signal added to a carrier is drawn rather than fixed, so a planted
+    # factor has the uneven loading profile a real one has and its members are
+    # not all equally recoverable. The range is bounded away from zero, so no
+    # carrier receives a negligible addition, and spans a factor of three, so no
+    # carrier receives an overwhelming one. These are properties of the addition
+    # alone: the background it lands on is Gaussian and unbounded, and
+    # `background_sd` is the caller's, so a carrier's final loading is not
+    # guaranteed to exceed a non-member's.
     l[carriers, k] <- l[carriers, k] + stats::runif(n_carry, 0.5, 1.5)
 
     # Loading mass outside the set, so a recovered factor is not a clean set
     # indicator and the pathway channel has to find the set among features that
     # do not belong to it.
     #
-    # `leak_fraction` is the share of the loaded features that lie outside the
-    # set, so it is a property of the result rather than of the members. Solving
+    # `leak_fraction` counts features, not loading mass: it is the share of the
+    # features receiving this concept's signal that lie outside the set, so it
+    # is a property of the result rather than of the members. Solving
     # n_leak / (n_carry + n_leak) = leak_fraction for n_leak gives the ratio
     # below; taking leak_fraction * n_carry directly would make the realised
-    # share smaller than the one asked for.
+    # share smaller than the one asked for. Amplitudes are drawn from the same
+    # distribution on both sides, so the share of mass that leaks matches this
+    # in expectation without being held to it.
     n_leak <- round(leak_fraction / (1 - leak_fraction) * n_carry)
     outside <- setdiff(seq_len(p), members)
     n_leak <- min(n_leak, length(outside))

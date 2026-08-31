@@ -92,11 +92,15 @@ chorale_select_factors <- function(x, max_factors = 10L, counts = NULL,
         weakest = NA_real_, admissible = FALSE, stringsAsFactors = FALSE))
     }
 
-    # The strides keep three families of runs on seeds that cannot collide: the
-    # reference at `seed`, the initialisations at multiples of 1000, and the
-    # subsamples at multiples of 5000 offset by the candidate count. A collision
-    # would make two runs identical and report agreement that is really the same
-    # run compared with itself.
+    # Two seeds are in play below and they do different jobs. The
+    # initialisations vary the factorisation itself, at `seed + 1000 * i`, and
+    # the wide stride is what keeps them clear of the reference at `seed`. Each
+    # subsample instead uses `seed + 5000 * i + k` to draw its rows, offset by
+    # the candidate count so the same rows are not redrawn at every count, and
+    # then factorises that subsample at `seed + i`. Nothing bounds the arguments
+    # to make every stride collision-free; the strides make a collision unlikely
+    # rather than impossible, and a collision would report agreement between two
+    # runs that are really one run compared with itself.
     init <- chorale_component_agreement(reference, lapply(
       seq_len(n_init), function(i) {
         try(chorale_single_ica(x, k, seed + 1000L * i), silent = TRUE)

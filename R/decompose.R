@@ -50,9 +50,10 @@ chorale_transform <- function(mat, transform = c("auto", "none", "log", "vst")) 
       # precise characterisation of it. `whole` tolerates the rounding a count
       # matrix picks up from being written and read as a double. `spread` is the
       # 99th percentile over the median or over 1, whichever is larger, so a
-      # matrix whose median is zero does not divide by it; above 5 the matrix
-      # covers more than one order of magnitude, which centring alone would not
-      # handle. `skew` is the third standardised moment, whose sign and rough
+      # matrix whose median is zero does not divide by it; above 5 the upper
+      # tail sits at least five times the typical value, a spread wide enough
+      # that centring alone leaves the largest features dominating a factor.
+      # `skew` is the third standardised moment, whose sign and rough
       # size separate a right-skewed intensity distribution from a symmetric
       # one; the 1e-9 floor only guards a constant matrix. `spread` gates both
       # transforms, so a narrow count matrix is left alone rather than
