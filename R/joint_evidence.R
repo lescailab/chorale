@@ -271,7 +271,10 @@ print.chorale_joint_evidence <- function(x, ...) {
 #'
 #' @returns An object of class `chorale_joint_transfer` with `transfer`, one row
 #'   per held-out modality per component per phenotype term, carrying the effect
-#'   in the held-out modality and its permutation p-value.
+#'   in the held-out modality and its permutation p-value. A phenotype of more
+#'   than two levels contributes a contrast per level beyond the reference, and
+#'   each is calibrated against its own null. The p-value is specific to a
+#'   component and a contrast, and is not adjusted over either.
 #' @export
 chorale_joint_transfer <- function(encoding, n_components = 2L,
                                    n_permutations = 999L, nuisance = NULL,
@@ -334,27 +337,35 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
       profile_covariates = control$profile_covariates)
     anchor_terms <- chorale_anchor_terms(spec, spec$phenotype)
     profile <- chorale_adjusted_profile(projected, design, spec)
+    tested_terms <- intersect(anchor_terms, colnames(profile$effects))
 
     blocks <- chorale_exchangeability_blocks(design,
                                              control$exchangeability_blocks)
-    null_z <- matrix(NA_real_, nrow = n_permutations, ncol = ncol(projected))
+    # One null per contrast the phenotype contributes. A phenotype of more than
+    # two levels contributes more than one, and they are different quantities
+    # with different nulls, so a statistic on one cannot be read against
+    # another's. The permutations themselves are shared: the reduced model
+    # leaves out the whole phenotype, so every contrast of it is exchangeable
+    # under the same rebuilt response and the extra contrasts cost nothing.
+    null_z <- lapply(tested_terms, function(...) {
+      matrix(NA_real_, nrow = n_permutations, ncol = ncol(projected))
+    })
+    names(null_z) <- tested_terms
     for (b in seq_len(n_permutations)) {
       permuted <- chorale_freedman_lane_scores(
         projected, design, spec, anchor = spec$phenotype, blocks = blocks,
         seed = seed + 1000L * b)
       p <- chorale_adjusted_profile(permuted, design, spec)
-      # The null is built on the first phenotype contrast. With a two-level
-      # phenotype, which is what the estimand is defined on, that is the only
-      # one; a phenotype with more levels would have its further contrasts read
-      # against this one's null.
-      term <- intersect(anchor_terms, colnames(p$z))[1]
-      null_z[b, ] <- abs(p$z[, term])
+      for (term in intersect(tested_terms, colnames(p$z))) {
+        null_z[[term]][b, ] <- abs(p$z[, term])
+      }
     }
 
     matched <- chorale_match_components(state$loadings, reference$loadings)
 
-    for (term in intersect(anchor_terms, colnames(profile$effects))) {
+    for (term in tested_terms) {
       statistic <- abs(profile$z[, term])
+      term_null <- null_z[[term]]
       rows[[length(rows) + 1L]] <- data.frame(
         held_out = held,
         trained_on = paste(trained_on, collapse = ", "),
@@ -370,7 +381,7 @@ chorale_joint_transfer <- function(encoding, n_components = 2L,
         se = unname(profile$se[, term]),
         z = unname(profile$z[, term]),
         p_value = vapply(seq_along(statistic), function(i) {
-          (1 + sum(null_z[, i] >= statistic[i], na.rm = TRUE)) /
+          (1 + sum(term_null[, i] >= statistic[i], na.rm = TRUE)) /
             (1 + n_permutations)
         }, numeric(1)),
         stringsAsFactors = FALSE)

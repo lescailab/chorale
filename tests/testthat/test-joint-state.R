@@ -274,3 +274,37 @@ test_that("the joint rank is selected under the control's settings", {
   expect_equal(js$n_components, min(attr(sel, "selected"), ceiling_k))
   expect_equal(attr(js$selection, "threshold"), control$reproducibility)
 })
+
+test_that("a phenotype of more than two levels is tested on every contrast", {
+  # Coverage for the multi-level path, which the two-level designs the method is
+  # written for never reach. It exercises the branch, and does not by itself
+  # distinguish a per-contrast null from a shared one: under Freedman-Lane the
+  # whole phenotype leaves the reduced model, so every contrast of it has a
+  # similarly shaped null and the two are hard to tell apart from the output.
+  fx <- joint_fixture()
+  ids <- fx$ids
+  containers <- lapply(fx$containers, function(se) {
+    d <- as.data.frame(SummarizedExperiment::colData(se))
+    # A third level in place of half the controls, so the phenotype contributes
+    # two contrasts and both are estimable in every modality.
+    at <- which(d$phenotype == "control")
+    d$phenotype[at[seq_len(floor(length(at) / 2))]] <- "carrier"
+    chorale_load(SummarizedExperiment::assay(se), d)
+  })
+  sets <- list(one = ids[1:30], two = ids[25:60], three = ids[55:90],
+               four = ids[80:length(ids)])
+  concepts <- chorale_concepts(containers, sets, min_features = 5)
+  encoding <- chorale_encode(containers, concepts, n_free = 1, n_init = 2)
+
+  transfer <- chorale_joint_transfer(encoding, n_components = 2,
+                                     n_permutations = 49)
+
+  expect_setequal(unique(transfer$transfer$term),
+                  c("phenotype=carrier", "phenotype=case"))
+  # A row per held-out modality per component per contrast.
+  counts <- table(transfer$transfer$held_out, transfer$transfer$term)
+  expect_true(all(counts == 2L))
+  # Every p-value is a valid permutation p-value at this count.
+  expect_true(all(transfer$transfer$p_value >= 1 / 50))
+  expect_true(all(transfer$transfer$p_value <= 1))
+})

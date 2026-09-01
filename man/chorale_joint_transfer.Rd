@@ -34,7 +34,10 @@ chorale_joint_transfer(
 \value{
 An object of class \code{chorale_joint_transfer} with \code{transfer}, one row
 per held-out modality per component per phenotype term, carrying the effect
-in the held-out modality and its permutation p-value.
+in the held-out modality and its permutation p-value. A phenotype of more
+than two levels contributes a contrast per level beyond the reference, and
+each is calibrated against its own null. The p-value is specific to a
+component and a contrast, and is not adjusted over either.
 }
 \description{
 The control a permutation cannot supply. Each modality is held out in turn,
